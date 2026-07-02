@@ -37,8 +37,8 @@ for exact resolutions):
 | prettier              | 3.9.4                                         |
 | node                  | 24.x (see `node --version` locally)           |
 
-Deployment target: **Vercel**. Backend: **Supabase** (Postgres + Auth; DB
-schema arrives in Phase 2).
+Deployment target: **Vercel**. Backend: **Supabase** (Postgres + Auth +
+Storage; schema in `supabase/migrations/`, see `docs/ARCHITECTURE.md`).
 
 ## Commands
 
@@ -52,10 +52,23 @@ npm run format        # prettier --write .
 npm run format:check  # prettier --check .
 ```
 
-**Database migrations**: not applicable yet — there is no schema until
-Phase 2. Once Supabase tables exist, migrations will run through the
-Supabase CLI (`supabase migration new`, `supabase db push`); this section
-will be updated when that lands.
+**Database migrations**: SQL files in `supabase/migrations/`, applied in
+filename (timestamp) order.
+
+```bash
+npx supabase migration new <name>                        # create a new migration file
+npx supabase link --project-ref <ref>                     # one-time, needs a personal access token
+npx supabase db push                                      # apply pending migrations to the linked project
+npx supabase gen types typescript --project-id <ref> \
+  > lib/supabase/database.types.ts                         # regenerate types after any schema change
+```
+
+No Docker/local Postgres in this environment, so `supabase start` /
+`--local` flags aren't available here — migrations are authored and
+reviewed locally, then pushed to the real project once linked. If `db push`
+isn't available (no token/password), paste the migration files into the
+Supabase dashboard's SQL editor in filename order as a fallback — same SQL,
+same order.
 
 ## Folder structure map
 
@@ -90,15 +103,21 @@ lib/
     client.ts                 browser Supabase client factory
     server.ts                 server Supabase client factory (Server
                                Components / Route Handlers / Server Actions)
-    admin.ts                  service-role client — server-only, unused until
-                               a later phase needs to bypass RLS
+    admin.ts                  service-role client — server-only, bypasses RLS
     proxy.ts                  session refresh + protected-route redirect
                                logic, called from proxy.ts
+    database.types.ts         hand-written Database type (see
+                               docs/ARCHITECTURE.md — regenerate once linked)
   auth/actions.ts             signOut server action
   utils.ts                    cn() class merge helper (shadcn)
 
 proxy.ts                      Next.js 16 "proxy" (formerly middleware) —
                                guards /app, /scheduler, /field
+
+supabase/
+  config.toml                 Supabase CLI project config
+  migrations/*.sql             schema, RLS, storage, views — see
+                               docs/ARCHITECTURE.md for the full data model
 
 docs/                          see below
 ```

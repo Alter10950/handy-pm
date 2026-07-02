@@ -5,6 +5,94 @@ Consequences.
 
 ---
 
+## ADR-011: `installs.qty` allows negative values; `rows.drawing_id` is required
+
+**Decision date:** 2026-07-02
+
+**Context:** The reference marking-tool prototype
+(`Layout-Marker-OVERLAY.html`) lets a crew member's "installed today"
+stepper go negative to correct a prior over-count, storing that delta as
+its own log entry rather than editing history in place. Separately, the
+spec's raw column list for `rows` didn't explicitly mark `drawing_id`
+`not null`.
+
+**Choice:** `installs.qty check (qty <> 0)` instead of `qty > 0`, so
+correction entries are valid, append-only log rows. `rows.drawing_id` was
+made `not null` — a marked rack section without a drawing page to sit on
+isn't a valid state in this tool's model.
+
+**Consequences:** `row_progress`/`material_reconciliation`'s installed-qty
+sums naturally net out corrections without any special-casing. Any future
+row-creation code path must always supply a `drawing_id`.
+
+---
+
+## ADR-010: Hand-written `database.types.ts`, regenerate once linked
+
+**Decision date:** 2026-07-02
+
+**Context:** `supabase gen types typescript` needs either a linked project
+(personal access token) or a local Postgres (`supabase start`, needs
+Docker). Neither was available when Phase 2 was authored, but the app
+needed typed Supabase clients (`SupabaseClient<Database>`) to satisfy the
+strict-TypeScript working rule.
+
+**Choice:** Hand-wrote `lib/supabase/database.types.ts` to exactly match
+`supabase/migrations/*.sql`, in the same shape the CLI generates
+(`Database.public.Tables/Views/Functions`), and wired it into all four
+client factories via the generic parameter.
+
+**Consequences:** Zero `any` in Supabase query results, but the file can
+drift from the real schema if a future migration lands without a matching
+type update. Once the project is linked, regenerate for real and diff
+against this file — documented in `CLAUDE.md` and `docs/ARCHITECTURE.md`.
+
+---
+
+## ADR-009: Views use `security_invoker = true`
+
+**Decision date:** 2026-07-02
+
+**Context:** `row_progress`, `project_progress`, and `material_reconciliation`
+aggregate across `rows`/`row_materials`/`installs`/`materials`/`projects` —
+all RLS-protected. Postgres views default to evaluating permissions as the
+view's *owner* (the migration role, which is elevated) unless
+`security_invoker = true` is set (Postgres 15+). Without it, these views
+would silently leak cross-org data to every caller regardless of their own
+RLS policies — the exact opposite of what they're for.
+
+**Choice:** All three views are created `with (security_invoker = true)`.
+
+**Consequences:** RLS on the underlying tables is enforced per-caller
+through the view, same as querying the tables directly. This must carry
+forward to any future view — it's not the Postgres default, so it's easy
+to forget.
+
+---
+
+## ADR-008: RLS role model — owner/pm/scheduler full CRUD, crew read + install-log only
+
+**Decision date:** 2026-07-02
+
+**Context:** The spec explicitly required: "role 'crew' may SELECT org data
+and INSERT installs, but not UPDATE materials or DELETE projects/rows,"
+without detailing owner/pm/scheduler differences.
+
+**Choice:** `owner`, `pm`, and `scheduler` are treated as equivalent for
+RLS purposes this phase — full CRUD within their org on every table except
+`organizations` itself (read-only, no client writes at all). `crew` gets
+SELECT everywhere plus INSERT on `installs` only; every other write policy
+excludes `crew` explicitly. Two SECURITY DEFINER helper functions,
+`current_org_id()` and `current_role()`, back every policy so org/role
+scoping is centralized in one place instead of repeated inline per table.
+
+**Consequences:** Simple, uniform policies now; no scheduler-specific
+restrictions exist yet. When Phase 7 (Scheduler) or a future admin UI gives
+these roles concretely different capabilities, the policies will need to
+split apart — tracked as follow-up, not done speculatively now.
+
+---
+
 ## ADR-007: Middleware guards `/app`, `/scheduler`, and `/field`
 
 **Decision date:** 2026-07-02

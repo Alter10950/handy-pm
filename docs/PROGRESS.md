@@ -1,14 +1,21 @@
 # Progress
 
-**Current status:** Phase 1 (Foundation) complete. `npm run lint`,
-`npm run typecheck`, and `npm run build` all pass. Waiting on the user to
-create a Supabase project and supply real credentials before Phase 2 starts.
+**Current status:** Phase 1 complete. Phase 2 (schema/RLS/storage/types)
+authored and committed; migration push to the live project is a **NEEDS ME**
+blocker (see below). Phases 3–5 (projects + uploads, drawing marking,
+materials × rows grid) in progress in one long autonomous session — see
+`docs/BUILD-LOG.md` for the latest entry.
 
-> **Note on Phases 2–9 below:** only Phase 1's scope was specified in detail.
-> The Phase 2–9 breakdown is this session's best-guess roadmap for a
-> racking-install PM tool, inferred from the project summary — **not** a
-> scope the user has confirmed. Treat it as a draft to review and adjust
-> before each phase kicks off, not a locked plan.
+This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
+
+2. DB schema/RLS/storage/types
+3. Projects + drawing & packing-slip uploads + materials
+4. Drawing marking / row setup
+5. Materials × rows grid + reconciliation + reference drawing
+6. Field/Crew PWA
+7. Scheduler
+8. Customer portal
+9. Dashboards/reports/polish
 
 ---
 
@@ -34,52 +41,54 @@ create a Supabase project and supply real credentials before Phase 2 starts.
 - [x] README with setup, env vars, and Vercel deploy steps.
 - [x] Quality gates passing (lint, typecheck, build).
 
-## Phase 2 — Data model & core CRUD (draft, not started)
+## Phase 2 — DB schema/RLS/storage/types
 
-- [ ] Design Supabase schema: `projects`, `customers`/sites, `profiles`.
-- [ ] Migrations (Supabase CLI) + RLS policies.
-- [ ] Typed Supabase queries (generated types via Supabase CLI).
-- [ ] `/app` — real project list + project detail views.
-- [ ] Basic create/edit project forms.
+- [x] Supabase CLI initialized, `supabase/migrations/`.
+- [x] Schema: organizations, profiles, projects, drawings, packing_slips,
+      materials, rows, row_materials, installs, crews, crew_members,
+      assignments, targets, crew_rates, share_tokens + indexes.
+- [x] Auth bootstrap trigger (`auth.users` insert → `profiles`, first user
+      becomes `owner` of a new org).
+- [x] RLS enabled on every table, org-scoped, `crew` role restricted.
+- [x] Storage buckets `drawings` + `packing-slips`, org-scoped policies.
+- [x] Views: `row_progress`, `project_progress`, `material_reconciliation`.
+- [x] TypeScript `Database` types wired into Supabase clients.
+- [ ] **NEEDS ME:** migration not yet applied to the live project — needs a
+      Supabase personal access token or DB password (see latest
+      `docs/BUILD-LOG.md` entry). Apply with `npx supabase link
+      --project-ref ntdynurigavrpvexwiij` then `npx supabase db push`, or
+      paste the 5 files in `supabase/migrations/` into the SQL editor in
+      order.
 
-## Phase 3 — Scheduling (draft, not started)
+## Phase 3 — Projects + drawing & packing-slip uploads + materials
 
-- [ ] `schedule_entries` schema linked to projects and crew.
-- [ ] `/scheduler` calendar/timeline UI.
-- [ ] Crew assignment.
+- [ ] `/app` real projects list (from `project_progress`) + New project
+      dialog.
+- [ ] `/app/project/[id]` tab shell: Overview, Layout, Materials, Progress.
+- [ ] Drawing upload: PDF → per-page images via pdf.js, or single image.
+- [ ] Packing slip upload + paste-material-list parser.
+- [ ] Materials inline-edit table.
+- [ ] Overview tab: meta, stats, drawing thumbnail.
 
-## Phase 4 — Field app (draft, not started)
+## Phase 4 — Drawing marking / row setup
 
-- [ ] Install checklists per project.
-- [ ] Photo capture/upload (Supabase Storage).
-- [ ] Job status updates from the field.
-- [ ] Offline-friendly behavior (build on the Phase 1 service worker).
+- [ ] Layout tab: drawing stage with row overlays.
+- [ ] Auto rows tool (drag box → split N equal, orientation choice).
+- [ ] Draw one / Edit tools (select, move, resize, rename, delete).
+- [ ] Sequential auto-naming, immediate persistence, multi-page aware.
+- [ ] Row fill % + hazard indicator for unassigned rows.
 
-## Phase 5 — Customer portal (draft, not started)
+## Phase 5 — Materials × rows grid + reconciliation + reference drawing
 
-- [ ] `portal_tokens` schema + generation flow.
-- [ ] `/portal/[token]` real read-only project status/timeline.
-- [ ] Token revocation / expiry.
+- [ ] Read-only reference drawing overlay, click-to-focus grid column.
+- [ ] Spreadsheet grid: sticky column/header, computed + editable cells.
+- [ ] Add material / paste from packing slip.
+- [ ] Reconciliation card (installed/assigned/needed/received/to-order, %).
 
-## Phase 6 — Documents & files (draft, not started)
+## Phase 6 — Field/Crew PWA (not started)
 
-- [ ] Supabase Storage buckets + RLS.
-- [ ] Attachments/drawings per project.
-- [ ] File management UI.
+## Phase 7 — Scheduler (not started)
 
-## Phase 7 — Notifications & communications (draft, not started)
+## Phase 8 — Customer portal (not started)
 
-- [ ] Email/SMS notifications on status changes.
-- [ ] Reminders (scheduling, follow-ups).
-
-## Phase 8 — Reporting & dashboards (draft, not started)
-
-- [ ] KPIs / project analytics.
-- [ ] Crew utilization reports.
-
-## Phase 9 — Polish, QA & launch (draft, not started)
-
-- [ ] Accessibility pass.
-- [ ] Performance pass.
-- [ ] Test coverage.
-- [ ] Production hardening / launch checklist.
+## Phase 9 — Dashboards/reports/polish (not started)

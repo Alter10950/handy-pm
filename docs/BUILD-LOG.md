@@ -4,6 +4,82 @@ Engineering journal. Newest entries at top.
 
 ---
 
+## 2026-07-02 — Phase 2: DB schema, RLS, storage, types
+
+**What:** Authored the full Phase 2 data model as five ordered SQL
+migrations under `supabase/migrations/`: `schema_core` (14 tables + indexes),
+`auth_bootstrap` (first-user-becomes-owner trigger), `rls_policies` (helper
+functions + policies + grants), `storage_buckets` (drawings/packing-slips
+buckets + policies), `views` (row_progress/project_progress/
+material_reconciliation). Hand-wrote `lib/supabase/database.types.ts` to
+match and wired the `Database` generic into all four Supabase client
+factories. Full reasoning for the RLS role model, `security_invoker` on
+views, and the hand-written-types call is in `docs/DECISIONS.md`
+(ADR-008 through ADR-011).
+
+**Environment constraints:** No Docker in this sandbox, so `supabase start`
+(local Postgres) and `supabase gen types --local` aren't available —
+migrations were authored and self-reviewed without a live DB to run them
+against. `psql`/`pg_dump` aren't installed either, so there was no way to
+even syntax-check the SQL locally short of very careful manual review.
+
+**Reference prototype found and read:** Located
+`Layout-Marker-OVERLAY.html` in `Claude/Projects/Marking a Layout daily/`
+(user-provided path). The file is truncated on disk — cuts off mid-statement
+partway through `renderProgress()`, after the fully-intact Layout
+(marking/zone drag-resize) and Materials (grid/reconciliation-input)
+sections, before ever reaching its own Progress/Log views. That's enough:
+its CSS theme tokens match the Phase 1 Handy Equip palette almost exactly
+(confirms the existing theme is on target), and its zone data model
+(`{x,y,w,h,required:{matId:qty},installed:{matId:qty}}`, normalized 0..1
+coords, `zonePct`/`zoneComplete` capping installed at required, sequential
+"Row N" auto-naming, drag/move/resize via `pointerdown`/`pointermove`/
+`pointerup`) maps directly onto the `rows`/`row_materials`/`installs`
+tables and the `row_progress` view's math. Didn't ask the user to re-paste
+the missing tail — sub-phase 5's reconciliation-card spec is more specific
+than whatever the prototype's own Progress/Log tabs would have shown, so
+building sub-phases 4-5 from the intact sections plus the explicit written
+spec is enough; noted here rather than stalling.
+
+**Mid-session credential exchange:** The user provided the Supabase project
+URL, then the anon key, then the service role key, each in a separate
+message while migration-writing was in progress. Wrote `.env.local`
+(gitignored) as each arrived rather than batching, since there's no reason
+to make the user wait. `npm run build` stayed green throughout with real
+`.env.local` values present.
+
+**NEEDS ME:** the migration is authored, self-reviewed, and committed, but
+**not yet applied** to the live project (`ntdynurigavrpvexwiij`). Tried
+`supabase link --project-ref ntdynurigavrpvexwiij` — fails with
+`LegacyPlatformAuthRequiredError` (needs a Supabase personal access token).
+`supabase db push`/`link -p` also accept a direct DB password as an
+alternative to linking. Neither was available in the environment. Two ways
+to unblock, either one works:
+- Supabase personal access token (supabase.com/dashboard/account/tokens),
+  or
+- the project's database password (Supabase dashboard → Settings →
+  Database).
+
+Once either is available: `npx supabase link --project-ref
+ntdynurigavrpvexwiij` then `npx supabase db push`. Fallback if that's still
+not workable: paste each file in `supabase/migrations/` into the Supabase
+SQL editor, in filename order — they're idempotent (`if not exists` /
+`create or replace` throughout), so re-running is safe.
+
+**Problems fixed:**
+- `rows.drawing_id` — spec's raw column list didn't mark it `not null`;
+  made it required since a marked row without a drawing page isn't valid.
+- `installs.qty` — initially constrained `> 0`; relaxed to `<> 0` after
+  checking the reference prototype, which allows negative "installed today"
+  deltas as correction entries rather than editing history in place.
+
+**Quality gates:** `npm run lint`, `npm run typecheck`, `npm run build` all
+pass with `.env.local` present (Next.js picks it up automatically; routes
+touching Supabase are `force-dynamic` so this was already exercised in
+Phase 1).
+
+---
+
 ## 2026-07-02 — Phase 1: foundation, auth, theme, PWA
 
 **What:** Stood up the whole Phase 1 foundation in one session: docs system,
