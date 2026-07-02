@@ -1,0 +1,136 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/*
+ * Handy PM is a single fixed dark theme (charcoal + Handy Equip yellow) —
+ * there is no light-mode toggle, so :root and .dark carry identical values.
+ * The .dark block is kept in sync so shadcn components using `dark:` variants
+ * render correctly if a class="dark" is ever applied.
+ */
+:root {
+  --background: #141414;
+  --foreground: #f4f3ef;
+  --card: #1e1e1e;
+  --card-foreground: #f4f3ef;
+  --popover: #1e1e1e;
+  --popover-foreground: #f4f3ef;
+  --primary: #f2c00e;
+  --primary-foreground: #1a1a1a;
+  --secondary: #262626;
+  --secondary-foreground: #f4f3ef;
+  --muted: #232323;
+  --muted-foreground: #a8a6a0;
+  --accent: #2a2a2a;
+  --accent-foreground: #f4f3ef;
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: #3a3a3a;
+  --input: #3a3a3a;
+  --ring: #f2c00e;
+  --chart-1: #f2c00e;
+  --chart-2: #a8a6a0;
+  --chart-3: #f4f3ef;
+  --chart-4: #6b6a66;
+  --chart-5: #3a3a3a;
+  --radius: 0.625rem;
+  --sidebar: #1e1e1e;
+  --sidebar-foreground: #f4f3ef;
+  --sidebar-primary: #f2c00e;
+  --sidebar-primary-foreground: #1a1a1a;
+  --sidebar-accent: #262626;
+  --sidebar-accent-foreground: #f4f3ef;
+  --sidebar-border: #3a3a3a;
+  --sidebar-ring: #f2c00e;
+}
+
+.dark {
+  --background: #141414;
+  --foreground: #f4f3ef;
+  --card: #1e1e1e;
+  --card-foreground: #f4f3ef;
+  --popover: #1e1e1e;
+  --popover-foreground: #f4f3ef;
+  --primary: #f2c00e;
+  --primary-foreground: #1a1a1a;
+  --secondary: #262626;
+  --secondary-foreground: #f4f3ef;
+  --muted: #232323;
+  --muted-foreground: #a8a6a0;
+  --accent: #2a2a2a;
+  --accent-foreground: #f4f3ef;
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: #3a3a3a;
+  --input: #3a3a3a;
+  --ring: #f2c00e;
+  --chart-1: #f2c00e;
+  --chart-2: #a8a6a0;
+  --chart-3: #f4f3ef;
+  --chart-4: #6b6a66;
+  --chart-5: #3a3a3a;
+  --sidebar: #1e1e1e;
+  --sidebar-foreground: #f4f3ef;
+  --sidebar-primary: #f2c00e;
+  --sidebar-primary-foreground: #1a1a1a;
+  --sidebar-accent: #262626;
+  --sidebar-accent-foreground: #f4f3ef;
+  --sidebar-border: #3a3a3a;
+  --sidebar-ring: #f2c00e;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}
