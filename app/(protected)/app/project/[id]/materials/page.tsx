@@ -1,10 +1,16 @@
-import { MaterialsTable } from "@/components/projects/materials-table";
+import { MaterialsWorkspace } from "@/components/projects/materials-workspace";
 import { PackingSlipUpload } from "@/components/projects/packing-slip-upload";
-import { PasteMaterialsDialog } from "@/components/projects/paste-materials-dialog";
+import { ReconciliationCard } from "@/components/projects/reconciliation-card";
 import {
+  getProjectProgress,
+  getSignedDrawingUrl,
   getSignedPackingSlipUrl,
+  listDrawings,
+  listMaterialReconciliation,
   listMaterials,
   listPackingSlips,
+  listRowMaterials,
+  listRowProgress,
 } from "@/lib/projects/queries";
 
 function fileNameFromPath(path: string): string {
@@ -18,30 +24,60 @@ export default async function ProjectMaterialsPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [materials, packingSlips] = await Promise.all([
+  const [
+    materials,
+    drawings,
+    rowProgress,
+    reconciliation,
+    packingSlips,
+    projectProgress,
+  ] = await Promise.all([
     listMaterials(id),
+    listDrawings(id),
+    listRowProgress(id),
+    listMaterialReconciliation(id),
     listPackingSlips(id),
+    getProjectProgress(id),
   ]);
 
-  const packingSlipLinks = await Promise.all(
-    packingSlips.map(async (slip) => ({
-      id: slip.id,
-      name: fileNameFromPath(slip.storage_path),
-      url: await getSignedPackingSlipUrl(slip.storage_path),
-    }))
-  );
+  const [rowMaterials, pages, packingSlipLinks] = await Promise.all([
+    listRowMaterials(rowProgress.map((row) => row.row_id)),
+    Promise.all(
+      drawings.map(async (drawing) => ({
+        id: drawing.id,
+        pageIndex: drawing.page_index,
+        url: await getSignedDrawingUrl(drawing.storage_path),
+      }))
+    ),
+    Promise.all(
+      packingSlips.map(async (slip) => ({
+        id: slip.id,
+        name: fileNameFromPath(slip.storage_path),
+        url: await getSignedPackingSlipUrl(slip.storage_path),
+      }))
+    ),
+  ]);
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold text-foreground">Materials</h2>
-        <div className="flex flex-wrap gap-2">
-          <PackingSlipUpload projectId={id} />
-          <PasteMaterialsDialog projectId={id} />
-        </div>
+        <PackingSlipUpload projectId={id} />
       </div>
 
-      <MaterialsTable projectId={id} materials={materials} />
+      <MaterialsWorkspace
+        projectId={id}
+        pages={pages}
+        rowProgress={rowProgress}
+        materials={materials}
+        reconciliation={reconciliation}
+        rowMaterials={rowMaterials}
+      />
+
+      <ReconciliationCard
+        reconciliation={reconciliation}
+        overallPct={projectProgress?.pct ?? 0}
+      />
 
       {packingSlipLinks.length > 0 ? (
         <div className="flex flex-col gap-2">
