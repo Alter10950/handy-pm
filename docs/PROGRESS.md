@@ -71,7 +71,8 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
       Materials, Progress.
 - [x] Drawing upload: PDF → per-page images via pdf.js, or single image.
 - [x] Packing slip upload + paste-material-list parser.
-- [x] Materials inline-edit table.
+- [x] Materials inline-edit table (superseded by the Phase 5 grid — see
+      below).
 - [x] Overview tab: meta, stats, drawing thumbnail.
 - [ ] **NEEDS ME:** the migration is live but this hasn't been clicked
       through in a real browser session yet — that needs your first real
