@@ -61,6 +61,46 @@ render each PDF page (capped at 15 pages) or a plain image onto a
 the browser client, then calls a Server Action once just to insert the
 `drawings`/`packing_slips` row and revalidate. See ADR-012 and ADR-013.
 
+## Drawing marking (Phase 4)
+
+`/app/project/[id]/mark` renders `RowMarkingWorkspace`
+(`components/projects/row-marking-workspace.tsx`), which owns tool
+selection (`grid` / `draw` / `edit`), the active page, and orchestrates
+three pieces:
+
+- `RowStage` (`row-stage.tsx`) — the actual pointer-interactive canvas.
+  Pointer capture on `pointerdown` (so drags keep tracking even if the
+  cursor leaves the element) drives three drag modes: `draw` (drag a new
+  box — used by both "Draw one" and, once "Auto rows" is armed with a
+  count/orientation, "Auto rows"), `move`, and `resize` (via a corner
+  handle, edit tool only). Geometry updates render from local "draft"
+  state during a drag and only call back to the parent (to persist) on
+  `pointerup` — never on every `pointermove`, or every frame would hit the
+  database. A `pointerup` with no net movement is treated as a tap, which
+  opens the rename/delete sheet instead of persisting a move.
+  Row fill orientation (does the progress bar fill bottom-to-top or
+  left-to-right?) is decided by comparing **rendered pixel** dimensions
+  (`geometry.h * stageHeightPx >= geometry.w * stageWidthPx`, tracked via
+  `ResizeObserver`), not the raw normalized `w`/`h` — those are only
+  directly comparable when the stage happens to be square. Caught in
+  self-review; see `docs/BUILD-LOG.md`.
+- `AutoRowsDialog` — count + orientation ("vertical, side-by-side,
+  left→right" splits width into N columns; "horizontal, stacked,
+  top→bottom" splits height into N rows), matching the reference
+  prototype's `applyGrid` math exactly. Confirming arms grid mode; after
+  one box is dragged and the batch is created, the tool auto-returns to
+  `edit` rather than staying armed for a second (dialog-less) batch.
+- `RowEditSheet` — rename or delete the tapped row. Deliberately does
+  **not** touch required-material quantities — that's the Materials tab's
+  job (`row_materials`), coming in Phase 5. Keeps the two concerns (row
+  geometry vs. row×material data) cleanly separated.
+
+Auto-naming (`lib/rows/naming.ts`, pure functions) scans **every** row
+label in the project — not just the active page's — for the highest
+`Row N`, so numbering continues correctly across pages. Mutations
+(`lib/rows/actions.ts`: `createRow`, `createRowsBatch`, `updateRowGeometry`,
+`renameRow`, `deleteRow`) are Server Actions, consistent with ADR-012.
+
 ## Data model
 
 Built in Phase 2. Migrations live in `supabase/migrations/`, applied in
@@ -106,8 +146,10 @@ proper invites. After your first sign-in, rename the auto-created org:
 ### RLS & authorization
 
 Every table has RLS enabled. Two SECURITY DEFINER helpers avoid recursive
-policy evaluation: `current_org_id()` and `current_role()` (both read the
-caller's own `profiles` row via `auth.uid()`). Role model:
+policy evaluation: `current_org_id()` and `current_user_role()` (both read
+the caller's own `profiles` row via `auth.uid()`; the role helper is NOT
+named `current_role()` — that collides with a reserved Postgres keyword,
+see ADR-008 update below). Role model:
 
 - `owner` / `pm` / `scheduler` — full CRUD within their org. (Finer-grained
   differences between these three are deferred until a later phase's UI

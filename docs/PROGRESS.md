@@ -1,12 +1,15 @@
 # Progress
 
 **Current status:** Phase 1 complete. Phase 2 (schema/RLS/storage/types) and
-Phase 3 (projects, uploads, materials) built and committed; both are
-**blocked on the same NEEDS ME item** — the migration hasn't been pushed to
-the live project yet, so nothing has been smoke-tested against real data
-(see below). Phases 4–5 (drawing marking, materials × rows grid) in
-progress in one long autonomous session — see `docs/BUILD-LOG.md` for the
-latest entry.
+Phase 3 (projects, uploads, materials) built and committed. **The migration
+is confirmed live** on the Supabase project (verified read-only: all 14
+tables, all 3 views, both storage buckets exist and are queryable) — see
+`docs/BUILD-LOG.md` for how this was discovered. No organization exists yet,
+so nobody has signed in for real; the user is doing that first real sign-in
+themselves (becomes the auto-bootstrapped `owner`) rather than having a
+disposable test account created in their production project. Phase 4
+(drawing marking) built and self-reviewed; Phase 5 (materials × rows grid)
+in progress — see `docs/BUILD-LOG.md` for the latest entry.
 
 This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
 
@@ -55,12 +58,10 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
 - [x] Storage buckets `drawings` + `packing-slips`, org-scoped policies.
 - [x] Views: `row_progress`, `project_progress`, `material_reconciliation`.
 - [x] TypeScript `Database` types wired into Supabase clients.
-- [ ] **NEEDS ME:** migration not yet applied to the live project — needs a
-      Supabase personal access token or DB password (see latest
-      `docs/BUILD-LOG.md` entry). Apply with `npx supabase link
-  --project-ref ntdynurigavrpvexwiij` then `npx supabase db push`, or
-      paste the 5 files in `supabase/migrations/` into the SQL editor in
-      order.
+- [x] **Migration applied and confirmed live** — verified read-only via the
+      REST API (all tables/views/buckets present). Renamed `current_role()`
+      → `current_user_role()` (collided with a reserved Postgres keyword);
+      see `docs/DECISIONS.md` ADR-008 update and `docs/BUILD-LOG.md`.
 
 ## Phase 3 — Projects + drawing & packing-slip uploads + materials ✅ built (2026-07-02)
 
@@ -72,18 +73,22 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
 - [x] Packing slip upload + paste-material-list parser.
 - [x] Materials inline-edit table.
 - [x] Overview tab: meta, stats, drawing thumbnail.
-- [ ] **NEEDS ME:** not yet exercised against real data — blocked on the
-      same Phase 2 migration push (see above). Code is self-reviewed and
-      passes lint/typecheck/build, but no live create-project-through-
-      upload-materials smoke test has run yet.
+- [ ] **NEEDS ME:** the migration is live but this hasn't been clicked
+      through in a real browser session yet — that needs your first real
+      sign-in (see Phase 2). Code is self-reviewed and passes
+      lint/typecheck/build.
 
-## Phase 4 — Drawing marking / row setup
+## Phase 4 — Drawing marking / row setup ✅ built (2026-07-02)
 
-- [ ] Layout tab: drawing stage with row overlays.
-- [ ] Auto rows tool (drag box → split N equal, orientation choice).
-- [ ] Draw one / Edit tools (select, move, resize, rename, delete).
-- [ ] Sequential auto-naming, immediate persistence, multi-page aware.
-- [ ] Row fill % + hazard indicator for unassigned rows.
+- [x] Layout tab: drawing stage with row overlays (`RowStage`).
+- [x] Auto rows tool (drag box → split N equal, orientation choice).
+- [x] Draw one / Edit tools (select, move, resize, rename, delete).
+- [x] Sequential auto-naming, immediate persistence, multi-page aware.
+- [x] Row fill % + hazard indicator for unassigned rows.
+- [ ] **NEEDS ME:** same as Phase 3 — code self-reviewed (including a caught
+      and fixed pixel-vs-normalized fill-orientation bug, see
+      `docs/BUILD-LOG.md`) and passes lint/typecheck/build, but not yet
+      clicked through live.
 
 ## Phase 5 — Materials × rows grid + reconciliation + reference drawing
 

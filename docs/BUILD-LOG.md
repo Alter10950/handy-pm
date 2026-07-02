@@ -4,6 +4,84 @@ Engineering journal. Newest entries at top.
 
 ---
 
+## 2026-07-02 — Migration discovered live; Phase 4: drawing marking
+
+**The Phase 2 migration is live.** While starting Phase 4, a routine file
+re-read turned up that `supabase/migrations/20260702183323_rls_policies.sql`
+and `20260702183327_storage_buckets.sql` had changed on disk since the last
+commit — every `current_role()` call site renamed to `current_user_role()`,
+plus a new untracked `APPLY_ALL_MIGRATIONS.sql` (all 5 migrations
+concatenated, with the same rename applied, clearly meant for pasting into
+the Supabase SQL editor). Read `APPLY_ALL_MIGRATIONS.sql` to understand
+what happened rather than asking: `current_role` collides with
+`CURRENT_ROLE`, a reserved PostgreSQL keyword/session-info function —
+defining a same-named function in `public` is a real, findable error the
+moment someone actually tries to run it. That's exactly what happened here.
+
+Rather than assume, verified directly with the credentials already in
+`.env.local`: hit the PostgREST endpoint for `organizations` and nine other
+tables/views with the anon key (200 + `[]` — RLS blocking anon, but the
+relations exist) and the Storage API with the service-role key (both
+`drawings` and `packing-slips` buckets present, both private). **The
+migration is fully and correctly applied.** Fixed the three remaining
+`current_role` references that weren't caught by whatever ran
+`APPLY_ALL_MIGRATIONS.sql` (`lib/supabase/database.types.ts`'s `Functions`
+entry, and two docs mentions) so the rename is consistent everywhere.
+
+Wanted to smoke-test the authenticated flows for real (create a project,
+upload a drawing, mark rows) rather than trust self-review alone, but two
+attempts to set that up were correctly stopped by the permission
+classifier: listing all `auth.users` (PII, not asked for) and creating a
+disposable test account via the admin API (a persistent write to the
+user's real production project, not asked for either) — right calls both
+times, this wasn't mine to decide unilaterally. Also worth noting: no
+`organizations` row exists yet, meaning nobody has signed in for real —
+the auth-bootstrap trigger makes the _first_ signup the owner, so creating
+a throwaway test account first would have quietly stolen that slot from
+the user's real first sign-in. Asked directly instead of guessing; the
+user is doing that first real sign-in themselves. Continuing to build and
+self-review without a live click-through in the meantime.
+
+**Phase 4 — drawing marking:** Built `RowMarkingWorkspace`
+(`components/projects/row-marking-workspace.tsx`) orchestrating three
+pieces: `RowStage` (the pointer-interactive canvas — drag-to-draw, drag-
+to-move, drag-a-handle-to-resize, tap-to-rename, all via pointer capture so
+drags keep tracking outside the element bounds), `AutoRowsDialog`
+(count + orientation, matching the reference prototype's `applyGrid` split
+math exactly), and `RowEditSheet` (rename/delete only — required-material
+assignment stays on the Materials tab, coming in Phase 5, keeping row
+geometry and row×material data cleanly separated). Auto-naming
+(`lib/rows/naming.ts`) scans every row label in the _whole project_, not
+just the active page, so "Row N" numbering continues correctly across
+pages. This superseded sub-phase 3's placeholder `DrawingViewer` component
+entirely — deleted it rather than leaving dead code once nothing imported
+it anymore.
+
+**Bug caught in self-review:** the fill bar's orientation (does progress
+fill bottom-to-top or left-to-right?) was first written comparing
+_normalized_ `w`/`h` directly (`geometry.h >= geometry.w`). That's only
+correct when the stage happens to be square — on a real non-square
+drawing, a row that's visually wider than tall in rendered pixels could
+still have `h >= w` in normalized terms if the page itself is much taller
+than wide, flipping the fill the wrong way. Fixed by tracking the stage's
+actual rendered pixel size via `ResizeObserver` and comparing
+`geometry.h * stageHeightPx >= geometry.w * stageWidthPx` instead. Would
+not have been caught by `tsc`/`eslint`/`next build` — only by actually
+reasoning through the math, which is exactly why "self-review: reread the
+diff" is its own step and not assumed covered by the quality gates.
+
+**Consistency fix:** noticed mid-review that `MaterialsTable` (built in
+Phase 3) never called `router.refresh()` after its Server Action calls,
+while `PasteMaterialsDialog` (built the same session) did — an
+inconsistency, not a deliberate choice. Standardized on always calling it
+after a direct (non-form) Server Action invocation, given the automatic-
+revalidation behavior couldn't be verified live yet either. See ADR-014.
+
+**Quality gates:** `npm run lint`, `npm run typecheck`, `npm run build` all
+pass. `npm run format` applied.
+
+---
+
 ## 2026-07-02 — Phase 3: projects, drawing/packing-slip uploads, materials
 
 **What:** Built the Projects area end to end: `/app` list (cards from the

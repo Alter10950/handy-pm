@@ -5,6 +5,33 @@ Consequences.
 
 ---
 
+## ADR-014: `router.refresh()` after every direct Server Action call from a Client Component
+
+**Decision date:** 2026-07-02
+
+**Context:** `revalidatePath` inside a Server Action is documented to
+refresh the calling route automatically for both `<form action>` and plain
+direct invocation from client code — but this couldn't be verified live
+(no applied migration to click through against yet at the time this code
+was written; see the Phase 2 NEEDS ME item). `RowStage`'s drag interactions
+in particular can't tolerate a silent staleness bug: a moved/resized row
+that doesn't visually confirm its saved position is a real usability
+problem, not just a cosmetic one.
+
+**Choice:** Every client component that calls a Server Action directly
+(not via `<form action>`) also calls `router.refresh()` in its success
+path — `MaterialsTable`, `RowMarkingWorkspace`'s `runAction`,
+`PasteMaterialsDialog`. Redundant if Next's automatic revalidation already
+covers it; cheap insurance if it doesn't.
+
+**Consequences:** A possible extra refresh per action — not worth
+optimizing away speculatively. Revisit once the migration is live and this
+can actually be watched in a browser; if the automatic behavior is
+confirmed reliable, these calls could be trimmed, but there's no harm in
+leaving them.
+
+---
+
 ## ADR-013: Drawing uploads are additive, never destructive, in Phase 2/3
 
 **Decision date:** 2026-07-02
@@ -132,13 +159,20 @@ RLS purposes this phase — full CRUD within their org on every table except
 `organizations` itself (read-only, no client writes at all). `crew` gets
 SELECT everywhere plus INSERT on `installs` only; every other write policy
 excludes `crew` explicitly. Two SECURITY DEFINER helper functions,
-`current_org_id()` and `current_role()`, back every policy so org/role
+`current_org_id()` and `current_user_role()`, back every policy so org/role
 scoping is centralized in one place instead of repeated inline per table.
 
 **Consequences:** Simple, uniform policies now; no scheduler-specific
 restrictions exist yet. When Phase 7 (Scheduler) or a future admin UI gives
 these roles concretely different capabilities, the policies will need to
 split apart — tracked as follow-up, not done speculatively now.
+
+**Update (2026-07-02):** the role helper was originally named
+`current_role()`, which collides with `CURRENT_ROLE` — a reserved
+PostgreSQL keyword/session-info function, not an ordinary identifier.
+Renamed to `current_user_role()` across `rls_policies.sql`,
+`storage_buckets.sql`, and `database.types.ts` before this was ever applied
+to a live database, so no migration-of-a-migration was needed.
 
 ---
 
