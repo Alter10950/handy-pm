@@ -92,10 +92,11 @@ app/
     app/project/[id]/
       layout.tsx                 project header + ProjectTabs nav
       page.tsx                   Overview tab
-      mark/page.tsx               "Layout" tab (upload/viewer now, marking
-                                 tools in sub-phase 4) — see docs/DECISIONS.md
-                                 for why the folder is "mark", not "layout"
-      materials/page.tsx          Materials tab (upload + inline-edit table)
+      mark/page.tsx               "Layout" tab — row marking workspace, see
+                                 docs/DECISIONS.md for why the folder is
+                                 "mark", not "layout"
+      materials/page.tsx          Materials tab — reference drawing +
+                                 materials × rows grid + reconciliation
       progress/page.tsx           Progress tab (project-level rollup)
     scheduler/page.tsx         "/scheduler" placeholder
     field/page.tsx             "/field" placeholder
@@ -106,9 +107,21 @@ components/
   login-form.tsx             magic-link form (client component)
   placeholder-panel.tsx       shared placeholder page shell
   service-worker-register.tsx registers public/sw.js on mount
-  projects/                  New project dialog, project card/tabs/status
-                             badge, drawing + packing-slip upload, drawing
-                             viewer, materials table, paste-materials dialog
+  projects/
+    new-project-dialog.tsx      + project-card / project-tabs /
+                               project-status-badge.tsx
+    drawing-upload.tsx           + packing-slip-upload.tsx
+    row-fill-marker.tsx           shared fill/label/hazard visual — used by
+                                 both row-stage.tsx (editable) and
+                                 materials-reference-stage.tsx (read-only)
+    row-stage.tsx                 pointer-interactive marking canvas
+    row-marking-workspace.tsx      + auto-rows-dialog / row-edit-sheet.tsx
+    materials-reference-stage.tsx  read-only drawing view, click-to-highlight
+    materials-grid.tsx             the spreadsheet (sticky header/column)
+    materials-workspace.tsx        orchestrates the two above + highlight state
+    reconciliation-card.tsx        per-material install/assign/order summary
+    paste-materials-dialog.tsx      shared by materials-grid and (formerly)
+                                 the Phase 3 materials table
 
 lib/
   supabase/
@@ -128,6 +141,11 @@ lib/
                                see docs/DECISIONS.md ADR-012 for why file
                                uploads are NOT here
     parse-material-list.ts      pure "name, qty" line parser
+  rows/
+    naming.ts                   pure sequential "Row N" auto-naming
+    actions.ts                   Server Actions: create/move/resize/rename/
+                               delete a row, upsert a row's required qty
+                               for a material
   pdf/render-drawing-file.ts  browser-only PDF/image → JPEG Blob rendering
                              (pdfjs-dist + canvas) for drawing uploads
   utils.ts                    cn() class merge helper (shadcn)

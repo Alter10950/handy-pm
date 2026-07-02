@@ -9,9 +9,9 @@
 | `/auth/callback`              | public    | Route Handler — exchanges the magic-link `code` for a session, redirects to `?next=` (default `/app`).                                                                                                                 |
 | `/app`                        | protected | Projects list (from `project_progress`) + New project dialog.                                                                                                                                                          |
 | `/app/project/[id]`           | protected | Overview tab — meta, quick stats, drawing thumbnail.                                                                                                                                                                   |
-| `/app/project/[id]/mark`      | protected | "Layout" tab — drawing upload/viewer now; row marking lands in sub-phase 4. Named `mark`, not `layout`, to avoid colliding with the Next.js `layout.tsx` file convention in the same folder — see `docs/DECISIONS.md`. |
-| `/app/project/[id]/materials` | protected | Materials tab — packing-slip/paste-list upload, inline-edit materials table (evolves into the full materials × rows grid in sub-phase 5).                                                                              |
-| `/app/project/[id]/progress`  | protected | Project-level progress rollup (row counts, hazards, overall %). Per-material reconciliation lives on the Materials tab instead — see sub-phase 5.                                                                      |
+| `/app/project/[id]/mark`      | protected | "Layout" tab — drawing upload/viewer + row marking workspace (auto/draw/edit tools). Named `mark`, not `layout`, to avoid colliding with the Next.js `layout.tsx` file convention in the same folder — see `docs/DECISIONS.md`. |
+| `/app/project/[id]/materials` | protected | Materials tab — packing-slip/paste-list upload, reference drawing overlay, materials × rows grid, reconciliation card.                                                                                                 |
+| `/app/project/[id]/progress`  | protected | Project-level progress rollup (row counts, hazards, overall %). Per-material reconciliation lives on the Materials tab instead.                                                                                        |
 | `/scheduler`                  | protected | Crew/install scheduling. Placeholder until Phase 7.                                                                                                                                                                    |
 | `/field`                      | protected | Crew phone app (installable PWA). Placeholder until Phase 6.                                                                                                                                                           |
 | `/portal/[token]`             | public    | Customer-facing read-only project status, gated by an unguessable share token. Placeholder until Phase 8.                                                                                                              |
@@ -100,6 +100,49 @@ label in the project — not just the active page's — for the highest
 `Row N`, so numbering continues correctly across pages. Mutations
 (`lib/rows/actions.ts`: `createRow`, `createRowsBatch`, `updateRowGeometry`,
 `renameRow`, `deleteRow`) are Server Actions, consistent with ADR-012.
+
+`RowFillMarker` (`components/projects/row-fill-marker.tsx`) — the fill
+bar + label + hazard-icon visual — is shared between `RowStage` (editable)
+and `MaterialsReferenceStage` (read-only, Phase 5) so a row renders
+identically in both places by construction, not by convention.
+
+## Materials × rows grid (Phase 5)
+
+`/app/project/[id]/materials` renders `MaterialsWorkspace`
+(`components/projects/materials-workspace.tsx`), which owns the active
+page and which row is "highlighted" (tapped on the reference drawing),
+and composes:
+
+- `MaterialsReferenceStage` — a read-only version of the marking stage:
+  same `RowFillMarker` visuals, but each row is a `<button>` that reports
+  a click up to the parent instead of supporting drag/resize.
+- `MaterialsGrid` (`materials-grid.tsx`) — the spreadsheet. `position:
+sticky` on individual `<th>`/first-`<td>` cells (not on `<thead>` —
+  that doesn't reliably stick in tables) with `border-separate` on the
+  `<table>` (`border-collapse` breaks `position: sticky` on cells in most
+  browsers) and an explicit background on every sticky cell (otherwise
+  scrolled-under content shows through). The corner cell is sticky on
+  _both_ axes (`top-0 left-0`) at the highest z-index so it stays above
+  both the sticky header row and the sticky first column as you scroll
+  either direction. Needed/Received and the per-row-material required
+  qty are editable inputs (Server Action on blur, same uncontrolled-
+  input-keyed-by-value pattern as `MaterialsTable` used); Assigned/Left/
+  To-order are read directly off `material_reconciliation` — computed
+  server-side, not re-derived client-side, so there's exactly one place
+  that math lives. Highlighting a row (tapped on the reference stage)
+  scrolls its header into view and focuses its first cell via a
+  `Map<rowId, HTMLElement>` ref registry, not DOM queries.
+- `ReconciliationCard` (`reconciliation-card.tsx`) — per-material
+  Installed/Assigned/Needed/Received/To-order straight from
+  `material_reconciliation`, plus overall % from `project_progress`.
+  Flags `assigned !== needed` (amber) and `to_order > 0` (red), per spec.
+
+`MaterialsTable` (Phase 3's simpler inline-edit table) is gone — the grid
+is a strict superset of what it did, so it was deleted rather than kept
+as a second, now-redundant editing surface. The grid intentionally has no
+"Unit" column — neither the spec's column list nor the reference
+prototype's own grid includes one; unit stays a plain field on `materials`
+with no dedicated edit UI yet.
 
 ## Data model
 

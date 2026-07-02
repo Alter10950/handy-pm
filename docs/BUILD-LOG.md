@@ -4,6 +4,50 @@ Engineering journal. Newest entries at top.
 
 ---
 
+## 2026-07-02 — Phase 5: materials × rows grid, reconciliation
+
+**What:** Built the last sub-phase of this batch. Extracted
+`RowFillMarker` (the fill-bar + label + hazard-icon visual) out of
+`RowStage` so `MaterialsReferenceStage` — a read-only version of the
+marking stage, rows as buttons instead of drag targets — renders rows
+identically by construction. `MaterialsGrid` is the spreadsheet: sticky
+corner/header/first-column via `position: sticky` on individual cells
+(not `<thead>`) with `border-separate` (`border-collapse` breaks sticky
+cells in most browsers) and an explicit background on every sticky cell.
+Needed/Received and each row's required qty are editable inputs;
+Assigned/Left/To-order are read straight off the `material_reconciliation`
+view rather than re-derived client-side — one place for that math to
+live, matching the pattern already established for `project_progress` on
+the Overview tab. `ReconciliationCard` reuses the same view for its
+Installed/Assigned/Needed/Received/To-order table, flagging
+`assigned !== needed` and `to_order > 0` per spec. Tapping a row on the
+reference drawing highlights its grid column and focuses its first cell
+via a `Map<rowId, HTMLElement>` ref registry — no DOM queries.
+`MaterialsTable` (Phase 3's simpler table) is a strict subset of what the
+grid does, so it's deleted, not kept alongside as a redundant second
+editing surface — same call as deleting `DrawingViewer` in Phase 4.
+
+**Scope note:** the grid intentionally has no "Unit" column. Neither the
+spec's column list for this sub-phase nor the reference prototype's own
+grid (`<th class="l stick">Part</th><th>Needed</th><th>Recv</th>
+<th>Assigned</th><th>Left</th><th>To order</th>`) includes one — `unit`
+stays a plain field on `materials` with no dedicated edit UI yet.
+
+**Still not clicked through live:** same reason as Phases 3–4 — no real
+sign-in has happened yet, and creating a disposable test account in the
+user's production Supabase project isn't something to do unilaterally
+(the permission classifier agreed, twice, earlier this session). Self-
+review this time included working through the sticky-positioning CSS
+requirements by hand (`border-separate`, per-cell backgrounds, cell-level
+not `<thead>`-level `sticky`) since a table with broken sticky headers is
+the kind of bug that's obvious the second a real browser renders it but
+invisible to `tsc`/`eslint`/`next build`.
+
+**Quality gates:** `npm run lint`, `npm run typecheck`, `npm run build`
+all pass. `npm run format` applied.
+
+---
+
 ## 2026-07-02 — Migration discovered live; Phase 4: drawing marking
 
 **The Phase 2 migration is live.** While starting Phase 4, a routine file

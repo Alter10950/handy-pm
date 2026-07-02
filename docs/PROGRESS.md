@@ -1,15 +1,15 @@
 # Progress
 
-**Current status:** Phase 1 complete. Phase 2 (schema/RLS/storage/types) and
-Phase 3 (projects, uploads, materials) built and committed. **The migration
-is confirmed live** on the Supabase project (verified read-only: all 14
-tables, all 3 views, both storage buckets exist and are queryable) — see
-`docs/BUILD-LOG.md` for how this was discovered. No organization exists yet,
-so nobody has signed in for real; the user is doing that first real sign-in
-themselves (becomes the auto-bootstrapped `owner`) rather than having a
-disposable test account created in their production project. Phase 4
-(drawing marking) built and self-reviewed; Phase 5 (materials × rows grid)
-in progress — see `docs/BUILD-LOG.md` for the latest entry.
+**Current status:** Phases 1–5 of this batch are all built, self-reviewed,
+and passing lint/typecheck/build. **The migration is confirmed live** on
+the Supabase project (verified read-only: all 14 tables, all 3 views, both
+storage buckets exist and are queryable) — see `docs/BUILD-LOG.md` for how
+this was discovered. No organization exists yet, so nobody has signed in
+for real; the user is doing that first real sign-in themselves (becomes
+the auto-bootstrapped `owner`) rather than having a disposable test
+account created in their production project — so nothing in Phases 3–5 has
+been clicked through in a live browser session yet. See the final
+end-of-batch report for the full rundown.
 
 This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
 
@@ -90,12 +90,14 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
       `docs/BUILD-LOG.md`) and passes lint/typecheck/build, but not yet
       clicked through live.
 
-## Phase 5 — Materials × rows grid + reconciliation + reference drawing
+## Phase 5 — Materials × rows grid + reconciliation + reference drawing ✅ built (2026-07-02)
 
-- [ ] Read-only reference drawing overlay, click-to-focus grid column.
-- [ ] Spreadsheet grid: sticky column/header, computed + editable cells.
-- [ ] Add material / paste from packing slip.
-- [ ] Reconciliation card (installed/assigned/needed/received/to-order, %).
+- [x] Read-only reference drawing overlay, click-to-focus grid column.
+- [x] Spreadsheet grid: sticky column/header, computed + editable cells.
+- [x] Add material / paste from packing slip.
+- [x] Reconciliation card (installed/assigned/needed/received/to-order, %).
+- [ ] **NEEDS ME:** same as Phases 3–4 — self-reviewed and passes
+      lint/typecheck/build, not yet clicked through live.
 
 ## Phase 6 — Field/Crew PWA (not started)
 
