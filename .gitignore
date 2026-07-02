@@ -12,6 +12,12 @@
 
 # testing
 /coverage
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+# contains a real (short-lived) session token — never commit
+/e2e/.auth/
 
 # next.js
 /.next/
@@ -36,6 +42,9 @@ yarn-error.log*
 
 # vercel
 .vercel
+
+# Claude Code local session state
+/.claude/
 
 # typescript
 *.tsbuildinfo
