@@ -1,0 +1,166 @@
+# Decisions
+
+ADR-style log. Newest at top. Each entry: Decision, Context, Choice,
+Consequences.
+
+---
+
+## ADR-007: Middleware guards `/app`, `/scheduler`, and `/field`
+
+**Decision date:** 2026-07-02
+
+**Context:** The Phase 1 brief explicitly required protecting `/app` and
+`/scheduler`, and explicitly required leaving `/portal/[token]` public. It
+was silent on `/field`. `/field` is the crew phone PWA, described in the
+project summary as needing its own sign-in eventually.
+
+**Choice:** `/field` lives inside the same `app/(protected)/` route group as
+`/app` and `/scheduler`, so it inherits the shared layout's auth redirect.
+`proxy.ts`'s `PROTECTED_PREFIXES` list was updated to include `/field` too,
+so the fast middleware-level redirect and the layout-level backstop agree.
+
+**Consequences:** `/field` requires sign-in starting Phase 1, ahead of the
+literal spec text. This is a superset of what was asked, not a narrower
+interpretation, and is reversible by moving the `field/` folder out of the
+route group if a future phase wants crew members to use a separate,
+lighter-weight auth flow (e.g. a PIN instead of email magic link).
+
+---
+
+## ADR-006: Supabase clients are constructed lazily, never at module scope
+
+**Decision date:** 2026-07-02
+
+**Context:** `npm run build` must pass with no real Supabase project
+configured (Phase 1 ships before the user creates one). `@supabase/ssr` and
+`@supabase/supabase-js` both validate the URL synchronously in their client
+constructor and throw if it's missing/empty. Next.js statically prerenders
+any route that doesn't use a dynamic API (`cookies()`, `headers()`, etc.),
+which means constructing a Supabase client at module load time — or in the
+render body of a page Next decides to prerender — can crash the build
+itself when env vars aren't set.
+
+**Choice:**
+
+- `lib/supabase/env.ts` reads env vars lazily (inside a function, not at
+  module scope), so importing it never throws.
+- `lib/supabase/client.ts` (browser) is only ever called from inside event
+  handlers (e.g. the login form's submit handler), never from a component's
+  render body — so it only executes in the browser, post-hydration.
+- `lib/supabase/server.ts` (server) always calls `cookies()` first, which
+  forces the calling route segment to render dynamically. Routes that need
+  it are additionally marked `export const dynamic = "force-dynamic"` as a
+  second, explicit guarantee that Next skips build-time static generation
+  for them entirely.
+
+**Consequences:** `npm run build` is green with zero environment
+configuration. The tradeoff is a small amount of boilerplate (`force-dynamic`
+exports, factory functions instead of shared client instances) and a rule
+that must be followed by hand in future code: **never `const supabase =
+createClient()` at module scope.**
+
+---
+
+## ADR-005: Route folder literally named `app` inside the App Router
+
+**Decision date:** 2026-07-02
+
+**Context:** The product's office/PM area is specified as living at the URL
+`/app`. Next.js's App Router requires the router root itself to be a folder
+named `app` (or `src/app`).
+
+**Choice:** Nest another folder named `app` inside the router root:
+`app/(protected)/app/page.tsx` → URL `/app`. This is valid Next.js routing —
+the router-root convention and a route segment name are independent
+namespaces — but it reads oddly at a glance.
+
+**Consequences:** Documented explicitly in `CLAUDE.md` and here so a future
+session doesn't "fix" it by renaming/deleting the nested `app/` folder.
+
+---
+
+## ADR-004: Single fixed dark theme, no light-mode toggle
+
+**Decision date:** 2026-07-02
+
+**Context:** Handy Equip's brand is charcoal + yellow. The brief specifies
+exact hex values for background, panels, borders, and text with no mention
+of a light mode.
+
+**Choice:** `app/globals.css` sets the Handy Equip palette directly on
+`:root` (not gated behind `prefers-color-scheme` or a `.dark` class toggle).
+The `.dark` class block is kept, with identical values, purely so any
+shadcn/ui component that ships `dark:` Tailwind variants still renders
+correctly if a `class="dark"` is ever applied — but nothing in the app
+applies that class today.
+
+**Consequences:** No light-mode work needed. If a future phase wants a real
+light/dark toggle, the `.dark` block already exists as a starting point and
+would need to diverge from `:root` at that point.
+
+---
+
+## ADR-003: shadcn/ui on the `base-nova` preset (Base UI, not Radix)
+
+**Decision date:** 2026-07-02
+
+**Context:** `npx shadcn@latest init -d` (defaults flag) resolved to the
+`base-nova` preset, which is built on `@base-ui/react` (Radix's successor
+library, maintained by the same team) rather than the older Radix-based
+`new-york`/`default` styles most existing shadcn tutorials use.
+
+**Choice:** Kept the CLI's own default rather than forcing `-b radix` for
+familiarity. It's what the shadcn CLI itself recommends as of this build,
+and Base UI is the forward-looking successor to Radix.
+
+**Consequences:** Generated primitives (e.g. `components/ui/button.tsx`)
+import from `@base-ui/react/*`, not `@radix-ui/react-*`. Copy-pasting
+snippets from older shadcn/Radix-era tutorials into this repo will need
+adaptation.
+
+---
+
+## ADR-002: Hand-rolled service worker instead of Serwist/next-pwa
+
+**Decision date:** 2026-07-02
+
+**Context:** Phase 1 needs the app installable and running standalone on a
+phone. Both Serwist and next-pwa are common choices, but their compatibility
+with a same-day Next.js 16 + React 19 + Turbopack stack was unverified, and
+the brief explicitly allows "a maintained approach such as Serwist/next-pwa
+or a hand-rolled SW."
+
+**Choice:** Hand-rolled `public/sw.js` (network-first fetch strategy with a
+cached app-shell fallback) registered from a small client component. PWA
+icons (192/512/512-maskable) and the favicon/apple-touch-icon are generated
+at build time via Next's `next/og` `ImageResponse` special-file conventions
+(`app/icon.tsx`, `app/apple-icon.tsx`, `app/icons/*/route.tsx`) instead of
+checked-in binary assets, so there are no placeholder PNGs to eventually
+swap out.
+
+**Consequences:** No extra dependency / version-compatibility risk. The
+service worker is intentionally minimal (no precache manifest, no
+stale-while-revalidate); revisit with Serwist if offline requirements grow
+in a later phase.
+
+---
+
+## ADR-001: Next.js on Vercel + Supabase
+
+**Decision date:** 2026-07-02
+
+**Context:** Handy PM needs auth, a Postgres database (project/schedule
+data arrives in Phase 2), and a deployment target that supports a React
+Server Components app, a PWA, and a public token-gated portal route, without
+standing up custom infrastructure.
+
+**Choice:** Next.js App Router, deployed to Vercel. Supabase for Postgres +
+Auth (email magic link), accessed via `@supabase/ssr` for cookie-based
+session handling across Server Components, Route Handlers, and middleware.
+
+**Consequences:** Vercel and Supabase both have generous free/hobby tiers
+appropriate for an internal tool at this stage, and the App
+Router + `@supabase/ssr` combination is Supabase's officially documented
+integration path, which keeps future-session onboarding low-friction. RLS
+(Row Level Security) will be the primary authorization mechanism once the
+schema exists in Phase 2.
