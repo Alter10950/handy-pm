@@ -24,26 +24,26 @@ create policy drawings_objects_insert on storage.objects for insert
   with check (
     bucket_id = 'drawings'
     and org_id_of_project((storage.foldername(name))[1]::uuid) = current_org_id()
-    and current_role() in ('owner', 'pm')
+    and current_user_role() in ('owner', 'pm')
   );
 
 create policy drawings_objects_update on storage.objects for update
   using (
     bucket_id = 'drawings'
     and org_id_of_project((storage.foldername(name))[1]::uuid) = current_org_id()
-    and current_role() in ('owner', 'pm')
+    and current_user_role() in ('owner', 'pm')
   )
   with check (
     bucket_id = 'drawings'
     and org_id_of_project((storage.foldername(name))[1]::uuid) = current_org_id()
-    and current_role() in ('owner', 'pm')
+    and current_user_role() in ('owner', 'pm')
   );
 
 create policy drawings_objects_delete on storage.objects for delete
   using (
     bucket_id = 'drawings'
     and org_id_of_project((storage.foldername(name))[1]::uuid) = current_org_id()
-    and current_role() in ('owner', 'pm')
+    and current_user_role() in ('owner', 'pm')
   );
 
 -- PACKING-SLIPS bucket ---------------------------------------------------
@@ -57,24 +57,24 @@ create policy packing_slips_objects_insert on storage.objects for insert
   with check (
     bucket_id = 'packing-slips'
     and org_id_of_project((storage.foldername(name))[1]::uuid) = current_org_id()
-    and current_role() in ('owner', 'pm')
+    and current_user_role() in ('owner', 'pm')
   );
 
 create policy packing_slips_objects_update on storage.objects for update
   using (
     bucket_id = 'packing-slips'
     and org_id_of_project((storage.foldername(name))[1]::uuid) = current_org_id()
-    and current_role() in ('owner', 'pm')
+    and current_user_role() in ('owner', 'pm')
   )
   with check (
     bucket_id = 'packing-slips'
     and org_id_of_project((storage.foldername(name))[1]::uuid) = current_org_id()
-    and current_role() in ('owner', 'pm')
+    and current_user_role() in ('owner', 'pm')
   );
 
 create policy packing_slips_objects_delete on storage.objects for delete
   using (
     bucket_id = 'packing-slips'
     and org_id_of_project((storage.foldername(name))[1]::uuid) = current_org_id()
-    and current_role() in ('owner', 'pm')
+    and current_user_role() in ('owner', 'pm')
   );

@@ -657,7 +657,7 @@ export interface Database {
         Args: Record<PropertyKey, never>;
         Returns: string | null;
       };
-      current_role: {
+      current_user_role: {
         Args: Record<PropertyKey, never>;
         Returns: string | null;
       };
