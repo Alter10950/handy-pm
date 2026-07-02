@@ -1,6 +1,10 @@
 import { DrawingUpload } from "@/components/projects/drawing-upload";
-import { DrawingViewer } from "@/components/projects/drawing-viewer";
-import { getSignedDrawingUrl, listDrawings } from "@/lib/projects/queries";
+import { RowMarkingWorkspace } from "@/components/projects/row-marking-workspace";
+import {
+  getSignedDrawingUrl,
+  listDrawings,
+  listRowProgress,
+} from "@/lib/projects/queries";
 
 export default async function ProjectMarkPage({
   params,
@@ -8,16 +12,30 @@ export default async function ProjectMarkPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const drawings = await listDrawings(id);
+  const [drawings, rowProgress] = await Promise.all([
+    listDrawings(id),
+    listRowProgress(id),
+  ]);
   const pages = await Promise.all(
     drawings.map(async (drawing) => ({
       id: drawing.id,
       pageIndex: drawing.page_index,
-      width: drawing.width ?? 0,
-      height: drawing.height ?? 0,
       url: await getSignedDrawingUrl(drawing.storage_path),
     }))
   );
+
+  const rows = rowProgress.map((row) => ({
+    id: row.row_id,
+    drawingId: row.drawing_id,
+    label: row.label,
+    x: row.x,
+    y: row.y,
+    w: row.w,
+    h: row.h,
+    pct: row.pct,
+    hasMaterials: row.has_materials,
+    isComplete: row.is_complete,
+  }));
 
   return (
     <div className="flex flex-col gap-4">
@@ -27,10 +45,10 @@ export default async function ProjectMarkPage({
       </div>
 
       {pages.length > 0 ? (
-        <DrawingViewer pages={pages} />
+        <RowMarkingWorkspace projectId={id} pages={pages} rows={rows} />
       ) : (
         <div className="rounded-lg border border-dashed border-border bg-card p-10 text-center text-muted-foreground">
-          Upload a layout drawing to get started. Row marking tools land next.
+          Upload a layout drawing to get started, then mark rows on it.
         </div>
       )}
     </div>

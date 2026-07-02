@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -27,12 +28,14 @@ export function MaterialsTable({
 }) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
   function save(id: string, patch: MaterialPatch) {
     setError(null);
     startTransition(async () => {
       try {
         await updateMaterial(id, projectId, patch);
+        router.refresh();
       } catch (err) {
         setError(err instanceof Error ? err.message : "Could not save.");
       }
@@ -44,6 +47,7 @@ export function MaterialsTable({
     startTransition(async () => {
       try {
         await deleteMaterial(id, projectId);
+        router.refresh();
       } catch (err) {
         setError(err instanceof Error ? err.message : "Could not remove.");
       }
@@ -55,6 +59,7 @@ export function MaterialsTable({
     startTransition(async () => {
       try {
         await addMaterial(projectId, "New part");
+        router.refresh();
       } catch (err) {
         setError(err instanceof Error ? err.message : "Could not add.");
       }
