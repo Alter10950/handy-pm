@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+import type { Database } from "@/lib/supabase/database.types";
 import { requireSupabaseEnv } from "@/lib/supabase/env";
 
 // Everything under the (protected) route group — kept in sync with
@@ -22,7 +23,7 @@ function isProtectedPath(pathname: string): boolean {
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
 
-  const supabase = createServerClient(
+  const supabase = createServerClient<Database>(
     requireSupabaseEnv("NEXT_PUBLIC_SUPABASE_URL"),
     requireSupabaseEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
     {

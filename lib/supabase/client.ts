@@ -1,5 +1,6 @@
 import { createBrowserClient } from "@supabase/ssr";
 
+import type { Database } from "@/lib/supabase/database.types";
 import { requireSupabaseEnv } from "@/lib/supabase/env";
 
 /**
@@ -7,7 +8,7 @@ import { requireSupabaseEnv } from "@/lib/supabase/env";
  * effects — never at module scope — so it's never evaluated during SSR/build.
  */
 export function createClient() {
-  return createBrowserClient(
+  return createBrowserClient<Database>(
     requireSupabaseEnv("NEXT_PUBLIC_SUPABASE_URL"),
     requireSupabaseEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY")
   );

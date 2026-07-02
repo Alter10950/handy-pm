@@ -1,5 +1,6 @@
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
+import type { Database } from "@/lib/supabase/database.types";
 import { requireSupabaseEnv } from "@/lib/supabase/env";
 
 /**
@@ -9,7 +10,7 @@ import { requireSupabaseEnv } from "@/lib/supabase/env";
  * Phase 1; reserved for trusted backend operations in later phases.
  */
 export function createAdminClient() {
-  return createSupabaseClient(
+  return createSupabaseClient<Database>(
     requireSupabaseEnv("NEXT_PUBLIC_SUPABASE_URL"),
     requireSupabaseEnv("SUPABASE_SERVICE_ROLE_KEY"),
     {
