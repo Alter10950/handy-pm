@@ -5,6 +5,96 @@ Consequences.
 
 ---
 
+## ADR-016: `NEXT_PUBLIC_*` env vars must be read via static `process.env.X`, never `process.env[name]`, in browser code
+
+**Decision date:** 2026-07-02
+
+**Context:** `lib/supabase/client.ts` (the _only_ browser-side Supabase
+client factory) read its URL/anon key through
+`requireSupabaseEnv(name: SupabaseEnvVar)`, which does
+`process.env[name]` — bracket/computed property access. Next.js inlines
+`NEXT_PUBLIC_*` vars into the client bundle by statically rewriting
+literal `process.env.NEXT_PUBLIC_X` expressions at build time; it cannot
+follow a variable into a bracket-indexed lookup, so the rewrite silently
+never happened for this call site. At runtime in the browser,
+`process.env` is empty, so `process.env[name]` resolved to `undefined`
+and the (correctly-written) validation threw "Missing required
+environment variable" — even with `.env.local` fully populated and the
+dev server confirming "- Environments: .env.local" at boot.
+
+This had been **live and broken since Phase 1** (`login-form.tsx`'s
+`signInWithOtp` call) and silently affected every client-side Supabase
+call added since (`drawing-upload.tsx`, `packing-slip-upload.tsx`). It
+went undetected through five sub-phases of self-review and manual
+smoke-testing because none of that testing ever completed a real
+magic-link sign-in or exercised an upload button in an actual browser —
+exactly the gap the E2E suite (ADR-015) was built to close, and exactly
+what it caught, on its first real run, within a session of being written.
+
+**Choice:** Split `lib/supabase/env.ts` in two: `requireSupabaseEnv(name)`
+(server-only, unchanged — bracket access is harmless server-side, where
+`process.env` is the real runtime environment, not a build-time inlining
+target) and a new `requireBrowserSupabaseEnv(value, name)` that just
+validates a value already read via a **static** `process.env.NEXT_PUBLIC_X`
+reference at the call site. `lib/supabase/client.ts` now reads both vars
+that way.
+
+**Consequences:** Real magic-link sign-in and both upload flows work
+correctly for the first time. Any _future_ browser-side env var read must
+follow the same static-reference pattern — documented in both files'
+docstrings so the next person (or session) reaching for
+`requireSupabaseEnv` in client code sees why not to.
+
+---
+
+## ADR-015: Playwright E2E against the live Supabase project, auth via admin-generated `token_hash`
+
+**Decision date:** 2026-07-02
+
+**Context:** Phases 3–5 shipped self-reviewed but never actually clicked
+through in a browser — verifying that required a real sign-in, and the
+app only supports email magic-link auth. Waiting on a human to click a
+real emailed link every time this needs checking doesn't scale, and
+isn't something to automate by receiving real email.
+
+**Choice:** `scripts/seed.mjs` idempotently ensures an org ("Handy
+Equip") and a confirmed, passwordless test user
+(`qa+owner@handyequip.test` — `.test` is IANA-reserved, can never collide
+with a real domain) exist, service-role, run via
+`node --env-file=.env.local` (no new runtime dependency for that
+script). `e2e/auth.setup.ts` (a Playwright "setup" project, per
+Playwright's standard auth-reuse pattern) calls
+`supabase.auth.admin.generateLink({type: 'magiclink', ...})` to get a
+one-time `token_hash` **without sending any email**, then drives a real
+browser to `/auth/callback?token_hash=...&type=magiclink` — the app's
+_real_ callback route, extended (not a test-only bypass route) to accept
+`token_hash`+`type` alongside the PKCE `code` it already handled, since
+Supabase documents both as legitimate verification shapes for the same
+endpoint. Real cookies get set through the real code path; the resulting
+`storageState` is saved and reused by the actual test file, so sign-in
+happens once per run, not once per test.
+
+The suite runs against `next dev` on the **real Supabase project** (via
+`.env.local`), not a mock — the entire point is catching integration bugs
+a mock would hide (see ADR-016, found on the very first real run). Test
+data is namespaced (`[E2E] Project flow ${Date.now()}`) and torn down in
+`test.afterAll` via a service-role `deleteProjectCompletely` helper that
+also removes Storage objects (which have no FK/cascade relationship to
+the DB rows that reference them) — verified empty (`select id from
+projects`) after every run, including failed ones, before trusting this.
+
+**Consequences:** `npm run test:e2e` (`npm run seed && playwright test`)
+is fully self-contained and safe to re-run: idempotent seed, namespaced
+and cleaned-up test data, no dependency on email delivery or manual
+click-through. The `/auth/callback` extension is permanent, real app
+surface, not scaffolding to strip out later. Playwright reuses the
+project's already-running `next dev` on port 3001 rather than spawning
+its own instance on a different port — Next.js allows only one dev
+server per project directory (`.next/dev` lock), so fighting that with a
+second port would just fail; `E2E_PORT` overrides if 3001 is unavailable.
+
+---
+
 ## ADR-014: `router.refresh()` after every direct Server Action call from a Client Component
 
 **Decision date:** 2026-07-02

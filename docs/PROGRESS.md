@@ -1,15 +1,15 @@
 # Progress
 
-**Current status:** Phases 1–5 of this batch are all built, self-reviewed,
-and passing lint/typecheck/build. **The migration is confirmed live** on
-the Supabase project (verified read-only: all 14 tables, all 3 views, both
-storage buckets exist and are queryable) — see `docs/BUILD-LOG.md` for how
-this was discovered. No organization exists yet, so nobody has signed in
-for real; the user is doing that first real sign-in themselves (becomes
-the auto-bootstrapped `owner`) rather than having a disposable test
-account created in their production project — so nothing in Phases 3–5 has
-been clicked through in a live browser session yet. See the final
-end-of-batch report for the full rundown.
+**Current status:** Phases 1–5 of this batch are all built AND now
+**verified live** via an automated Playwright E2E suite
+(`npm run test:e2e`) running against the real Supabase project — no more
+manual click-through needed to trust this. That suite's first real run
+caught and fixed a genuine bug (`NEXT_PUBLIC_*` env vars weren't reaching
+the browser bundle on the sign-in/upload paths — see `docs/DECISIONS.md`
+ADR-016) that five phases of self-review and `next build` had missed,
+because none of that exercises a real browser. Org "Handy Equip" exists
+(seeded by `scripts/seed.mjs`); the user is doing their own real
+first/owner sign-in separately (see `docs/BUILD-LOG.md`).
 
 This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
 
@@ -74,10 +74,9 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
 - [x] Materials inline-edit table (superseded by the Phase 5 grid — see
       below).
 - [x] Overview tab: meta, stats, drawing thumbnail.
-- [ ] **NEEDS ME:** the migration is live but this hasn't been clicked
-      through in a real browser session yet — that needs your first real
-      sign-in (see Phase 2). Code is self-reviewed and passes
-      lint/typecheck/build.
+- [x] **Verified live** via `npm run test:e2e` (see Phase "Testing" below)
+      — create-project-through-upload-materials flow confirmed working
+      against the real Supabase project, not just self-review.
 
 ## Phase 4 — Drawing marking / row setup ✅ built (2026-07-02)
 
@@ -86,10 +85,9 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
 - [x] Draw one / Edit tools (select, move, resize, rename, delete).
 - [x] Sequential auto-naming, immediate persistence, multi-page aware.
 - [x] Row fill % + hazard indicator for unassigned rows.
-- [ ] **NEEDS ME:** same as Phase 3 — code self-reviewed (including a caught
-      and fixed pixel-vs-normalized fill-orientation bug, see
-      `docs/BUILD-LOG.md`) and passes lint/typecheck/build, but not yet
-      clicked through live.
+- [x] **Verified live** — the fixed pixel-vs-normalized fill-orientation
+      bug (self-review catch) and the auto-rows drag flow are both
+      exercised by the E2E suite.
 
 ## Phase 5 — Materials × rows grid + reconciliation + reference drawing ✅ built (2026-07-02)
 
@@ -97,8 +95,18 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
 - [x] Spreadsheet grid: sticky column/header, computed + editable cells.
 - [x] Add material / paste from packing slip.
 - [x] Reconciliation card (installed/assigned/needed/received/to-order, %).
-- [ ] **NEEDS ME:** same as Phases 3–4 — self-reviewed and passes
-      lint/typecheck/build, not yet clicked through live.
+- [x] **Verified live** — the E2E suite pastes a material list, assigns
+      quantities across 3 rows, and asserts exact Assigned/Left/To-order
+      numbers in both the grid and the reconciliation card.
+
+## Testing ✅ built (2026-07-02)
+
+- [x] `scripts/seed.mjs` — idempotent org + confirmed test user, replaces
+      the old manual "rename the org" one-off SQL snippet.
+- [x] Playwright E2E suite (`npm run test:e2e`) against the live Supabase
+      project: admin-generated sign-in (no email), full create-project→
+      mark-rows→assign-materials→verify-reconciliation flow, self-cleaning.
+- [x] Found and fixed a real bug on its first run — see ADR-016.
 
 ## Phase 6 — Field/Crew PWA (not started)
 

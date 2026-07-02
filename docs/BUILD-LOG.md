@@ -4,6 +4,89 @@ Engineering journal. Newest entries at top.
 
 ---
 
+## 2026-07-02 — Automated Batch 1 verification: E2E suite, found + fixed a real bug
+
+**What:** Built what Phases 3–5 were missing — automated proof they
+actually work in a browser, not just self-review + `next build`. Full
+reasoning in ADR-015 and ADR-016; summary here.
+
+**Seed script:** `scripts/seed.mjs`, idempotent, service-role, plain Node
+(`node --env-file=.env.local`, no new runtime dependency). Ensures org
+"Handy Equip" and a confirmed test user (`qa+owner@handyequip.test`)
+exist and are correctly wired (`profiles.org_id`/`role='owner'`)
+regardless of what the auth-bootstrap trigger initially assigned. Ran it
+for real: first run created both (org id `42baa3d2-...`, user id
+`0a175d8c-...`); second run confirmed idempotent (`created: false` on
+both). This supersedes the "run this SQL after your first sign-in" note
+from the Phase 2 report — **replaced now** the org already exists.
+
+**Auth without email:** extended `/auth/callback` (the real route, not a
+test-only one) to accept `token_hash`+`type` alongside the `code` it
+already handled — both are Supabase-documented verification shapes for
+the same callback. `e2e/auth.setup.ts` uses
+`supabase.auth.admin.generateLink` to get a `token_hash` with no email
+sent, drives a real browser through the real callback, and saves
+`storageState` for the rest of the suite to reuse.
+
+**E2E suite:** `e2e/project-flow.spec.ts` — create project → upload
+`e2e/fixtures/test-drawing.svg` → auto-create 3 rows via the same
+drag-a-box interaction a real user would use → paste a material list →
+assign quantities across the grid → assert exact Assigned/Left/To-order
+numbers in both the grid and the reconciliation card → verify the
+Progress tab. `test.afterAll` deletes the test project (DB rows cascade;
+Storage objects don't, so `e2e/helpers/cleanup.ts` removes those
+explicitly too) via a service-role client, independent of the browser
+session. Verified zero orphaned test rows in `projects` after every run,
+including the failed ones during debugging.
+
+**Found a real bug on the first run:** drawing upload failed in the
+browser with "Missing required environment variable:
+NEXT_PUBLIC_SUPABASE_URL" — even though the dev server's own boot log
+confirmed it loaded `.env.local`. Root cause: `lib/supabase/client.ts`
+(the browser Supabase client — used by the login form and both upload
+components) read its config through a generic `requireSupabaseEnv(name)`
+helper doing `process.env[name]` (bracket/computed access). Next.js
+inlines `NEXT_PUBLIC_*` vars into the browser bundle by statically
+rewriting literal `process.env.NEXT_PUBLIC_X` expressions at build
+time — it cannot follow a variable into a bracket lookup, so the
+rewrite silently never fired for this call site, and `process.env` is
+empty in an actual browser. **This bug has been live since Phase 1** and
+affected every client-side Supabase call added since; it survived five
+sub-phases of self-review and a passing `next build` because neither
+exercises a real browser's compiled bundle. Fixed by splitting
+`lib/supabase/env.ts`: `requireSupabaseEnv` stays as-is for server code
+(bracket access is harmless there — no build-time inlining involved,
+`process.env` is the real runtime environment), and a new
+`requireBrowserSupabaseEnv(value, name)` validates a value already read
+via a static `process.env.NEXT_PUBLIC_X` reference at the call site.
+`lib/supabase/client.ts` updated accordingly. Full detail in ADR-016 —
+this is exactly the class of bug the whole exercise was meant to catch,
+and it did, on the very first real run.
+
+**Test-authoring bugs along the way** (not app bugs — fixed in the test
+itself): `getByRole('button', {name: /Next/})` also matched Next.js's own
+"Open Next.js Dev Tools" button in dev mode — narrowed to the exact
+label. `table tbody tr` matched both the materials grid's table _and_
+the Reconciliation card's table (2 rows each, so "expected 2 got 4") —
+scoped to `.locator("table").first()`. The auto-rows dialog's ~100ms
+close-transition overlay was still intercepting the drag that was
+supposed to land on the stage underneath it — added an explicit wait for
+the dialog text to fully disappear before dragging.
+
+**Environment quirk:** Next.js allows only one `next dev` per project
+directory (`.next/dev` lock) — Playwright's `webServer` trying to start
+its own instance on a different port failed with "Another next dev
+server is already running." Pointed Playwright at the same port (3001)
+a manually-started dev server already uses instead of fighting that;
+`reuseExistingServer` then just uses what's already up. `E2E_PORT`
+overrides if 3001 is taken by something unrelated.
+
+**Quality gates:** `npm run lint`, `npm run typecheck`, `npm run build`
+all pass. `npm run test:e2e` passes twice in a row cleanly. `npm run
+format` applied.
+
+---
+
 ## 2026-07-02 — Phase 5: materials × rows grid, reconciliation
 
 **What:** Built the last sub-phase of this batch. Extracted

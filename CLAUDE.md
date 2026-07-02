@@ -50,6 +50,10 @@ npm run lint          # eslint
 npm run typecheck     # tsc --noEmit
 npm run format        # prettier --write .
 npm run format:check  # prettier --check .
+npm run seed          # idempotently ensure the E2E test org + user exist
+npm run test:e2e      # seed, then run the Playwright suite against the
+                       # real Supabase project (localhost:3001) — see
+                       # docs/ARCHITECTURE.md "Testing" and ADR-015
 ```
 
 **Database migrations**: SQL files in `supabase/migrations/`, applied in
@@ -157,6 +161,20 @@ supabase/
   config.toml                 Supabase CLI project config
   migrations/*.sql             schema, RLS, storage, views — see
                                docs/ARCHITECTURE.md for the full data model
+
+scripts/seed.mjs               idempotent E2E org+user seed — plain Node
+                               (not part of the Next.js TS build), run via
+                               `node --env-file=.env.local`
+
+e2e/
+  auth.setup.ts                 admin-generated sign-in (no email), saves
+                               storageState — Playwright "setup" project
+  project-flow.spec.ts           main flow: create project → upload →
+                               mark rows → assign materials → verify
+  helpers/                       env.ts, supabase-admin.ts (service-role
+                               client), cleanup.ts (deletes test data)
+  fixtures/test-drawing.svg      tiny fixture image for upload tests
+  .auth/                         gitignored — contains a real session
 
 docs/                          see below
 ```

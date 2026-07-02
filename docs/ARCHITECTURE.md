@@ -2,19 +2,19 @@
 
 ## Areas & routes
 
-| Route                         | Access    | Purpose                                                                                                                                                                                                                |
-| ----------------------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/`                           | redirect  | Sends signed-in users to `/app`, everyone else to `/login`.                                                                                                                                                            |
-| `/login`                      | public    | Email magic-link sign-in (Handy PM branded).                                                                                                                                                                           |
-| `/auth/callback`              | public    | Route Handler — exchanges the magic-link `code` for a session, redirects to `?next=` (default `/app`).                                                                                                                 |
-| `/app`                        | protected | Projects list (from `project_progress`) + New project dialog.                                                                                                                                                          |
-| `/app/project/[id]`           | protected | Overview tab — meta, quick stats, drawing thumbnail.                                                                                                                                                                   |
+| Route                         | Access    | Purpose                                                                                                                                                                                                                         |
+| ----------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/`                           | redirect  | Sends signed-in users to `/app`, everyone else to `/login`.                                                                                                                                                                     |
+| `/login`                      | public    | Email magic-link sign-in (Handy PM branded).                                                                                                                                                                                    |
+| `/auth/callback`              | public    | Route Handler — exchanges the magic-link `code` for a session, redirects to `?next=` (default `/app`).                                                                                                                          |
+| `/app`                        | protected | Projects list (from `project_progress`) + New project dialog.                                                                                                                                                                   |
+| `/app/project/[id]`           | protected | Overview tab — meta, quick stats, drawing thumbnail.                                                                                                                                                                            |
 | `/app/project/[id]/mark`      | protected | "Layout" tab — drawing upload/viewer + row marking workspace (auto/draw/edit tools). Named `mark`, not `layout`, to avoid colliding with the Next.js `layout.tsx` file convention in the same folder — see `docs/DECISIONS.md`. |
-| `/app/project/[id]/materials` | protected | Materials tab — packing-slip/paste-list upload, reference drawing overlay, materials × rows grid, reconciliation card.                                                                                                 |
-| `/app/project/[id]/progress`  | protected | Project-level progress rollup (row counts, hazards, overall %). Per-material reconciliation lives on the Materials tab instead.                                                                                        |
-| `/scheduler`                  | protected | Crew/install scheduling. Placeholder until Phase 7.                                                                                                                                                                    |
-| `/field`                      | protected | Crew phone app (installable PWA). Placeholder until Phase 6.                                                                                                                                                           |
-| `/portal/[token]`             | public    | Customer-facing read-only project status, gated by an unguessable share token. Placeholder until Phase 8.                                                                                                              |
+| `/app/project/[id]/materials` | protected | Materials tab — packing-slip/paste-list upload, reference drawing overlay, materials × rows grid, reconciliation card.                                                                                                          |
+| `/app/project/[id]/progress`  | protected | Project-level progress rollup (row counts, hazards, overall %). Per-material reconciliation lives on the Materials tab instead.                                                                                                 |
+| `/scheduler`                  | protected | Crew/install scheduling. Placeholder until Phase 7.                                                                                                                                                                             |
+| `/field`                      | protected | Crew phone app (installable PWA). Placeholder until Phase 6.                                                                                                                                                                    |
+| `/portal/[token]`             | public    | Customer-facing read-only project status, gated by an unguessable share token. Placeholder until Phase 8.                                                                                                                       |
 
 Protected routes live under the `app/(protected)/` route group, which shares
 one layout (`app/(protected)/layout.tsx`) that fetches the current user,
@@ -143,6 +143,34 @@ as a second, now-redundant editing surface. The grid intentionally has no
 "Unit" column — neither the spec's column list nor the reference
 prototype's own grid includes one; unit stays a plain field on `materials`
 with no dedicated edit UI yet.
+
+## Testing
+
+`npm run test:e2e` (`npm run seed && playwright test`) runs a Playwright
+suite against the **real Supabase project**, driving `next dev` on
+`localhost:3001` — not a mock. See ADR-015 for the full reasoning; in
+short:
+
+- `scripts/seed.mjs` — idempotent: ensures org "Handy Equip" and a
+  confirmed test user (`qa+owner@handyequip.test`) exist and are wired
+  together (`profiles.org_id`/`role`). Safe to run any number of times,
+  including as part of every `test:e2e` invocation.
+- `e2e/auth.setup.ts` — signs in as that user via an admin-generated
+  `token_hash` (no email involved), through the app's real
+  `/auth/callback` route. Saves `storageState` for reuse by the rest of
+  the suite.
+- `e2e/project-flow.spec.ts` — the main flow: create project → upload a
+  drawing (`e2e/fixtures/test-drawing.svg`) → auto-create rows → paste a
+  material list → assign quantities in the grid → verify the
+  reconciliation card and Progress tab. Cleans up its own project (and
+  Storage objects) in `test.afterAll` via `e2e/helpers/cleanup.ts`
+  (service-role, so cleanup succeeds independent of the browser
+  session's state).
+
+This suite is what caught ADR-016's env var bug — self-review and
+`next build` both stayed clean through Phases 3–5 because neither
+exercises a real browser's client-side bundle the way an actual sign-in
+or upload click does.
 
 ## Data model
 
