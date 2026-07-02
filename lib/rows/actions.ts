@@ -105,3 +105,23 @@ export async function deleteRow(
 
   revalidateProjectTabs(projectId);
 }
+
+export async function upsertRowMaterialQty(
+  rowId: string,
+  materialId: string,
+  projectId: string,
+  requiredQty: number
+): Promise<void> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("row_materials").upsert(
+    {
+      row_id: rowId,
+      material_id: materialId,
+      required_qty: Math.max(0, requiredQty),
+    },
+    { onConflict: "row_id,material_id" }
+  );
+  if (error) throw error;
+
+  revalidateProjectTabs(projectId);
+}

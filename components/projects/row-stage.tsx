@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { RowFillMarker } from "@/components/projects/row-fill-marker";
 import { cn } from "@/lib/utils";
 
 export interface StageRow {
@@ -230,7 +231,6 @@ export function RowStage({
         const geometry =
           draftGeometry?.rowId === row.id ? draftGeometry.geometry : row;
         const isSelected = selectedRowId === row.id;
-        const pct = Math.round(row.pct * 100);
         const isVertical =
           geometry.h * stageSize.height >= geometry.w * stageSize.width;
 
@@ -251,26 +251,13 @@ export function RowStage({
               height: `${geometry.h * 100}%`,
             }}
           >
-            <div
-              className={cn(
-                "absolute bg-primary/55",
-                row.isComplete && "bg-success/60"
-              )}
-              style={
-                isVertical
-                  ? { left: 0, bottom: 0, width: "100%", height: `${pct}%` }
-                  : { left: 0, bottom: 0, height: "100%", width: `${pct}%` }
-              }
+            <RowFillMarker
+              label={row.label}
+              pct={row.pct}
+              hasMaterials={row.hasMaterials}
+              isComplete={row.isComplete}
+              isVertical={isVertical}
             />
-            <div className="absolute inset-0 flex flex-col items-center justify-center p-0.5 text-center text-[10px] font-extrabold leading-tight text-[#06121f] [text-shadow:0_1px_2px_rgba(255,255,255,.5)]">
-              <span>{row.label}</span>
-              <span>{row.hasMaterials ? `${pct}%` : "⚠"}</span>
-            </div>
-            {!row.hasMaterials ? (
-              <span className="absolute right-0.5 top-0.5 text-xs drop-shadow-[0_1px_1px_rgba(0,0,0,.6)]">
-                ⚠️
-              </span>
-            ) : null}
             {tool === "edit" && isSelected ? (
               <div
                 onPointerDown={(event) => beginRowDrag(event, row, "resize")}
