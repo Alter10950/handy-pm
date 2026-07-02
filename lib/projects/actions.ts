@@ -1,0 +1,174 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+
+import { parseMaterialList } from "@/lib/projects/parse-material-list";
+import { createClient } from "@/lib/supabase/server";
+
+async function requireOrgId(): Promise<{ userId: string; orgId: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not signed in.");
+
+  const { data: profile, error } = await supabase
+    .from("profiles")
+    .select("org_id")
+    .eq("id", user.id)
+    .single();
+  if (error) throw error;
+  if (!profile.org_id) {
+    throw new Error(
+      "Your account isn't assigned to an organization yet. Ask an owner/PM to assign you one."
+    );
+  }
+  return { userId: user.id, orgId: profile.org_id };
+}
+
+export async function createProject(formData: FormData) {
+  const name = String(formData.get("name") ?? "").trim();
+  const siteAddress = String(formData.get("site_address") ?? "").trim();
+  const deadline = String(formData.get("deadline") ?? "").trim();
+
+  if (!name) throw new Error("Project name is required.");
+
+  const { userId, orgId } = await requireOrgId();
+  const supabase = await createClient();
+  const { data: project, error } = await supabase
+    .from("projects")
+    .insert({
+      org_id: orgId,
+      name,
+      site_address: siteAddress || null,
+      deadline: deadline || null,
+      created_by: userId,
+    })
+    .select("id")
+    .single();
+  if (error) throw error;
+
+  revalidatePath("/app");
+  redirect(`/app/project/${project.id}`);
+}
+
+export async function addMaterial(projectId: string, name: string) {
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error("Material name is required.");
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("materials")
+    .insert({ project_id: projectId, name: trimmed });
+  if (error) throw error;
+
+  revalidatePath(`/app/project/${projectId}`);
+  revalidatePath(`/app/project/${projectId}/materials`);
+}
+
+export async function updateMaterial(
+  materialId: string,
+  projectId: string,
+  patch: Partial<{
+    name: string;
+    unit: string;
+    total_needed: number;
+    received: number;
+  }>
+) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("materials")
+    .update(patch)
+    .eq("id", materialId);
+  if (error) throw error;
+
+  revalidatePath(`/app/project/${projectId}/materials`);
+}
+
+export async function deleteMaterial(materialId: string, projectId: string) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("materials")
+    .delete()
+    .eq("id", materialId);
+  if (error) throw error;
+
+  revalidatePath(`/app/project/${projectId}`);
+  revalidatePath(`/app/project/${projectId}/materials`);
+}
+
+export async function pasteMaterialList(
+  projectId: string,
+  text: string,
+  replaceExisting: boolean
+) {
+  const parsed = parseMaterialList(text);
+  if (parsed.length === 0) {
+    throw new Error('Couldn\'t find any "name, qty" lines to add.');
+  }
+
+  const supabase = await createClient();
+
+  if (replaceExisting) {
+    const { error: deleteError } = await supabase
+      .from("materials")
+      .delete()
+      .eq("project_id", projectId);
+    if (deleteError) throw deleteError;
+  }
+
+  const { error } = await supabase.from("materials").insert(
+    parsed.map((line) => ({
+      project_id: projectId,
+      name: line.name,
+      total_needed: line.qty,
+      received: line.qty,
+    }))
+  );
+  if (error) throw error;
+
+  revalidatePath(`/app/project/${projectId}`);
+  revalidatePath(`/app/project/${projectId}/materials`);
+}
+
+export async function recordDrawingUpload(
+  projectId: string,
+  pages: {
+    storagePath: string;
+    pageIndex: number;
+    width: number;
+    height: number;
+  }[]
+) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("drawings").insert(
+    pages.map((page) => ({
+      project_id: projectId,
+      page_index: page.pageIndex,
+      storage_path: page.storagePath,
+      width: page.width,
+      height: page.height,
+    }))
+  );
+  if (error) throw error;
+
+  revalidatePath(`/app/project/${projectId}`);
+  revalidatePath(`/app/project/${projectId}/mark`);
+  revalidatePath(`/app/project/${projectId}/materials`);
+}
+
+export async function recordPackingSlipUpload(
+  projectId: string,
+  storagePath: string
+) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("packing_slips")
+    .insert({ project_id: projectId, storage_path: storagePath });
+  if (error) throw error;
+
+  revalidatePath(`/app/project/${projectId}`);
+  revalidatePath(`/app/project/${projectId}/materials`);
+}
