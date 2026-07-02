@@ -5,6 +5,55 @@ Consequences.
 
 ---
 
+## ADR-013: Drawing uploads are additive, never destructive, in Phase 2/3
+
+**Decision date:** 2026-07-02
+
+**Context:** The reference prototype has a "Replace drawing" menu action.
+Rows are FK'd to a specific `drawing_id` with `on delete cascade` — deleting
+a drawing to replace it would silently destroy any rows already marked on
+that page.
+
+**Choice:** `DrawingUpload` only ever adds new pages (`page_index`
+continuing from the current count), labeled "Upload layout" when a project
+has no drawings yet and "Add more pages" once it does. No delete/replace
+flow was built this batch.
+
+**Consequences:** Uploading the wrong file can't be undone from the UI yet
+(only via the Supabase dashboard). A proper "replace this page" flow that
+warns about/handles orphaned rows is real scope for a later phase, not a
+gap to quietly paper over.
+
+---
+
+## ADR-012: Server Actions for relational CRUD, direct browser Supabase calls for file uploads
+
+**Decision date:** 2026-07-02
+
+**Context:** Sub-phase 3 needed both simple structured mutations (create
+project, edit a material) and file-upload flows that require browser-only
+APIs (`pdfjs-dist`, `<canvas>`) to render a PDF before it can be uploaded.
+
+**Choice:** Structured mutations without files (`lib/projects/actions.ts`)
+are Next.js Server Actions — `revalidatePath` keeps Server Component data
+fresh automatically. File-upload flows (`DrawingUpload`,
+`PackingSlipUpload`) call the _browser_ Supabase client
+(`lib/supabase/client.ts`) directly from a Client Component to upload to
+Storage — rendering has to happen client-side anyway, and Storage RLS
+policies already enforce who can write where, so proxying the upload bytes
+through a Server Action would add a hop with no security benefit. Each
+upload flow finishes by calling a small Server Action
+(`recordDrawingUpload`/`recordPackingSlipUpload`) purely to insert the
+resulting row and revalidate — never to move file bytes.
+
+**Consequences:** Two mutation patterns coexist in the same feature folder.
+Documented here and in `CLAUDE.md` so a future session doesn't "fix" the
+inconsistency by forcing file uploads through a Server Action (which would
+hit Next.js's server body size limits on larger drawings) or by moving
+simple CRUD to client-side calls (losing automatic revalidation).
+
+---
+
 ## ADR-011: `installs.qty` allows negative values; `rows.drawing_id` is required
 
 **Decision date:** 2026-07-02
@@ -56,7 +105,7 @@ against this file — documented in `CLAUDE.md` and `docs/ARCHITECTURE.md`.
 **Context:** `row_progress`, `project_progress`, and `material_reconciliation`
 aggregate across `rows`/`row_materials`/`installs`/`materials`/`projects` —
 all RLS-protected. Postgres views default to evaluating permissions as the
-view's *owner* (the migration role, which is elevated) unless
+view's _owner_ (the migration role, which is elevated) unless
 `security_invoker = true` is set (Postgres 15+). Without it, these views
 would silently leak cross-org data to every caller regardless of their own
 RLS policies — the exact opposite of what they're for.

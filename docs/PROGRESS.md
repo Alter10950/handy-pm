@@ -1,10 +1,12 @@
 # Progress
 
-**Current status:** Phase 1 complete. Phase 2 (schema/RLS/storage/types)
-authored and committed; migration push to the live project is a **NEEDS ME**
-blocker (see below). Phases 3–5 (projects + uploads, drawing marking,
-materials × rows grid) in progress in one long autonomous session — see
-`docs/BUILD-LOG.md` for the latest entry.
+**Current status:** Phase 1 complete. Phase 2 (schema/RLS/storage/types) and
+Phase 3 (projects, uploads, materials) built and committed; both are
+**blocked on the same NEEDS ME item** — the migration hasn't been pushed to
+the live project yet, so nothing has been smoke-tested against real data
+(see below). Phases 4–5 (drawing marking, materials × rows grid) in
+progress in one long autonomous session — see `docs/BUILD-LOG.md` for the
+latest entry.
 
 This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
 
@@ -56,19 +58,24 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
 - [ ] **NEEDS ME:** migration not yet applied to the live project — needs a
       Supabase personal access token or DB password (see latest
       `docs/BUILD-LOG.md` entry). Apply with `npx supabase link
-      --project-ref ntdynurigavrpvexwiij` then `npx supabase db push`, or
+  --project-ref ntdynurigavrpvexwiij` then `npx supabase db push`, or
       paste the 5 files in `supabase/migrations/` into the SQL editor in
       order.
 
-## Phase 3 — Projects + drawing & packing-slip uploads + materials
+## Phase 3 — Projects + drawing & packing-slip uploads + materials ✅ built (2026-07-02)
 
-- [ ] `/app` real projects list (from `project_progress`) + New project
+- [x] `/app` real projects list (from `project_progress`) + New project
       dialog.
-- [ ] `/app/project/[id]` tab shell: Overview, Layout, Materials, Progress.
-- [ ] Drawing upload: PDF → per-page images via pdf.js, or single image.
-- [ ] Packing slip upload + paste-material-list parser.
-- [ ] Materials inline-edit table.
-- [ ] Overview tab: meta, stats, drawing thumbnail.
+- [x] `/app/project/[id]` tab shell: Overview, Layout ("mark" route),
+      Materials, Progress.
+- [x] Drawing upload: PDF → per-page images via pdf.js, or single image.
+- [x] Packing slip upload + paste-material-list parser.
+- [x] Materials inline-edit table.
+- [x] Overview tab: meta, stats, drawing thumbnail.
+- [ ] **NEEDS ME:** not yet exercised against real data — blocked on the
+      same Phase 2 migration push (see above). Code is self-reviewed and
+      passes lint/typecheck/build, but no live create-project-through-
+      upload-materials smoke test has run yet.
 
 ## Phase 4 — Drawing marking / row setup
 

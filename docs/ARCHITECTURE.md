@@ -2,15 +2,19 @@
 
 ## Areas & routes
 
-| Route             | Access    | Purpose                                                                                                                                  |
-| ----------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `/`               | redirect  | Sends signed-in users to `/app`, everyone else to `/login`.                                                                              |
-| `/login`          | public    | Email magic-link sign-in (Handy PM branded).                                                                                             |
-| `/auth/callback`  | public    | Route Handler — exchanges the magic-link `code` for a session, redirects to `?next=` (default `/app`).                                   |
-| `/app`            | protected | Office/PM area — Projects. Placeholder in Phase 1.                                                                                       |
-| `/scheduler`      | protected | Crew/install scheduling. Placeholder in Phase 1.                                                                                         |
-| `/field`          | protected | Crew phone app (installable PWA). Placeholder in Phase 1.                                                                                |
-| `/portal/[token]` | public    | Customer-facing read-only project status, gated by an unguessable share token (token validation arrives with the data model in Phase 2). |
+| Route                         | Access    | Purpose                                                                                                                                                                                                                |
+| ----------------------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/`                           | redirect  | Sends signed-in users to `/app`, everyone else to `/login`.                                                                                                                                                            |
+| `/login`                      | public    | Email magic-link sign-in (Handy PM branded).                                                                                                                                                                           |
+| `/auth/callback`              | public    | Route Handler — exchanges the magic-link `code` for a session, redirects to `?next=` (default `/app`).                                                                                                                 |
+| `/app`                        | protected | Projects list (from `project_progress`) + New project dialog.                                                                                                                                                          |
+| `/app/project/[id]`           | protected | Overview tab — meta, quick stats, drawing thumbnail.                                                                                                                                                                   |
+| `/app/project/[id]/mark`      | protected | "Layout" tab — drawing upload/viewer now; row marking lands in sub-phase 4. Named `mark`, not `layout`, to avoid colliding with the Next.js `layout.tsx` file convention in the same folder — see `docs/DECISIONS.md`. |
+| `/app/project/[id]/materials` | protected | Materials tab — packing-slip/paste-list upload, inline-edit materials table (evolves into the full materials × rows grid in sub-phase 5).                                                                              |
+| `/app/project/[id]/progress`  | protected | Project-level progress rollup (row counts, hazards, overall %). Per-material reconciliation lives on the Materials tab instead — see sub-phase 5.                                                                      |
+| `/scheduler`                  | protected | Crew/install scheduling. Placeholder until Phase 7.                                                                                                                                                                    |
+| `/field`                      | protected | Crew phone app (installable PWA). Placeholder until Phase 6.                                                                                                                                                           |
+| `/portal/[token]`             | public    | Customer-facing read-only project status, gated by an unguessable share token. Placeholder until Phase 8.                                                                                                              |
 
 Protected routes live under the `app/(protected)/` route group, which shares
 one layout (`app/(protected)/layout.tsx`) that fetches the current user,
@@ -33,6 +37,30 @@ why `/field` is included.
 5. Sign-out is a Server Action (`lib/auth/actions.ts`) invoked from a form in
    `SiteHeader`.
 
+## Projects feature (Phase 3)
+
+`lib/projects/` is the data-access layer for everything under
+`/app/project/[id]`:
+
+- `queries.ts` — read-only functions (Server Components only; uses the
+  cookie-based server client, relies entirely on RLS for org scoping —
+  nothing here filters by `org_id` manually).
+- `actions.ts` — Server Actions for structured mutations (create project,
+  material CRUD/paste, recording a completed upload). See ADR-012 for why
+  file uploads themselves don't go through here.
+- `parse-material-list.ts` — pure function parsing `"name, qty"` lines
+  (commas/tabs/spaces all work) into `{name, qty}`, used by the
+  paste-from-packing-slip flow. Kept separate from `actions.ts` so it has
+  no server-only dependencies and is trivially unit-testable.
+
+Drawing/packing-slip uploads (`components/projects/{drawing,packing-slip}-upload.tsx`)
+run client-side: `lib/pdf/render-drawing-file.ts` uses `pdfjs-dist` to
+render each PDF page (capped at 15 pages) or a plain image onto a
+`<canvas>`, downscales to a max 2000px dimension, and exports a JPEG
+`Blob`. The component uploads each blob directly to Supabase Storage via
+the browser client, then calls a Server Action once just to insert the
+`drawings`/`packing_slips` row and revalidate. See ADR-012 and ADR-013.
+
 ## Data model
 
 Built in Phase 2. Migrations live in `supabase/migrations/`, applied in
@@ -50,20 +78,20 @@ Every table is scoped to an `organizations` row, directly (`org_id`) or
 transitively via `project_id` → `projects.org_id` or `crew_id` →
 `crews.org_id`.
 
-| Table | Scoped via | Purpose |
-| --- | --- | --- |
-| `organizations` | — | Tenant boundary. One per Handy Equip-style deployment (see auth bootstrap below); multi-org support exists in the schema but isn't exercised yet. |
-| `profiles` | `org_id` (nullable) | One row per `auth.users`, `role` ∈ `owner`/`pm`/`scheduler`/`crew`. |
-| `projects` | `org_id` | A racking-install job. `status` ∈ `active`/`on_hold`/`complete`. |
-| `crews` / `crew_members` | `org_id` / via `crews` | Install crews and their members (Phase 6/7). |
-| `drawings` | `project_id` | One row per rendered page (`page_index` 0-based) of an uploaded layout PDF/image. `storage_path` points into the private `drawings` bucket. |
-| `packing_slips` | `project_id` | Uploaded packing-slip files; `parsed` reserved for future OCR/extraction. |
-| `materials` | `project_id` | The job's material catalog — `total_needed` (job total) and `received` (from packing slips) live here; per-row requirements live in `row_materials`. |
-| `rows` | `project_id` (+ `drawing_id`) | A marked rack section on a drawing page. `x/y/w/h` are **normalized 0..1** fractions of the drawing's rendered size, so marks stay correct at any zoom/display size — matches the reference marking-tool prototype's coordinate model. |
-| `row_materials` | via `rows` | Required qty of a material for a specific row. `unique(row_id, material_id)`. |
-| `installs` | via `rows` | Append-only log of installed qty per row/material/date. `qty` may be negative (a correction entry) — never edit history in place. Written by the Phase 6 field app; empty until then. |
-| `assignments` / `targets` / `crew_rates` | `project_id` / `crew_id` | Scheduling (Phase 7). Created now so FKs are clean from day one. |
-| `share_tokens` | `project_id` | Customer portal tokens (Phase 8). Not publicly RLS-readable — see below. |
+| Table                                    | Scoped via                    | Purpose                                                                                                                                                                                                                                |
+| ---------------------------------------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `organizations`                          | —                             | Tenant boundary. One per Handy Equip-style deployment (see auth bootstrap below); multi-org support exists in the schema but isn't exercised yet.                                                                                      |
+| `profiles`                               | `org_id` (nullable)           | One row per `auth.users`, `role` ∈ `owner`/`pm`/`scheduler`/`crew`.                                                                                                                                                                    |
+| `projects`                               | `org_id`                      | A racking-install job. `status` ∈ `active`/`on_hold`/`complete`.                                                                                                                                                                       |
+| `crews` / `crew_members`                 | `org_id` / via `crews`        | Install crews and their members (Phase 6/7).                                                                                                                                                                                           |
+| `drawings`                               | `project_id`                  | One row per rendered page (`page_index` 0-based) of an uploaded layout PDF/image. `storage_path` points into the private `drawings` bucket.                                                                                            |
+| `packing_slips`                          | `project_id`                  | Uploaded packing-slip files; `parsed` reserved for future OCR/extraction.                                                                                                                                                              |
+| `materials`                              | `project_id`                  | The job's material catalog — `total_needed` (job total) and `received` (from packing slips) live here; per-row requirements live in `row_materials`.                                                                                   |
+| `rows`                                   | `project_id` (+ `drawing_id`) | A marked rack section on a drawing page. `x/y/w/h` are **normalized 0..1** fractions of the drawing's rendered size, so marks stay correct at any zoom/display size — matches the reference marking-tool prototype's coordinate model. |
+| `row_materials`                          | via `rows`                    | Required qty of a material for a specific row. `unique(row_id, material_id)`.                                                                                                                                                          |
+| `installs`                               | via `rows`                    | Append-only log of installed qty per row/material/date. `qty` may be negative (a correction entry) — never edit history in place. Written by the Phase 6 field app; empty until then.                                                  |
+| `assignments` / `targets` / `crew_rates` | `project_id` / `crew_id`      | Scheduling (Phase 7). Created now so FKs are clean from day one.                                                                                                                                                                       |
+| `share_tokens`                           | `project_id`                  | Customer portal tokens (Phase 8). Not publicly RLS-readable — see below.                                                                                                                                                               |
 
 ### Auth bootstrap
 
@@ -103,7 +131,7 @@ operation at all. `anon` gets nothing on any of these tables.
 
 `row_progress`, `project_progress`, and `material_reconciliation` are all
 created `with (security_invoker = true)` — required on Postgres 15+ so the
-view enforces RLS as the *querying* user, not the (elevated) migration
+view enforces RLS as the _querying_ user, not the (elevated) migration
 role that created it. Progress math caps installed qty at the required qty
 per row/material (matching the reference prototype's `zonePct`/
 `zoneComplete` logic), so logging more than required never shows over

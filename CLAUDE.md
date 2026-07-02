@@ -86,7 +86,17 @@ app/
   (protected)/               route group — shared authed shell
     layout.tsx                fetches the user, redirects to /login if absent,
                                renders SiteHeader + children (force-dynamic)
-    app/page.tsx               "/app" — Projects placeholder
+    error.tsx                  themed error boundary (Server Action throws
+                               land here, e.g. "no org assigned yet")
+    app/page.tsx               "/app" — Projects list + New project dialog
+    app/project/[id]/
+      layout.tsx                 project header + ProjectTabs nav
+      page.tsx                   Overview tab
+      mark/page.tsx               "Layout" tab (upload/viewer now, marking
+                                 tools in sub-phase 4) — see docs/DECISIONS.md
+                                 for why the folder is "mark", not "layout"
+      materials/page.tsx          Materials tab (upload + inline-edit table)
+      progress/page.tsx           Progress tab (project-level rollup)
     scheduler/page.tsx         "/scheduler" placeholder
     field/page.tsx             "/field" placeholder
 
@@ -96,6 +106,9 @@ components/
   login-form.tsx             magic-link form (client component)
   placeholder-panel.tsx       shared placeholder page shell
   service-worker-register.tsx registers public/sw.js on mount
+  projects/                  New project dialog, project card/tabs/status
+                             badge, drawing + packing-slip upload, drawing
+                             viewer, materials table, paste-materials dialog
 
 lib/
   supabase/
@@ -109,6 +122,14 @@ lib/
     database.types.ts         hand-written Database type (see
                                docs/ARCHITECTURE.md — regenerate once linked)
   auth/actions.ts             signOut server action
+  projects/
+    queries.ts                 read-only data access (Server Components)
+    actions.ts                  Server Actions for structured mutations —
+                               see docs/DECISIONS.md ADR-012 for why file
+                               uploads are NOT here
+    parse-material-list.ts      pure "name, qty" line parser
+  pdf/render-drawing-file.ts  browser-only PDF/image → JPEG Blob rendering
+                             (pdfjs-dist + canvas) for drawing uploads
   utils.ts                    cn() class merge helper (shadcn)
 
 proxy.ts                      Next.js 16 "proxy" (formerly middleware) —

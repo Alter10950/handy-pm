@@ -4,6 +4,60 @@ Engineering journal. Newest entries at top.
 
 ---
 
+## 2026-07-02 — Phase 3: projects, drawing/packing-slip uploads, materials
+
+**What:** Built the Projects area end to end: `/app` list (cards from the
+`project_progress` view) + New Project dialog; `/app/project/[id]` with a
+4-tab shell (Overview / Layout / Materials / Progress); drawing upload
+(PDF.js renders each page to a capped/downscaled JPEG client-side, uploads
+to the `drawings` bucket, inserts one `drawings` row per page) with a page
+switcher; packing-slip upload; a paste-material-list parser and dialog; an
+inline-edit materials table (add/edit/delete). Data-access layer split into
+`lib/projects/queries.ts` (reads) and `lib/projects/actions.ts` (Server
+Action mutations) — full reasoning for the Server Action vs. direct-
+browser-upload split in ADR-012, and for uploads being additive-only (no
+destructive replace flow) in ADR-013.
+
+**GitHub connected mid-session:** the user shared the GitHub repo URL
+(`github.com/Alter10950/handy-pm`) partway through Phase 2's SQL work.
+Added it as `origin` and stopped there — the auto-mode safety classifier
+correctly held back the actual `push` since a bare URL isn't an explicit
+"push" instruction. Confirmed with the user (they'd also shared the Vercel
+project URL, which was the signal worth double-checking) before pushing;
+they said yes. First push attempt timed out — Git Credential Manager was
+very likely waiting on an interactive sign-in window on the user's own
+screen (this environment runs directly on their Windows machine, so a GCM
+popup is real and completable by them, not a dead end). Retried in the
+background and it went through cleanly the second time.
+
+**Reused Phase 1 patterns:** the "no client at module scope, browser client
+only inside handlers" rule from ADR-006 carried straight over to file
+uploads. Added `app/(protected)/error.tsx` (themed error boundary) so a
+thrown Server Action error (e.g. "your account isn't assigned to an
+organization yet" from a second signup trying to create a project) renders
+something readable instead of Next's default error page — covers every
+Server Action in the protected tree, not just this one.
+
+**Design tokens extended:** added `--success` (#22c55e), `--warning`
+(#f59e0b), and `--stage` (#0b1119) to `app/globals.css` — all three lifted
+directly from the reference prototype's CSS variables (`--done`, `--warn`,
+and `#stageWrap`'s background), needed now for project status badges and
+reused again for the drawing/row-marking surfaces in sub-phases 4-5.
+
+**Still blocked (see Phase 2's NEEDS ME):** none of this has run against
+real data — the migration isn't applied yet. `npm run lint`,
+`npm run typecheck`, and `npm run build` all pass, and the code was
+carefully self-reviewed (revalidatePath coverage double-checked so the
+Overview tab's materials count and the projects list's % stay fresh after
+every mutation), but "create a project → upload a PDF → see pages → upload
+a packing slip → paste a material list → edit it" hasn't been clicked
+through for real yet. Will smoke-test the moment the migration is live.
+
+**Quality gates:** `npm run lint`, `npm run typecheck`, `npm run build` all
+pass. `npm run format` applied.
+
+---
+
 ## 2026-07-02 — Phase 2: DB schema, RLS, storage, types
 
 **What:** Authored the full Phase 2 data model as five ordered SQL
@@ -55,6 +109,7 @@ to make the user wait. `npm run build` stayed green throughout with real
 `supabase db push`/`link -p` also accept a direct DB password as an
 alternative to linking. Neither was available in the environment. Two ways
 to unblock, either one works:
+
 - Supabase personal access token (supabase.com/dashboard/account/tokens),
   or
 - the project's database password (Supabase dashboard → Settings →
@@ -67,6 +122,7 @@ SQL editor, in filename order — they're idempotent (`if not exists` /
 `create or replace` throughout), so re-running is safe.
 
 **Problems fixed:**
+
 - `rows.drawing_id` — spec's raw column list didn't mark it `not null`;
   made it required since a marked row without a drawing page isn't valid.
 - `installs.qty` — initially constrained `> 0`; relaxed to `<> 0` after
