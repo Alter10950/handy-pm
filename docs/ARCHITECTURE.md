@@ -204,6 +204,17 @@ state, undo/redo, fullscreen state, the active page, and orchestrates:
   "No phase" + inline "+ New phase" creation (name + 6 preset color
   swatches); "Set phase" assigns the current selection in one action,
   creating the phase first if new.
+- **Phase color + legend (Phase 4/Sub-phase D, 2026-07-03, see
+  ADR-023).** Each row with a `phaseId` renders with that phase's color
+  as its **border** — an inline `style={{borderColor}}`, since colors
+  are arbitrary hex values chosen in `PhasePicker` and can't be Tailwind
+  classes ahead of time — deliberately not a background fill, which
+  would collide with `RowFillMarker`'s own use of the background for
+  install-progress. `PhaseLegend` (`phase-legend.tsx`), shown above the
+  canvas, lists every phase with a show/hide toggle; hiding one filters
+  its rows out of `RowStage`'s render entirely (`rows.filter(...)`
+  before the `.map()`), not just dims them, so a hidden row is also not
+  selectable/draggable/resizable while out of the way.
 - `duplicateRows` (`lib/rows/actions.ts`) — copies are placed adjacent to
   the source (offset by the source's own width if it's narrower than
   tall, matching how "vertical" auto-rows sit side-by-side; offset by
@@ -233,7 +244,11 @@ a click on a duplicated row, see ADR-020. Mutations
 `RowFillMarker` (`components/projects/row-fill-marker.tsx`) — the fill
 bar + label + hazard-icon visual — is shared between `RowStage` (editable)
 and `MaterialsReferenceStage` (read-only, Phase 5) so a row renders
-identically in both places by construction, not by convention.
+identically in both places by construction, not by convention. Phase
+border coloring (above) is applied identically in both for the same
+reason — `MaterialsReferenceStage` doesn't get a hide toggle (that's a
+Layout-tab-specific declutter tool), but a row's color should still
+match wherever it's shown.
 
 ## Materials × rows grid (Phase 5)
 
@@ -272,6 +287,19 @@ as a second, now-redundant editing surface. The grid intentionally has no
 "Unit" column — neither the spec's column list nor the reference
 prototype's own grid includes one; unit stays a plain field on `materials`
 with no dedicated edit UI yet.
+
+**Phase filter (Sub-phase D, 2026-07-03, see ADR-023).** A `<select>`
+above the reference drawing narrows `MaterialsWorkspace`'s already-fetched
+`rowProgress` to the selected phase's rows before building both the
+reference-stage rows and the grid columns, and sums `rowMaterials`'
+`required_qty` for those rows into a compact "assigned to this phase"
+summary below the drawing — not a full reconciliation (that needs
+per-row installed data this page doesn't fetch). The Progress tab
+(`app/(protected)/app/project/[id]/progress/page.tsx` +
+`components/projects/phase-progress.tsx`) has its own, separately-scoped
+phase filter that recomputes row count/rows complete/pct client-side
+from `row_progress`, the same shape `project_progress` aggregates — no
+new query for either tab's filter.
 
 ## Field / crew app (Phase 6, 2026-07-03)
 
@@ -448,6 +476,18 @@ short:
   (a real timing gap surfaced here: the week view's re-render isn't
   awaited by the generate-targets button, so a naive assertion on the
   toast alone could pass a beat before the UI actually caught up).
+- `e2e/phases-flow.spec.ts` — assigns a row to a new phase and confirms
+  its border color actually changed (`getComputedStyle`, polled — not
+  just that the legend entry appeared), hides the phase and confirms
+  the row disappears from the drawing while an unrelated row stays
+  visible, un-hides it, then filters Materials and Progress by phase.
+  Caught another cross-page navigation race: Materials and Progress both
+  have a `<select>` labeled "Filter by phase," and interacting with it
+  right after clicking the "Progress" nav link — before that client-side
+  navigation actually finishes — silently lands on the *Materials* tab's
+  still-mounted select instead. Fixed by waiting for a
+  Progress-tab-specific element first; worth remembering for any test
+  that reuses label text across pages.
 
 This suite is what caught ADR-016's env var bug — self-review and
 `next build` both stayed clean through Phases 3–5 because neither

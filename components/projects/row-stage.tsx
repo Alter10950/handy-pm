@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { RowFillMarker } from "@/components/projects/row-fill-marker";
 import { ZoomControls } from "@/components/projects/zoom-controls";
 import { MAX_ZOOM, MIN_ZOOM, useZoomPan } from "@/components/projects/use-zoom-pan";
+import type { Tables } from "@/lib/supabase/database.types";
 import { cn, isTypingTarget } from "@/lib/utils";
 
 export interface StageRow {
@@ -17,6 +18,7 @@ export interface StageRow {
   pct: number;
   hasMaterials: boolean;
   isComplete: boolean;
+  phaseId: string | null;
 }
 
 interface Box {
@@ -151,6 +153,8 @@ export function RowStage({
   baseHeight,
   rows,
   selectedRowIds,
+  phases,
+  hiddenPhaseIds,
   isPanMode,
   onDrawBox,
   onSelectSingle,
@@ -166,6 +170,8 @@ export function RowStage({
   baseHeight: number;
   rows: StageRow[];
   selectedRowIds: Set<string>;
+  phases: Tables<"phases">[];
+  hiddenPhaseIds: Set<string>;
   isPanMode: boolean;
   onDrawBox: (box: Box) => void;
   onSelectSingle: (id: string) => void;
@@ -615,13 +621,18 @@ export function RowStage({
           }}
         />
 
-        {rows.map((row) => {
+        {rows
+          .filter((row) => !row.phaseId || !hiddenPhaseIds.has(row.phaseId))
+          .map((row) => {
           const draft = draftGeometries?.get(row.id);
           const geometry = draft ?? row;
           const isSelected = selectedRowIds.has(row.id);
           const isSingleSelected = isSelected && selectedRowIds.size === 1;
           const isVertical =
             geometry.h * effectiveHeight >= geometry.w * effectiveWidth;
+          const phase = row.phaseId
+            ? phases.find((p) => p.id === row.phaseId)
+            : undefined;
 
           return (
             <div
@@ -640,6 +651,7 @@ export function RowStage({
                 top: `${geometry.y * 100}%`,
                 width: `${geometry.w * 100}%`,
                 height: `${geometry.h * 100}%`,
+                ...(phase && { borderColor: phase.color }),
               }}
             >
               {/* Own overflow-hidden wrapper, separate from the row box

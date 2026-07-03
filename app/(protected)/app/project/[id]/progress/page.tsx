@@ -1,4 +1,6 @@
-import { getProjectProgress } from "@/lib/projects/queries";
+import { PhaseProgress } from "@/components/projects/phase-progress";
+import { listPhases } from "@/lib/phases/queries";
+import { getProjectProgress, listRowProgress } from "@/lib/projects/queries";
 
 export default async function ProjectProgressPage({
   params,
@@ -6,7 +8,11 @@ export default async function ProjectProgressPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const progress = await getProjectProgress(id);
+  const [progress, phases, rowProgress] = await Promise.all([
+    getProjectProgress(id),
+    listPhases(id),
+    listRowProgress(id),
+  ]);
   const pct = Math.round((progress?.pct ?? 0) * 100);
 
   return (
@@ -56,6 +62,8 @@ export default async function ProjectProgressPage({
           </p>
         </div>
       </div>
+
+      <PhaseProgress phases={phases} rowProgress={rowProgress} />
 
       <p className="text-sm text-muted-foreground">
         Per-material reconciliation (installed / assigned / needed / received /

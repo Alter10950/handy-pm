@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { RowFillMarker } from "@/components/projects/row-fill-marker";
+import type { Tables } from "@/lib/supabase/database.types";
 import { cn } from "@/lib/utils";
 
 export interface ReferenceRow {
@@ -15,16 +16,19 @@ export interface ReferenceRow {
   pct: number;
   hasMaterials: boolean;
   isComplete: boolean;
+  phaseId: string | null;
 }
 
 export function MaterialsReferenceStage({
   imageUrl,
   rows,
+  phases,
   highlightedRowId,
   onRowClick,
 }: {
   imageUrl: string;
   rows: ReferenceRow[];
+  phases: Tables<"phases">[];
   highlightedRowId: string | null;
   onRowClick: (rowId: string) => void;
 }) {
@@ -56,6 +60,9 @@ export function MaterialsReferenceStage({
 
       {rows.map((row) => {
         const isVertical = row.h * stageSize.height >= row.w * stageSize.width;
+        const phase = row.phaseId
+          ? phases.find((p) => p.id === row.phaseId)
+          : undefined;
 
         return (
           <button
@@ -74,6 +81,7 @@ export function MaterialsReferenceStage({
               top: `${row.y * 100}%`,
               width: `${row.w * 100}%`,
               height: `${row.h * 100}%`,
+              ...(phase && { borderColor: phase.color }),
             }}
           >
             <RowFillMarker

@@ -16,6 +16,7 @@ import {
   type RowOrientation,
 } from "@/components/projects/auto-rows-dialog";
 import { BulkMaterialsPanel } from "@/components/projects/bulk-materials-panel";
+import { PhaseLegend } from "@/components/projects/phase-legend";
 import { PhasePicker } from "@/components/projects/phase-picker";
 import { RowCommandPanel } from "@/components/projects/row-command-panel";
 import {
@@ -65,6 +66,7 @@ export interface ProjectRow {
   pct: number;
   hasMaterials: boolean;
   isComplete: boolean;
+  phaseId: string | null;
 }
 
 interface GridPending {
@@ -102,6 +104,7 @@ export function RowMarkingWorkspace({
 }) {
   const [activePageIndex, setActivePageIndex] = useState(0);
   const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set());
+  const [hiddenPhaseIds, setHiddenPhaseIds] = useState<Set<string>>(new Set());
   const [isPanMode, setIsPanMode] = useState(false);
   const [autoRowsDialogOpen, setAutoRowsDialogOpen] = useState(false);
   const [gridPending, setGridPending] = useState<GridPending | null>(null);
@@ -615,6 +618,21 @@ export function RowMarkingWorkspace({
         {" · "}Scroll/pinch to zoom, hold Space or use Pan to pan.
       </p>
 
+      {phases.length > 0 ? (
+        <PhaseLegend
+          phases={phases}
+          hiddenPhaseIds={hiddenPhaseIds}
+          onToggle={(phaseId) =>
+            setHiddenPhaseIds((prev) => {
+              const next = new Set(prev);
+              if (next.has(phaseId)) next.delete(phaseId);
+              else next.add(phaseId);
+              return next;
+            })
+          }
+        />
+      ) : null}
+
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
       {activePage ? (
@@ -630,6 +648,8 @@ export function RowMarkingWorkspace({
             baseHeight={activePage.height}
             rows={pageRows}
             selectedRowIds={selectedRowIds}
+            phases={phases}
+            hiddenPhaseIds={hiddenPhaseIds}
             isPanMode={isPanMode}
             onDrawBox={handleDrawBox}
             onSelectSingle={(id) => {

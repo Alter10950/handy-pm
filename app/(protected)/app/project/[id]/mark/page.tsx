@@ -41,6 +41,7 @@ export default async function ProjectMarkPage({
     pct: row.pct,
     hasMaterials: row.has_materials,
     isComplete: row.is_complete,
+    phaseId: row.phase_id,
   }));
 
   return (

@@ -5,6 +5,65 @@ Consequences.
 
 ---
 
+## ADR-023: Phases full UI — inline border color (not a fill), hide filters rows out of the render entirely
+
+**Decision date:** 2026-07-03
+
+**Context:** Sub-phase D of Batch 2: render each phase's rows in its color
+on the drawing, a legend with a show/hide toggle, and filtering the
+Materials and Progress tabs by phase. Phase creation/assignment
+(`phases` table, `rows.phase_id`, `PhasePicker`) already existed from
+the Layout-tab rework (ADR-020); this sub-phase is the rest of it.
+
+**Choice — phase color is the row's border color, set via inline
+`style`, not a Tailwind class or a fill:** phase colors are arbitrary
+hex values chosen at creation time (`PhasePicker`'s swatch picker), so
+they can't be Tailwind utility classes (no `border-[#f2c00e]`-per-phase
+class exists ahead of time) — an inline `style={{borderColor: ...}}`
+is the direct way to apply a dynamic color. Border, not a background
+fill: the row's existing fill-bar (`RowFillMarker`, progress % as a
+bottom-up/left-right fill) already uses the background for install
+progress — overlaying a second meaning on the same visual channel would
+make both illegible. Applied identically in `RowStage` (editable,
+Layout tab) and `MaterialsReferenceStage` (read-only, Materials tab) so
+a row's phase color looks the same in both places, matching how
+`RowFillMarker` itself is already shared between them.
+
+**Choice — hiding a phase removes its rows from the render entirely,
+not just visually dims them:** `RowStage` filters
+`rows.filter(row => !row.phaseId || !hiddenPhaseIds.has(row.phaseId))`
+before mapping, rather than rendering hidden rows with reduced opacity.
+A hidden row shouldn't be selectable, draggable, or resizable — it's
+supposed to be *out of the way* while working on other phases, not just
+less visible; not rendering it at all is simpler than rendering it and
+then disabling every interaction path individually.
+
+**Choice — phase filtering on Materials/Progress computes from data
+already fetched, no new queries:** the Materials tab's phase filter
+narrows `rowProgress` (already fetched) to the selected phase's rows
+before building both the reference-stage rows and the grid columns, and
+sums `rowMaterials`' `required_qty` (already fetched) for those rows
+into a compact "assigned to this phase" summary — not a full
+reconciliation card (that would need per-row installed data this page
+doesn't currently fetch). The Progress tab's phase filter recomputes row
+count / rows complete / pct client-side from `row_progress` (already
+fetched), the same shape `project_progress` aggregates — no new view or
+query needed for either.
+
+**Consequences:** the Materials and Progress tabs each have their own
+`<select id="...phase-filter">` labeled "Filter by phase" — same label
+text on two different pages is fine for a human (each is unambiguous in
+its own page's context), but it was a real trap for
+`e2e/phases-flow.spec.ts`: a `getByLabel("Filter by phase")` fired
+before the Progress tab's client-side navigation had actually finished
+resolved to the *Materials* tab's still-present select (Next.js keeps
+the outgoing page mounted until the incoming one's data is ready, to
+avoid a blank flash), so the test silently filtered the wrong page's
+dropdown. Fixed by waiting for a Progress-tab-specific element
+(`"Overall complete"`) before touching its filter — a general lesson,
+not specific to this feature, that's worth remembering for any future
+page-to-page navigation in a test suite that reuses label text.
+
 ## ADR-022: Scheduler — remaining-qty targets, project-wide (not per-crew), replace-not-merge schedule/targets
 
 **Decision date:** 2026-07-03

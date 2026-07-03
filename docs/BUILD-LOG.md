@@ -4,6 +4,47 @@ Engineering journal. Newest entries at top.
 
 ---
 
+## 2026-07-03 — Sub-phase D: Phases full UI
+
+**What:** Batch 2's sub-phase D. Phase creation/assignment already
+existed (ADR-020, from the Layout-tab rework); this sub-phase renders
+each phase's rows in its color on the drawing, adds a legend with a
+show/hide toggle, and filters the Materials and Progress tabs by phase.
+Full reasoning in `docs/DECISIONS.md` ADR-023; summary here.
+
+**Build:** `StageRow`/`ProjectRow`/`ReferenceRow` gained `phaseId`,
+threaded from `row_progress.phase_id` through `mark/page.tsx` down to
+`RowStage`. Both `RowStage` (editable) and `MaterialsReferenceStage`
+(read-only) apply the phase's color as the row's border color via
+inline `style` (arbitrary hex values can't be Tailwind classes) and,
+in `RowStage`, filter hidden-phase rows out of the render entirely
+(not just dimmed — a hidden row shouldn't be selectable/draggable
+either). New `components/projects/phase-legend.tsx` (swatch + name +
+show/hide, used above the Layout canvas). Materials tab: a phase filter
+narrows which rows show on the reference drawing and as grid columns,
+plus a compact "assigned to this phase" summary computed from
+already-fetched `rowMaterials`. Progress tab: a phase filter
+(`components/projects/phase-progress.tsx`) recomputes row count/rows
+complete/pct client-side from already-fetched `row_progress` — no new
+queries needed for either tab's filter.
+
+**Verification:** `npm run lint`, `npm run typecheck`, `npm run build`,
+and the full `npm run test:e2e` (8 tests now, zero regressions) all
+pass. New `e2e/phases-flow.spec.ts` covers: assigning a row to a new
+phase and confirming its border color actually changed (polled via
+`getComputedStyle`, not just "the legend entry appeared"), hiding the
+phase and confirming the row disappears from the drawing while the
+other row stays, un-hiding it, filtering the Materials tab (confirms
+the *other* row's label is no longer visible), and filtering the
+Progress tab. The Progress-tab step caught a real test-design trap
+worth remembering generally: the Materials and Progress tabs both have
+a `<select>` labeled "Filter by phase," and clicking the "Progress" nav
+link doesn't block until the client-side navigation finishes — a
+`getByLabel("Filter by phase")` that fires too early silently resolves
+to the *Materials* tab's still-mounted select instead (Next.js keeps
+the outgoing page around until the incoming one's data is ready).
+Fixed by waiting for a Progress-tab-specific element first.
+
 ## 2026-07-03 — Sub-phase C: Scheduler
 
 **What:** Batch 2's sub-phase C. Crew CRUD, assigning a crew to a

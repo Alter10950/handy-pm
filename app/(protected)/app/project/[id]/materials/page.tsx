@@ -1,6 +1,7 @@
 import { MaterialsWorkspace } from "@/components/projects/materials-workspace";
 import { PackingSlipUpload } from "@/components/projects/packing-slip-upload";
 import { ReconciliationCard } from "@/components/projects/reconciliation-card";
+import { listPhases } from "@/lib/phases/queries";
 import {
   getProjectProgress,
   getSignedDrawingUrl,
@@ -31,6 +32,7 @@ export default async function ProjectMaterialsPage({
     reconciliation,
     packingSlips,
     projectProgress,
+    phases,
   ] = await Promise.all([
     listMaterials(id),
     listDrawings(id),
@@ -38,6 +40,7 @@ export default async function ProjectMaterialsPage({
     listMaterialReconciliation(id),
     listPackingSlips(id),
     getProjectProgress(id),
+    listPhases(id),
   ]);
 
   const [rowMaterials, pages, packingSlipLinks] = await Promise.all([
@@ -72,6 +75,7 @@ export default async function ProjectMaterialsPage({
         materials={materials}
         reconciliation={reconciliation}
         rowMaterials={rowMaterials}
+        phases={phases}
       />
 
       <ReconciliationCard

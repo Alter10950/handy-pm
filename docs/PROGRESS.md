@@ -94,8 +94,21 @@ targets" that splits each material's remaining qty (assigned − installed
 number; see ADR-022) evenly across every remaining scheduled day, a week
 view with per-day target/actual/Hit-Miss-Exceeded, an overall SPI badge,
 and assigning a crew to a day at whole-project / specific-rows / a-phase
-granularity. Sub-phases D–F (Phases full UI, multi-page drawings,
-packing-slip AI extraction) are queued next.
+granularity.
+
+**Sub-phase D — Phases full UI — done and verified live (2026-07-03, see
+ADR-023):** each phase's rows now render in its color (an inline border
+color, since colors are arbitrary hex values from `PhasePicker`'s swatch
+picker — can't be a Tailwind class ahead of time) on both the Layout
+tab's canvas and the Materials tab's read-only reference drawing. A
+legend above the Layout canvas shows every phase with a show/hide toggle
+— hiding one removes its rows from the render entirely, not just dims
+them, so they're not selectable/draggable while hidden. The Materials
+and Progress tabs each gained a phase filter (Materials: narrows which
+rows show on the drawing/grid plus a compact per-phase assigned-qty
+summary; Progress: phase-scoped row count/complete/pct), both computed
+from data the pages already fetch — no new queries needed. Sub-phases
+E–F (multi-page drawings, packing-slip AI extraction) are queued next.
 
 This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
 
@@ -279,6 +292,10 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
 - [x] `e2e/scheduler-flow.spec.ts` (2026-07-03) — crew + member creation,
       schedule build (confirms weekends actually skipped), target
       generation, assign + unassign a crew, each verified against the DB.
+- [x] `e2e/phases-flow.spec.ts` (2026-07-03) — assign a row to a new
+      phase and confirm its border color actually changed (polled via
+      `getComputedStyle`), hide/un-hide the phase, filter Materials and
+      Progress by phase.
 
 ## Phase 6 — Field/Crew PWA ✅ built (2026-07-03)
 
