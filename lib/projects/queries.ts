@@ -115,7 +115,8 @@ export async function listRowProgress(
   const { data, error } = await supabase
     .from("row_progress")
     .select("*")
-    .eq("project_id", projectId);
+    .eq("project_id", projectId)
+    .order("created_at");
   if (error) throw error;
   return data;
 }

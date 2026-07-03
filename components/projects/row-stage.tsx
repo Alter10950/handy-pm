@@ -4,12 +4,8 @@ import { useEffect, useRef, useState } from "react";
 
 import { RowFillMarker } from "@/components/projects/row-fill-marker";
 import { ZoomControls } from "@/components/projects/zoom-controls";
-import {
-  MAX_ZOOM,
-  MIN_ZOOM,
-  useZoomPan,
-} from "@/components/projects/use-zoom-pan";
-import { cn } from "@/lib/utils";
+import { MAX_ZOOM, MIN_ZOOM, useZoomPan } from "@/components/projects/use-zoom-pan";
+import { cn, isTypingTarget } from "@/lib/utils";
 
 export interface StageRow {
   id: string;
@@ -23,8 +19,6 @@ export interface StageRow {
   isComplete: boolean;
 }
 
-export type StageTool = "grid" | "draw" | "edit" | "select" | "pan";
-
 interface Box {
   x: number;
   y: number;
@@ -32,18 +26,63 @@ interface Box {
   h: number;
 }
 
+export interface GeometryChange {
+  rowId: string;
+  before: Box;
+  after: Box;
+}
+
+type HandleId = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w";
+
+const HANDLES: {
+  id: HandleId;
+  position: string;
+  cursor: string;
+}[] = [
+  { id: "nw", position: "-top-2 -left-2", cursor: "cursor-nwse-resize" },
+  {
+    id: "n",
+    position: "-top-2 left-1/2 -translate-x-1/2",
+    cursor: "cursor-ns-resize",
+  },
+  { id: "ne", position: "-top-2 -right-2", cursor: "cursor-nesw-resize" },
+  {
+    id: "e",
+    position: "top-1/2 -right-2 -translate-y-1/2",
+    cursor: "cursor-ew-resize",
+  },
+  { id: "se", position: "-bottom-2 -right-2", cursor: "cursor-nwse-resize" },
+  {
+    id: "s",
+    position: "-bottom-2 left-1/2 -translate-x-1/2",
+    cursor: "cursor-ns-resize",
+  },
+  { id: "sw", position: "-bottom-2 -left-2", cursor: "cursor-nesw-resize" },
+  {
+    id: "w",
+    position: "top-1/2 -left-2 -translate-y-1/2",
+    cursor: "cursor-ew-resize",
+  },
+];
+
+const MIN_BOX_SIZE = 0.02;
+const NUDGE_SCREEN_PIXELS = 3;
+
 interface DragState {
   mode: "draw" | "move" | "resize" | "pan" | "marquee";
-  rowId?: string;
   startClientX: number;
   startClientY: number;
   stageWidth: number;
   stageHeight: number;
-  originGeometry?: Box;
+  currentBox?: Box;
+  moveOrigins?: { rowId: string; geometry: Box }[];
+  deferredSelectRowId?: string;
+  resizeRowId?: string;
+  resizeHandle?: HandleId;
+  resizeOrigin?: Box;
   startPanX?: number;
   startPanY?: number;
   moved: boolean;
-  currentBox?: Box;
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -56,13 +95,35 @@ function boxesIntersect(a: Box, b: Box): boolean {
   );
 }
 
-function isTypingTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false;
-  return (
-    target.tagName === "INPUT" ||
-    target.tagName === "TEXTAREA" ||
-    target.isContentEditable
-  );
+// Generic resize for any of the 8 handles: each affects the edge(s) it
+// sits on, leaving the opposite edge(s) fixed — e.g. dragging "w" changes
+// x and w but never y/h; dragging "nw" changes all four.
+function applyResize(origin: Box, handle: HandleId, dx: number, dy: number): Box {
+  let { x, y, w, h } = origin;
+  const right = origin.x + origin.w;
+  const bottom = origin.y + origin.h;
+
+  const affectsLeft = handle === "nw" || handle === "w" || handle === "sw";
+  const affectsRight = handle === "ne" || handle === "e" || handle === "se";
+  const affectsTop = handle === "nw" || handle === "n" || handle === "ne";
+  const affectsBottom = handle === "sw" || handle === "s" || handle === "se";
+
+  if (affectsLeft) {
+    x = clamp(origin.x + dx, 0, right - MIN_BOX_SIZE);
+    w = right - x;
+  }
+  if (affectsRight) {
+    w = clamp(origin.w + dx, MIN_BOX_SIZE, 1 - origin.x);
+  }
+  if (affectsTop) {
+    y = clamp(origin.y + dy, 0, bottom - MIN_BOX_SIZE);
+    h = bottom - y;
+  }
+  if (affectsBottom) {
+    h = clamp(origin.h + dy, MIN_BOX_SIZE, 1 - origin.y);
+  }
+
+  return { x, y, w, h };
 }
 
 /**
@@ -74,46 +135,53 @@ function isTypingTarget(target: EventTarget | null): boolean {
  * element reports its scaled on-screen size/position). So
  * `(clientX - rect.left) / rect.width` yields the same 0..1 fraction at
  * any zoom/pan — the transform cancels out of the ratio automatically.
+ *
+ * Direct-manipulation model (no separate draw/edit/select tools): a plain
+ * drag on empty space draws a new row; a plain drag on a selected row's
+ * body moves the whole current selection together; shift/ctrl-click
+ * toggles selection membership; shift-drag on empty space marquee-selects.
+ * A single-selected row shows 8 resize handles. Persistence and undo/redo
+ * bookkeeping both live one level up, in RowMarkingWorkspace — this
+ * component only reports what happened (before/after geometry), never
+ * calls a Server Action directly.
  */
 export function RowStage({
   imageUrl,
   baseWidth,
   baseHeight,
   rows,
-  tool,
-  selectedRowId,
-  onSelectRow,
-  onDrawBox,
-  onMoveRow,
-  onResizeRow,
-  onTapRow,
   selectedRowIds,
+  isPanMode,
+  onDrawBox,
+  onSelectSingle,
   onToggleRowSelection,
+  onMoveRows,
+  onResizeRow,
   onMarqueeSelect,
   onClearSelection,
+  onNudgeRows,
 }: {
   imageUrl: string;
   baseWidth: number;
   baseHeight: number;
   rows: StageRow[];
-  tool: StageTool;
-  selectedRowId: string | null;
-  onSelectRow: (id: string | null) => void;
-  onDrawBox: (box: Box) => void;
-  onMoveRow: (id: string, geometry: Box) => void;
-  onResizeRow: (id: string, geometry: Box) => void;
-  onTapRow: (id: string) => void;
   selectedRowIds: Set<string>;
-  onToggleRowSelection: (id: string, shift: boolean) => void;
+  isPanMode: boolean;
+  onDrawBox: (box: Box) => void;
+  onSelectSingle: (id: string) => void;
+  onToggleRowSelection: (id: string) => void;
+  onMoveRows: (changes: GeometryChange[]) => void;
+  onResizeRow: (change: GeometryChange) => void;
   onMarqueeSelect: (ids: string[]) => void;
   onClearSelection: () => void;
+  onNudgeRows: (changes: GeometryChange[]) => void;
 }) {
   const stageRef = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<DragState | null>(null);
-  const [draftGeometry, setDraftGeometry] = useState<{
-    rowId: string;
-    geometry: Box;
-  } | null>(null);
+  const [draftGeometries, setDraftGeometries] = useState<Map<
+    string,
+    Box
+  > | null>(null);
   const [spaceHeld, setSpaceHeld] = useState(false);
 
   // Falls back to the image's own natural size if the drawing row has no
@@ -137,22 +205,22 @@ export function RowStage({
     zoomPanRef.current = { zoom, panX, panY, setPanZoom };
   });
 
-  const shouldPan = tool === "pan" || spaceHeld;
+  const shouldPan = isPanMode || spaceHeld;
 
   useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent) {
+    function handleGlobalKeyDown(event: KeyboardEvent) {
       if (event.code === "Space" && !isTypingTarget(event.target)) {
         setSpaceHeld(true);
       }
     }
-    function handleKeyUp(event: KeyboardEvent) {
+    function handleGlobalKeyUp(event: KeyboardEvent) {
       if (event.code === "Space") setSpaceHeld(false);
     }
-    window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("keyup", handleKeyUp);
+    window.addEventListener("keydown", handleGlobalKeyDown);
+    window.addEventListener("keyup", handleGlobalKeyUp);
     return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("keyup", handleKeyUp);
+      window.removeEventListener("keydown", handleGlobalKeyDown);
+      window.removeEventListener("keyup", handleGlobalKeyUp);
     };
   }, []);
 
@@ -190,7 +258,7 @@ export function RowStage({
       if (event.touches.length !== 2) return;
       event.preventDefault();
       setDrag(null);
-      setDraftGeometry(null);
+      setDraftGeometries(null);
       const mid = midpoint(event.touches);
       pinchBase = {
         distance: distance(event.touches),
@@ -210,8 +278,6 @@ export function RowStage({
       const scaleRatio = distance(event.touches) / pinchBase.distance;
       const newZoom = clamp(pinchBase.zoom * scaleRatio, MIN_ZOOM, MAX_ZOOM);
 
-      // Anchor the point that was under the pinch's original midpoint to
-      // wherever that midpoint has moved to (pan + zoom together).
       const stagePointX =
         (pinchBase.midX - rect.left - pinchBase.panX) / pinchBase.zoom;
       const stagePointY =
@@ -242,7 +308,6 @@ export function RowStage({
       viewport.removeEventListener("touchend", handleTouchEnd);
       viewport.removeEventListener("touchcancel", handleTouchEnd);
     };
-    // Mount once; zoomPanRef always reads the latest zoom/pan values.
   }, []);
 
   function stageRect() {
@@ -251,34 +316,8 @@ export function RowStage({
     return el.getBoundingClientRect();
   }
 
-  function beginDrawDrag(event: React.PointerEvent<HTMLDivElement>) {
-    const rect = stageRect();
-    if (!rect) return;
-    event.currentTarget.setPointerCapture(event.pointerId);
-    setDrag({
-      mode: "draw",
-      startClientX: event.clientX,
-      startClientY: event.clientY,
-      stageWidth: rect.width,
-      stageHeight: rect.height,
-      moved: false,
-      currentBox: { x: 0, y: 0, w: 0, h: 0 },
-    });
-  }
-
-  function beginMarqueeDrag(event: React.PointerEvent<HTMLDivElement>) {
-    const rect = stageRect();
-    if (!rect) return;
-    event.currentTarget.setPointerCapture(event.pointerId);
-    setDrag({
-      mode: "marquee",
-      startClientX: event.clientX,
-      startClientY: event.clientY,
-      stageWidth: rect.width,
-      stageHeight: rect.height,
-      moved: false,
-      currentBox: { x: 0, y: 0, w: 0, h: 0 },
-    });
+  function findRow(id: string): StageRow | undefined {
+    return rows.find((row) => row.id === id);
   }
 
   function beginPanDrag(event: React.PointerEvent<HTMLDivElement>) {
@@ -295,27 +334,96 @@ export function RowStage({
     });
   }
 
-  function beginRowDrag(
+  function beginDrawOrMarquee(
     event: React.PointerEvent<HTMLDivElement>,
-    row: StageRow,
-    mode: "move" | "resize"
+    mode: "draw" | "marquee"
   ) {
-    if (tool !== "edit") return;
-    event.stopPropagation();
     const rect = stageRect();
     if (!rect) return;
     event.currentTarget.setPointerCapture(event.pointerId);
-    onSelectRow(row.id);
     setDrag({
       mode,
-      rowId: row.id,
       startClientX: event.clientX,
       startClientY: event.clientY,
       stageWidth: rect.width,
       stageHeight: rect.height,
-      originGeometry: { x: row.x, y: row.y, w: row.w, h: row.h },
+      moved: false,
+      currentBox: { x: 0, y: 0, w: 0, h: 0 },
+    });
+  }
+
+  function beginRowMove(
+    event: React.PointerEvent<HTMLDivElement>,
+    row: StageRow
+  ) {
+    const rect = stageRect();
+    if (!rect) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+
+    const isPartOfMultiSelection =
+      selectedRowIds.has(row.id) && selectedRowIds.size > 1;
+
+    if (!isPartOfMultiSelection) {
+      onSelectSingle(row.id);
+    }
+
+    const movingIds = isPartOfMultiSelection ? [...selectedRowIds] : [row.id];
+    const origins = movingIds
+      .map((id) => findRow(id))
+      .filter((r): r is StageRow => Boolean(r))
+      .map((r) => ({
+        rowId: r.id,
+        geometry: { x: r.x, y: r.y, w: r.w, h: r.h },
+      }));
+
+    setDrag({
+      mode: "move",
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      stageWidth: rect.width,
+      stageHeight: rect.height,
+      moveOrigins: origins,
+      deferredSelectRowId: isPartOfMultiSelection ? row.id : undefined,
       moved: false,
     });
+  }
+
+  function beginResize(
+    event: React.PointerEvent<HTMLDivElement>,
+    row: StageRow,
+    handle: HandleId
+  ) {
+    event.stopPropagation();
+    const rect = stageRect();
+    if (!rect) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setDrag({
+      mode: "resize",
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      stageWidth: rect.width,
+      stageHeight: rect.height,
+      resizeRowId: row.id,
+      resizeHandle: handle,
+      resizeOrigin: { x: row.x, y: row.y, w: row.w, h: row.h },
+      moved: false,
+    });
+  }
+
+  function handleRowPointerDown(
+    event: React.PointerEvent<HTMLDivElement>,
+    row: StageRow
+  ) {
+    if (shouldPan) return; // let it bubble to the stage-level pan handler
+
+    if (event.shiftKey || event.ctrlKey || event.metaKey) {
+      event.stopPropagation();
+      onToggleRowSelection(row.id);
+      return;
+    }
+
+    event.stopPropagation();
+    beginRowMove(event, row);
   }
 
   function handlePointerMove(event: React.PointerEvent<HTMLDivElement>) {
@@ -339,8 +447,10 @@ export function RowStage({
     const dy = (event.clientY - drag.startClientY) / drag.stageHeight;
 
     if (drag.mode === "draw" || drag.mode === "marquee") {
-      const x0 = (drag.startClientX - stageRect()!.left) / drag.stageWidth;
-      const y0 = (drag.startClientY - stageRect()!.top) / drag.stageHeight;
+      const rect = stageRect();
+      if (!rect) return;
+      const x0 = (drag.startClientX - rect.left) / drag.stageWidth;
+      const y0 = (drag.startClientY - rect.top) / drag.stageHeight;
       const x1 = x0 + dx;
       const y1 = y0 + dy;
       setDrag({
@@ -356,38 +466,37 @@ export function RowStage({
       return;
     }
 
-    if (drag.mode === "move" && drag.rowId && drag.originGeometry) {
-      const origin = drag.originGeometry;
-      const geometry: Box = {
-        x: clamp(origin.x + dx, 0, 1 - origin.w),
-        y: clamp(origin.y + dy, 0, 1 - origin.h),
-        w: origin.w,
-        h: origin.h,
-      };
+    if (drag.mode === "move" && drag.moveOrigins) {
+      const next = new Map<string, Box>();
+      for (const origin of drag.moveOrigins) {
+        next.set(origin.rowId, {
+          x: clamp(origin.geometry.x + dx, 0, 1 - origin.geometry.w),
+          y: clamp(origin.geometry.y + dy, 0, 1 - origin.geometry.h),
+          w: origin.geometry.w,
+          h: origin.geometry.h,
+        });
+      }
       setDrag({ ...drag, moved: true });
-      setDraftGeometry({ rowId: drag.rowId, geometry });
+      setDraftGeometries(next);
       return;
     }
 
-    if (drag.mode === "resize" && drag.rowId && drag.originGeometry) {
-      const origin = drag.originGeometry;
-      const geometry: Box = {
-        x: origin.x,
-        y: origin.y,
-        w: clamp(origin.w + dx, 0.02, 1 - origin.x),
-        h: clamp(origin.h + dy, 0.02, 1 - origin.y),
-      };
+    if (
+      drag.mode === "resize" &&
+      drag.resizeRowId &&
+      drag.resizeOrigin &&
+      drag.resizeHandle
+    ) {
+      const geometry = applyResize(drag.resizeOrigin, drag.resizeHandle, dx, dy);
       setDrag({ ...drag, moved: true });
-      setDraftGeometry({ rowId: drag.rowId, geometry });
+      setDraftGeometries(new Map([[drag.resizeRowId, geometry]]));
     }
   }
 
   function handlePointerUp() {
     if (!drag) return;
 
-    if (drag.mode === "pan") {
-      // nothing to persist — pan is view-only state
-    } else if (drag.mode === "draw") {
+    if (drag.mode === "draw") {
       const box = drag.currentBox;
       if (drag.moved && box && box.w > 0.01 && box.h > 0.01) {
         onDrawBox(box);
@@ -402,20 +511,26 @@ export function RowStage({
       } else {
         onClearSelection();
       }
-    } else if (drag.mode === "move" && drag.rowId) {
-      if (drag.moved && draftGeometry) {
-        onMoveRow(drag.rowId, draftGeometry.geometry);
-      } else {
-        onTapRow(drag.rowId);
+    } else if (drag.mode === "move" && drag.moveOrigins) {
+      if (drag.moved && draftGeometries) {
+        const changes: GeometryChange[] = drag.moveOrigins.map((origin) => ({
+          rowId: origin.rowId,
+          before: origin.geometry,
+          after: draftGeometries.get(origin.rowId) ?? origin.geometry,
+        }));
+        onMoveRows(changes);
+      } else if (drag.deferredSelectRowId) {
+        onSelectSingle(drag.deferredSelectRowId);
       }
-    } else if (drag.mode === "resize" && drag.rowId) {
-      if (draftGeometry) {
-        onResizeRow(drag.rowId, draftGeometry.geometry);
+    } else if (drag.mode === "resize" && drag.resizeRowId && drag.resizeOrigin) {
+      const after = draftGeometries?.get(drag.resizeRowId);
+      if (after) {
+        onResizeRow({ rowId: drag.resizeRowId, before: drag.resizeOrigin, after });
       }
     }
 
     setDrag(null);
-    setDraftGeometry(null);
+    setDraftGeometries(null);
   }
 
   function handleStagePointerDown(event: React.PointerEvent<HTMLDivElement>) {
@@ -423,21 +538,51 @@ export function RowStage({
       beginPanDrag(event);
       return;
     }
-    if (tool === "grid" || tool === "draw") {
-      beginDrawDrag(event);
-    } else if (tool === "edit") {
-      onSelectRow(null);
-    } else if (tool === "select") {
-      beginMarqueeDrag(event);
-    }
+    beginDrawOrMarquee(event, event.shiftKey ? "marquee" : "draw");
+  }
+
+  function handleKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
+    if (isTypingTarget(event.target) || selectedRowIds.size === 0) return;
+
+    const rect = stageRect();
+    if (!rect) return;
+    const stepX = NUDGE_SCREEN_PIXELS / (effectiveWidth * zoom);
+    const stepY = NUDGE_SCREEN_PIXELS / (effectiveHeight * zoom);
+    const multiplier = event.shiftKey ? 8 : 1;
+
+    let dx = 0;
+    let dy = 0;
+    if (event.key === "ArrowLeft") dx = -stepX * multiplier;
+    else if (event.key === "ArrowRight") dx = stepX * multiplier;
+    else if (event.key === "ArrowUp") dy = -stepY * multiplier;
+    else if (event.key === "ArrowDown") dy = stepY * multiplier;
+    else return;
+
+    event.preventDefault();
+    const changes: GeometryChange[] = [...selectedRowIds]
+      .map((id) => findRow(id))
+      .filter((row): row is StageRow => Boolean(row))
+      .map((row) => {
+        const before = { x: row.x, y: row.y, w: row.w, h: row.h };
+        const after = {
+          x: clamp(before.x + dx, 0, 1 - before.w),
+          y: clamp(before.y + dy, 0, 1 - before.h),
+          w: before.w,
+          h: before.h,
+        };
+        return { rowId: row.id, before, after };
+      });
+    onNudgeRows(changes);
   }
 
   return (
     <div
       ref={viewportRef}
       data-testid="stage-viewport"
+      tabIndex={0}
+      onKeyDown={handleKeyDown}
       className={cn(
-        "relative h-full w-full touch-none select-none overflow-hidden",
+        "relative h-full w-full touch-none touch-manipulation select-none overflow-hidden outline-none",
         shouldPan && (drag?.mode === "pan" ? "cursor-grabbing" : "cursor-grab")
       )}
     >
@@ -471,33 +616,24 @@ export function RowStage({
         />
 
         {rows.map((row) => {
-          const geometry =
-            draftGeometry?.rowId === row.id ? draftGeometry.geometry : row;
-          const isSelected = selectedRowId === row.id;
-          const isBulkSelected = selectedRowIds.has(row.id);
+          const draft = draftGeometries?.get(row.id);
+          const geometry = draft ?? row;
+          const isSelected = selectedRowIds.has(row.id);
+          const isSingleSelected = isSelected && selectedRowIds.size === 1;
           const isVertical =
             geometry.h * effectiveHeight >= geometry.w * effectiveWidth;
 
           return (
             <div
               key={row.id}
-              onPointerDown={(event) => {
-                if (tool === "select") {
-                  event.stopPropagation();
-                  onToggleRowSelection(row.id, event.shiftKey);
-                  return;
-                }
-                beginRowDrag(event, row, "move");
-              }}
+              data-testid={`row-box-${row.label}`}
+              onPointerDown={(event) => handleRowPointerDown(event, row)}
               className={cn(
-                "absolute overflow-hidden rounded border-2 border-white/50 bg-[#5b6675]/30",
+                "absolute rounded border-2 border-white/50 bg-[#5b6675]/30",
                 !row.hasMaterials &&
                   "border-dashed border-destructive bg-destructive/15",
                 isSelected &&
-                  "outline outline-2 outline-white outline-offset-1",
-                tool === "select" &&
-                  isBulkSelected &&
-                  "outline outline-2 outline-primary outline-offset-1 bg-primary/25"
+                  "outline outline-2 outline-primary outline-offset-1"
               )}
               style={{
                 left: `${geometry.x * 100}%`,
@@ -506,31 +642,37 @@ export function RowStage({
                 height: `${geometry.h * 100}%`,
               }}
             >
-              <RowFillMarker
-                label={row.label}
-                pct={row.pct}
-                hasMaterials={row.hasMaterials}
-                isComplete={row.isComplete}
-                isVertical={isVertical}
-              />
-              {tool === "edit" && isSelected ? (
-                <div
-                  onPointerDown={(event) => beginRowDrag(event, row, "resize")}
-                  className="absolute -right-2.5 -bottom-2.5 size-5 cursor-nwse-resize rounded-full border-2 border-primary bg-white"
+              {/* Own overflow-hidden wrapper, separate from the row box
+                  itself: the resize handles below are deliberately
+                  positioned outside the row's box (centered on its corners
+                  and edges), and clipping them along with the fill bar
+                  would leave a handle's own geometric center sitting right
+                  on the clip boundary — an unreliably-hittable target. */}
+              <div className="absolute inset-0 overflow-hidden rounded">
+                <RowFillMarker
+                  label={row.label}
+                  pct={row.pct}
+                  hasMaterials={row.hasMaterials}
+                  isComplete={row.isComplete}
+                  isVertical={isVertical}
                 />
-              ) : null}
-              {tool === "select" ? (
-                <div
-                  className={cn(
-                    "absolute top-1 left-1 flex size-5 items-center justify-center rounded border-2 text-xs font-bold",
-                    isBulkSelected
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "border-white/70 bg-black/20 text-transparent"
-                  )}
-                >
-                  ✓
-                </div>
-              ) : null}
+              </div>
+              {isSingleSelected
+                ? HANDLES.map((handle) => (
+                    <div
+                      key={handle.id}
+                      data-testid={`resize-handle-${handle.id}`}
+                      onPointerDown={(event) =>
+                        beginResize(event, row, handle.id)
+                      }
+                      className={cn(
+                        "absolute size-4 rounded-full border-2 border-primary bg-white",
+                        handle.position,
+                        handle.cursor
+                      )}
+                    />
+                  ))
+                : null}
             </div>
           );
         })}
@@ -554,12 +696,7 @@ export function RowStage({
         ) : null}
       </div>
 
-      <ZoomControls
-        zoom={zoom}
-        onZoomIn={zoomIn}
-        onZoomOut={zoomOut}
-        onFit={fit}
-      />
+      <ZoomControls zoom={zoom} onZoomIn={zoomIn} onZoomOut={zoomOut} onFit={fit} />
     </div>
   );
 }

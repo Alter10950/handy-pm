@@ -106,101 +106,129 @@ render each PDF page (capped at 15 pages) or a plain image onto a
 the browser client, then calls a Server Action once just to insert the
 `drawings`/`packing_slips` row and revalidate. See ADR-012 and ADR-013.
 
-## Drawing marking (Phase 4, zoom/pan/multi-select/duplicate added 2026-07-03)
+## Drawing marking (Phase 4; reworked into one direct-manipulation canvas + undo/redo, 2026-07-03)
 
 `/app/project/[id]/mark` renders `RowMarkingWorkspace`
-(`components/projects/row-marking-workspace.tsx`), which owns tool
-selection (`grid` / `draw` / `edit` / `select` / `pan`), fullscreen state,
-multi-select state, the active page, and orchestrates:
+(`components/projects/row-marking-workspace.tsx`), which owns selection
+state, undo/redo, fullscreen state, the active page, and orchestrates:
 
-- `RowStage` (`row-stage.tsx`) — the pointer-interactive canvas. Pointer
-  capture on `pointerdown` (so drags keep tracking even if the cursor
-  leaves the element) drives drag modes: `draw` (drag a new box — used by
-  both "Draw one" and, once "Auto rows" is armed with a count/orientation,
-  "Auto rows"), `move`, `resize` (corner handle, edit tool only), `pan`
-  (Hand tool, or holding Space, or a native touch drag), and `marquee`
-  (Select tool, drag over empty area). Geometry updates render from local
-  "draft" state during a drag and only call back to the parent (to
-  persist) on `pointerup` — never on every `pointermove`, or every frame
-  would hit the database. A `pointerup` with no net movement is treated as
-  a tap: in `edit` it opens the rename/duplicate/delete sheet; in `select`
-  a tap on empty space clears the selection instead.
-  Row fill orientation (does the progress bar fill bottom-to-top or
-  left-to-right?) is decided by comparing **rendered pixel** dimensions
+- `RowStage` (`row-stage.tsx`) — the pointer-interactive canvas. No more
+  separate Draw/Edit/Select tools (removed — see ADR-020): a plain
+  pointerdown on a row selects it (shift/ctrl-click adds/removes it from
+  a multi-selection); pointerdown on empty space draws a new box, or,
+  held with Shift, marquee-selects; pointerdown on a row that's already
+  part of the current selection moves the whole selection together
+  (`beginRowMove` decides move-vs-select at pointerdown time from
+  whether the clicked row is already in a multi-row selection). A
+  single-selected row shows 8 resize handles (4 corners + 4 edge
+  midpoints — `HANDLES`), each wired to a generic `applyResize()` that
+  grows/shrinks whichever edge(s) the dragged handle sits on
+  (`affectsLeft/Right/Top/Bottom` booleans per handle), leaving the
+  opposite edge(s) fixed. Pointer capture on `pointerdown` keeps a drag
+  tracking even if the cursor leaves the element. Geometry updates
+  render from local "draft" state during a drag and only call back to
+  the parent (to persist) on `pointerup` — never on every `pointermove`.
+  Arrow keys nudge the current selection by a small zoom-aware
+  screen-pixel step (Shift = 8x). Row fill orientation (does the
+  progress bar fill bottom-to-top or left-to-right?) is decided by
+  comparing **rendered pixel** dimensions
   (`geometry.h * effectiveHeight >= geometry.w * effectiveWidth`) against
   the stage's known natural size — not the raw normalized `w`/`h`, which
   are only directly comparable when the stage happens to be square.
   Caught in self-review; see `docs/BUILD-LOG.md`.
-- **Zoom/pan** (`use-zoom-pan.ts` + `zoom-controls.tsx`) — a pure CSS
-  `transform: translate() scale()` on the stage element, inside a
-  fixed-size `overflow: hidden` viewport. Row geometry stays normalized
-  0..1 in the DB; the draw/move/resize math above needs **no changes** to
-  stay correct under this transform, because every formula reads the
-  stage's _current_ `getBoundingClientRect()`, and the browser already
-  folds the live transform into that rect — `(clientX - rect.left) /
-rect.width` yields the same 0..1 fraction at any zoom/pan, the
-  transform cancels out of the ratio automatically. Verified directly (not
-  just by inspection): `e2e/row-workspace.spec.ts` draws a row at fit-zoom,
-  zooms in ~2.4x, drags over the exact same underlying content region
-  (computed from the stage's post-zoom bounding rect), and asserts both
-  rows land within 0.02 of the same normalized geometry in the DB.
-  Wheel (any) zooms toward the cursor; native (non-React) wheel/touch
-  listeners are used so `preventDefault()` actually suppresses the
-  browser's own scroll/pinch — React's `onWheel`/`onTouch*` props are
-  passive by default and silently ignore `preventDefault()`. Two-finger
-  touch drives combined pinch-zoom + pan via native `touchstart/move/end`,
-  tracked separately from the single-pointer drag state above. Holding
-  Space temporarily engages pan regardless of the active tool (ignored
-  while typing in a field). `useZoomPan` takes the viewport ref as an
-  argument rather than creating and returning it, and callers destructure
-  its return value into plain local variables — both deliberate: mixing a
-  ref into an object whose other fields are read via `.property` access
-  trips `eslint-plugin-react-hooks`'s stricter `react-hooks/refs` rule
-  even for the non-ref fields.
-- **Fullscreen** — `RowMarkingWorkspace`'s root (toolbar + stage, not just
-  the stage) is the `requestFullscreen()` target, so the tool/zoom
-  controls stay reachable in fullscreen. Listens for `fullscreenchange`
-  (handles Esc-to-exit, which bypasses the button).
-- **Multi-select + bulk quantities** — `select` tool: tap toggles a row
-  in/out of `selectedRowIds`; shift-click selects the contiguous range
-  from the last-tapped row (the anchor) to the clicked one, using rows
-  sorted by `rowNumber()` (`lib/rows/naming.ts`) rather than raw
-  array/DB order, since `listRowProgress` has no `ORDER BY` and Postgres
-  doesn't guarantee one — "select rows 2-11" needs a numeric, not
-  incidental, ordering. Marquee-drag unions in every row whose bounding
-  box intersects the dragged rectangle. `BulkMaterialsPanel` then shows one
-  quantity input per project material (blank = leave untouched) and calls
-  `upsertRowMaterialQtyBulk` once for the whole selection × the filled-in
-  materials — one upsert covering every (row, material) pair, not N×M
-  round trips.
+  - **Resize handles live outside their row's own clipping wrapper.**
+    Corner/edge handles are deliberately centered *on* the row's own
+    border (extending a few pixels past it in every direction) — as
+    children of the row's own `overflow-hidden` box (needed to clip the
+    fill-bar/label to the row's rounded rectangle), a corner handle's
+    clip boundary ran right through its own geometric center, making it
+    unreliably grabbable (a drag aimed at "se" could silently land on
+    "s" instead). Fixed by giving the fill-bar/label their own
+    `overflow-hidden` wrapper one level in, leaving the row's own box —
+    which hosts the handles — unclipped. Found via
+    `e2e/row-workspace.spec.ts`, not self-review; see ADR-020.
+- **Zoom/pan** (`use-zoom-pan.ts` + `zoom-controls.tsx`) — unchanged by
+  the interaction-model rework: a pure CSS `transform: translate()
+  scale()` on the stage element, inside a fixed-size `overflow: hidden`
+  viewport. Row geometry stays normalized 0..1 in the DB; the
+  draw/move/resize math above needs **no changes** to stay correct
+  under this transform, because every formula reads the stage's
+  _current_ `getBoundingClientRect()`, and the browser already folds the
+  live transform into that rect — `(clientX - rect.left) / rect.width`
+  yields the same 0..1 fraction at any zoom/pan, the transform cancels
+  out of the ratio automatically. Verified directly (not just by
+  inspection): `e2e/row-workspace.spec.ts` draws a row at fit-zoom, zooms
+  in 4x, drags over the exact same underlying content region (computed
+  from the stage's post-zoom bounding rect), and asserts both rows land
+  within 0.02 of the same normalized geometry in the DB. Wheel (any)
+  zooms toward the cursor; native (non-React) wheel/touch listeners are
+  used so `preventDefault()` actually suppresses the browser's own
+  scroll/pinch — React's `onWheel`/`onTouch*` props are passive by
+  default and silently ignore `preventDefault()`. Two-finger touch
+  drives combined pinch-zoom + pan via native `touchstart/move/end`.
+  Holding Space or the Pan toggle engages pan regardless of what's
+  selected (ignored while typing in a field).
+- **Fullscreen** — unchanged: `RowMarkingWorkspace`'s root (toolbar +
+  stage, not just the stage) is the `requestFullscreen()` target, so the
+  toolbar/undo/zoom controls stay reachable. Listens for
+  `fullscreenchange` (handles Esc-to-exit, which bypasses the button).
+- **Undo/redo** (`use-undo-stack.ts`, ADR-020) — command-pattern stack:
+  every mutation (draw, move, resize, nudge, rename, delete, duplicate,
+  one auto-rows batch, one bulk material/phase assignment) pushes a
+  self-contained `{label, undo, redo}` entry built at the call site from
+  the before/after data it already has, rather than a central
+  type-dispatched reducer. Rows persist to the DB immediately, so
+  undo/redo re-issues the inverse Server Action call(s) so the revert
+  actually sticks, not just a client-side visual rollback; a toast shows
+  "Undone"/"Redone" (`toast.tsx`). Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y are
+  attached to `window` (via a ref-held handler + effect, not a React
+  `onKeyDown` on a wrapping div): a command-panel action like Delete
+  clears the selection as part of handling its own click, unmounting the
+  (until-then-focused) button — the browser then moves focus to
+  `<body>`, outside any div-scoped listener's subtree, silently breaking
+  the very next Ctrl+Z. Found via `e2e/row-workspace.spec.ts`; see
+  ADR-020.
+- `RowCommandPanel` — button row acting on the current selection: Copy
+  (duplicate incl. materials — sequential per row, not batched, to keep
+  per-row placement/materials-copy logic simple and correct), Rename
+  (single-selection only), Set materials (`BulkMaterialsPanel`), Set
+  phase (`PhasePicker`), Delete, Clear. Delete/Backspace keys do the
+  same as the Delete button.
 - `AutoRowsDialog` — count + orientation ("vertical, side-by-side,
   left→right" splits width into N columns; "horizontal, stacked,
   top→bottom" splits height into N rows), matching the reference
-  prototype's `applyGrid` math exactly. Confirming arms grid mode; after
-  one box is dragged and the batch is created, the tool auto-returns to
-  `edit` rather than staying armed for a second (dialog-less) batch.
-- `RowEditSheet` — rename, **duplicate**, or delete the tapped row.
-  Deliberately does not touch required-material quantities directly
-  (that's the Materials tab's job, or the bulk panel above) except via
-  duplicate's own copy-materials option.
-- `DuplicateRowDialog` + `duplicateRows` (`lib/rows/actions.ts`) — copies
-  are placed adjacent to the source (offset by the source's own width if
-  it's narrower than tall, matching how "vertical" auto-rows sit
-  side-by-side; offset by height otherwise, matching "horizontal"
-  auto-rows stacking), auto-named the next sequential "Row N", clamped to
-  stay within `[0, 1]`. `copyMaterials` (default on) also copies the
-  source row's current `row_materials` onto every copy in the same
-  action — two round trips (insert rows, then read + insert
-  `row_materials` using the new rows' generated ids), not N one-off calls.
+  prototype's `applyGrid` math exactly. Confirming arms grid mode; the
+  next drag-on-empty-space creates the whole batch in one Server Action
+  call and pushes one undo entry for it.
+- `PhasePicker` — dropdown of existing phases (color swatch + name) +
+  "No phase" + inline "+ New phase" creation (name + 6 preset color
+  swatches); "Set phase" assigns the current selection in one action,
+  creating the phase first if new.
+- `duplicateRows` (`lib/rows/actions.ts`) — copies are placed adjacent to
+  the source (offset by the source's own width if it's narrower than
+  tall, matching how "vertical" auto-rows sit side-by-side; offset by
+  height otherwise, matching "horizontal" auto-rows stacking),
+  auto-named the next sequential "Row N", clamped to stay within
+  `[0, 1]`. `copyMaterials` (default on) also copies the source row's
+  current `row_materials` onto every copy in the same action — two round
+  trips (insert rows, then read + insert `row_materials` using the new
+  rows' generated ids), not N one-off calls.
 
 Auto-naming (`lib/rows/naming.ts`, pure functions) scans **every** row
 label in the project — not just the active page's — for the highest
-`Row N`, so numbering continues correctly across pages; `rowNumber()`
-extracts a single label's N (or `null` for a custom-renamed label), used
-for the multi-select ordering above. Mutations (`lib/rows/actions.ts`:
-`createRow`, `createRowsBatch`, `updateRowGeometry`, `renameRow`,
-`deleteRow`, `duplicateRows`, `upsertRowMaterialQtyBulk`) are Server
-Actions, consistent with ADR-012.
+`Row N`, so numbering continues correctly across pages. `listRowProgress`
+orders by `rows.created_at` (added to the `row_progress` view
+specifically for this, appended at the end of its SELECT list per the
+`CREATE OR REPLACE VIEW` positional-columns constraint — see ADR-019) so
+row order — and therefore which row paints on top when two overlap, e.g.
+a freshly duplicated row placed near its source — is deterministic
+rather than whatever order Postgres happens to return with no
+`ORDER BY`; found via `e2e/row-workspace.spec.ts` intermittently failing
+a click on a duplicated row, see ADR-020. Mutations
+(`lib/rows/actions.ts`: `createRow`, `createRowsBatch`,
+`deleteRowsBatch`, `getRowSnapshots`, `restoreRows`, `updateRowGeometry`,
+`renameRow`, `duplicateRows`, `setRowsPhase`, `getRowPhases`,
+`upsertRowMaterialQtyMany`) are Server Actions, consistent with ADR-012.
 
 `RowFillMarker` (`components/projects/row-fill-marker.tsx`) — the fill
 bar + label + hazard-icon visual — is shared between `RowStage` (editable)

@@ -4,6 +4,89 @@ Engineering journal. Newest entries at top.
 
 ---
 
+## 2026-07-03 — Layout tab reworked into one direct-manipulation canvas + undo/redo
+
+**What:** Two requests landed back to back mid-batch (after sub-phase 0 +
+A, before sub-phase B): add undo/redo, then rework the whole Layout tool
+model into one direct-manipulation canvas (no separate Draw/Edit/Select
+buttons). Full reasoning in ADR-020; this entry covers the build and,
+mainly, what the E2E suite caught.
+
+**Build:** `row-stage.tsx` and `row-marking-workspace.tsx` rewritten.
+Click a row to select; shift/ctrl-click adds/removes from the selection;
+drag a selected row's body to move the whole selection; drag empty space
+to draw (or shift-drag to marquee-select); 8 resize handles on a single
+selection; arrow keys nudge. New: `use-undo-stack.ts`, `toast.tsx`,
+`row-command-panel.tsx`, `phase-picker.tsx`, `lib/phases/{actions,
+queries}.ts`. Deleted (superseded): `duplicate-row-dialog.tsx`,
+`row-edit-sheet.tsx`. `lib/rows/actions.ts` gained batch/snapshot/restore
+helpers undo needs (`deleteRowsBatch`, `getRowSnapshots`, `restoreRows`,
+`upsertRowMaterialQtyMany` replacing the old cross-product bulk upsert).
+
+**Rewriting `e2e/row-workspace.spec.ts` for the new model found three real
+app bugs — not just test-design issues** (though there were plenty of
+those too; see below). All three are detailed in ADR-020:
+
+1. **Resize handles were unreliably grabbable**, worst on corner handles.
+   They're deliberately centered on the row's own border, but rendered as
+   children of the row's `overflow-hidden` box (needed to clip the
+   fill-bar to the row's rounded corners) — the clip boundary ran right
+   through a corner handle's own center. A drag aimed at "se" would
+   sometimes silently behave like "s" instead (its closest, still-visible
+   neighbor winning the ambiguous hit-test). Fixed by giving the
+   fill-bar/label their own clipping wrapper, one level inside the row's
+   now-unclipped box.
+2. **Ctrl+Z stopped working right after Delete.** The undo/redo listener
+   was a React `onKeyDown` on the workspace's root div — reasonable-
+   sounding ("keydown bubbles up from whatever's focused"), except
+   clicking Delete clears the selection as part of the same click,
+   unmounting the just-focused Delete button; the browser then moves
+   focus to `<body>`, outside the div's subtree, and the next Ctrl+Z
+   never reaches the handler. Fixed by attaching the listener to
+   `window` instead (matching the existing Space-to-pan pattern in
+   `row-stage.tsx`).
+3. **Row paint/click order was non-deterministic.** `listRowProgress` had
+   no `ORDER BY`; a comment already flagged this for multi-select
+   ordering (worked around locally with `rowNumber()` sorting), but
+   render/paint order — which row is "on top" where two overlap, e.g. a
+   freshly duplicated row next to its source — was still whatever
+   Postgres felt like returning that query. New migration
+   `20260703172037_add_row_progress_ordering.sql` appends
+   `rows.created_at` to the view; `listRowProgress` now does
+   `.order("created_at")`.
+
+**E2E test-design bugs found and fixed along the way** (these were test
+bugs, not app bugs): the 12-row auto-rows setup originally filled almost
+the entire drawing, so a later "draw in empty space" step landed on an
+existing row instead — narrowed the setup drag to a corner strip. A
+"draw a new row" target was briefly moved off-center to dodge that same
+fill area, which would have reintroduced the exact
+zoom-toward-center-goes-off-screen bug from the previous session — kept
+the target centered and narrowed the auto-rows strip instead. Several
+`getByText("Row N").click()` calls were switched to
+`getByTestId("row-box-Row N")`: clicking a label span directly is
+unreliable once a row is narrow enough that the label's natural text
+width exceeds the row's own box (the label isn't width-clamped, so its
+click target can extend into a neighboring row). A `getByRole("button",
+{name: "Clear"})` collided with a second, unrelated "Clear selection"
+button visible at the same time — added `exact: true`. A resize
+assertion read the database immediately after `mouse.up()`, racing the
+Server Action's round trip — switched to `expect.poll`. Nudging
+immediately after resizing raced the client's own re-render (the nudge
+handler rebuilds the full box from the `rows` prop, so reading it before
+the resize's re-render lands would silently revert the just-applied
+width/height) — fixed by polling the row's own rendered bounding box
+before nudging, not a network-based proxy.
+
+**Verification:** `npm run lint`, `npm run typecheck`, `npm run build`,
+and the full `npm run test:e2e` (5 tests, zero regressions) all pass.
+`e2e/row-workspace.spec.ts` now covers: zoom-accuracy draw, click +
+shift-click multi-select with an exact-boundary materials check, copy +
+rename, move, resize, arrow-key nudge, phase creation + assignment,
+delete → undo → redo, and reload persistence — in one continuous flow on
+one project, matching how a real session would actually use these
+features together rather than in isolation.
+
 ## 2026-07-03 — Sub-phase 0 migration applied and verified live
 
 **What:** User provided a one-time Supabase personal access token.

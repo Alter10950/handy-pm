@@ -55,12 +55,26 @@ diffed against the hand-written types — an exact match (the generator's
 plain `string` for CHECK-constrained columns vs. this codebase's literal
 union types, e.g. `BlockerCode`, is an intentional, valid improvement
 per ADR-010, not a discrepancy). Sub-phase A (Team deactivate/reactivate)
-is also done. Sub-phases B–F (Field/Crew closeout, Scheduler, Phases,
-multi-page drawings, packing-slip AI extraction) are queued — an
-interrupt arrived first asking for undo/redo plus a full rework of the
-Layout tab's interaction model (single direct-manipulation canvas
-instead of separate Draw/Edit/Select tools), tracked as its own entry
-below since it lands before sub-phase B resumes.
+is also done.
+
+**Layout tab interaction-model rework + undo/redo — done and verified
+live (2026-07-03, see ADR-020):** an interrupt arrived between sub-phase
+A and B asking for undo/redo, then (before that landed) a full rework of
+the Layout tab into one direct-manipulation canvas — no separate
+Draw/Edit/Select tools; click/shift-click/drag directly on rows and
+empty space. Rewriting `e2e/row-workspace.spec.ts` for the new model
+found and fixed **three real app bugs**, not just test issues: resize
+handles were unreliably grabbable (a clipping/z-order issue, worst on
+corner handles); Ctrl+Z silently stopped working right after Delete (a
+focus-loss bug — the just-clicked Delete button unmounts as part of
+clearing the selection, and the browser moves focus to `<body>`, outside
+the div-scoped listener that used to catch the shortcut); and row
+paint/click order was non-deterministic (`listRowProgress` had no
+`ORDER BY` — new migration `20260703172037_add_row_progress_ordering.sql`
+adds `rows.created_at` to `row_progress` and the query now orders by it).
+Full detail in `docs/BUILD-LOG.md` and ADR-020. Sub-phases B–F
+(Field/Crew closeout, Scheduler, Phases, multi-page drawings,
+packing-slip AI extraction) are queued, resuming now with sub-phase B.
 
 This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
 
@@ -129,32 +143,43 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
       — create-project-through-upload-materials flow confirmed working
       against the real Supabase project, not just self-review.
 
-## Phase 4 — Drawing marking / row setup ✅ built (2026-07-02, extended 2026-07-03)
+## Phase 4 — Drawing marking / row setup ✅ built (2026-07-02, reworked 2026-07-03)
 
 - [x] Layout tab: drawing stage with row overlays (`RowStage`).
 - [x] Auto rows tool (drag box → split N equal, orientation choice).
-- [x] Draw one / Edit tools (select, move, resize, rename, delete).
+- [x] One direct-manipulation canvas — no separate Draw/Edit/Select
+      tools (reworked 2026-07-03, see ADR-020): click to select
+      (shift/ctrl-click for multi, shift-drag to marquee), drag a
+      selected row's body to move the whole selection, drag empty space
+      to draw, 8 resize handles on a single selection, arrow keys nudge,
+      Delete/Backspace to delete.
+- [x] Undo/redo (Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y) covering every mutation
+      above plus rename/duplicate/auto-rows-batch/bulk assignment, each
+      reverting the actual database change, not just the on-screen
+      state — see ADR-020.
 - [x] Sequential auto-naming, immediate persistence, multi-page aware.
 - [x] Row fill % + hazard indicator for unassigned rows.
 - [x] Zoom (wheel/ctrl+wheel/pinch toward cursor, +/−/Fit buttons) + pan
-      (Hand tool, space-drag, two-finger touch) + Fullscreen — a pure
+      (Hand toggle, space-drag, two-finger touch) + Fullscreen — a pure
       view transform, row coordinates stay normalized 0..1 in the DB.
-- [x] Select tool: tap/shift-range/marquee multi-select rows, then
-      "Set materials for selected rows" writes required_qty for every
-      selected row × filled-in material in one action.
-- [x] Duplicate a row (same geometry, placed adjacent, auto-named,
-      optional "duplicate N times"), with or without copying its
-      material assignments.
-- [x] **Verified live** — `e2e/row-workspace.spec.ts`: draws a row at
-      fit-zoom and again after zooming ~2.4x over the same content,
-      confirming normalized geometry matches within tolerance directly
-      against the DB; selects rows 2-11 and bulk-sets 2 materials,
-      confirming rows 1/12 (just outside the range) got neither;
-      duplicates a row twice with materials copied; reloads and confirms
-      everything persisted.
+- [x] Multi-select: set materials or set/create a phase for the whole
+      selection in one action (`RowCommandPanel` + `BulkMaterialsPanel` /
+      `PhasePicker`).
+- [x] Copy a row (same geometry, placed adjacent, auto-named), with or
+      without copying its material assignments.
+- [x] **Verified live** — `e2e/row-workspace.spec.ts`, one continuous
+      flow: draws a row at fit-zoom and again after zooming 4x over the
+      same content, confirming normalized geometry matches within
+      tolerance directly against the DB; click + shift-click
+      multi-select with an exact row-boundary materials check; copy +
+      rename; drag-move; handle-resize; arrow-key nudge; create-and-
+      assign a phase; delete → undo → redo (each step confirmed via a
+      real network response, not optimistic UI); reload persistence.
 - [x] **Verified live** — the fixed pixel-vs-normalized fill-orientation
-      bug (self-review catch) and the auto-rows drag flow are both
-      exercised by the E2E suite.
+      bug (self-review catch, 2026-07-02) and three real bugs the
+      rework's E2E pass caught (resize-handle clip boundary, Ctrl+Z
+      focus loss after Delete, non-deterministic row paint order — all
+      three in ADR-020) are all exercised by the E2E suite.
 
 ## Phase 5 — Materials × rows grid + reconciliation + reference drawing ✅ built (2026-07-02)
 

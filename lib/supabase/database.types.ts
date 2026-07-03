@@ -857,6 +857,7 @@ export interface Database {
           has_materials: boolean;
           is_complete: boolean;
           phase_id: string | null;
+          created_at: string;
         };
         Relationships: [];
       };

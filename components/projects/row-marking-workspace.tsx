@@ -1,30 +1,50 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Maximize, Minimize } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { Hand, Maximize, Minimize, Redo2, Undo2 } from "lucide-react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+  type FormEvent,
+} from "react";
 
 import {
   AutoRowsDialog,
   type RowOrientation,
 } from "@/components/projects/auto-rows-dialog";
 import { BulkMaterialsPanel } from "@/components/projects/bulk-materials-panel";
-import { DuplicateRowDialog } from "@/components/projects/duplicate-row-dialog";
-import { RowEditSheet } from "@/components/projects/row-edit-sheet";
-import { RowStage, type StageTool } from "@/components/projects/row-stage";
+import { PhasePicker } from "@/components/projects/phase-picker";
+import { RowCommandPanel } from "@/components/projects/row-command-panel";
+import {
+  RowStage,
+  type GeometryChange,
+} from "@/components/projects/row-stage";
+import { Toast } from "@/components/projects/toast";
+import { useUndoStack } from "@/components/projects/use-undo-stack";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { createPhase } from "@/lib/phases/actions";
 import {
   createRow,
   createRowsBatch,
-  deleteRow,
+  deleteRowsBatch,
   duplicateRows,
+  getRowMaterialQtys,
+  getRowPhases,
+  getRowSnapshots,
+  restoreRows,
   renameRow,
+  setRowsPhase,
   updateRowGeometry,
-  upsertRowMaterialQtyBulk,
+  upsertRowMaterialQtyMany,
+  type RowSnapshot,
 } from "@/lib/rows/actions";
-import { maxRowNumber, nextRowLabel, rowNumber } from "@/lib/rows/naming";
+import { maxRowNumber, nextRowLabel } from "@/lib/rows/naming";
 import type { Tables } from "@/lib/supabase/database.types";
-import { cn } from "@/lib/utils";
+import { cn, isTypingTarget } from "@/lib/utils";
 
 export interface WorkspacePage {
   id: string;
@@ -52,14 +72,6 @@ interface GridPending {
   orientation: RowOrientation;
 }
 
-const TOOL_LABELS: Record<StageTool, string> = {
-  grid: "▦ Auto rows",
-  draw: "✏️ Draw one",
-  edit: "↔ Edit",
-  select: "☑ Select",
-  pan: "✋ Hand",
-};
-
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
@@ -73,29 +85,33 @@ function clampGeometry(box: { x: number; y: number; w: number; h: number }) {
   };
 }
 
+type ActiveCommand = "rename" | "materials" | "phase" | null;
+
 export function RowMarkingWorkspace({
   projectId,
   pages,
   rows,
   materials,
+  phases,
 }: {
   projectId: string;
   pages: WorkspacePage[];
   rows: ProjectRow[];
   materials: Tables<"materials">[];
+  phases: Tables<"phases">[];
 }) {
   const [activePageIndex, setActivePageIndex] = useState(0);
-  const [tool, setTool] = useState<StageTool>("edit");
-  const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
-  const [editingRowId, setEditingRowId] = useState<string | null>(null);
+  const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set());
+  const [isPanMode, setIsPanMode] = useState(false);
   const [autoRowsDialogOpen, setAutoRowsDialogOpen] = useState(false);
   const [gridPending, setGridPending] = useState<GridPending | null>(null);
-  const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set());
-  const [selectAnchorId, setSelectAnchorId] = useState<string | null>(null);
-  const [duplicateRowId, setDuplicateRowId] = useState<string | null>(null);
+  const [activeCommand, setActiveCommand] = useState<ActiveCommand>(null);
+  const [renameValue, setRenameValue] = useState("");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [, startTransition] = useTransition();
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+  const undoStack = useUndoStack();
   const router = useRouter();
   const fullscreenRef = useRef<HTMLDivElement>(null);
 
@@ -105,22 +121,15 @@ export function RowMarkingWorkspace({
     () => rows.filter((row) => row.drawingId === activePage?.id),
     [rows, activePage]
   );
-  const editingRow = pageRows.find((row) => row.id === editingRowId) ?? null;
-  const duplicateSourceRow =
-    pageRows.find((row) => row.id === duplicateRowId) ?? null;
+  const selectedCount = selectedRowIds.size;
+  const isSingleSelection = selectedCount === 1;
 
-  const sortedPageRowIds = useMemo(() => {
-    return [...pageRows]
-      .sort((a, b) => {
-        const na = rowNumber(a.label);
-        const nb = rowNumber(b.label);
-        if (na !== null && nb !== null) return na - nb;
-        if (na !== null) return -1;
-        if (nb !== null) return 1;
-        return a.label.localeCompare(b.label);
-      })
-      .map((row) => row.id);
-  }, [pageRows]);
+  useEffect(() => {
+    if (toastMessage) {
+      const timer = setTimeout(() => setToastMessage(null), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [toastMessage]);
 
   useEffect(() => {
     function handleFullscreenChange() {
@@ -151,21 +160,73 @@ export function RowMarkingWorkspace({
     });
   }
 
+  function handleUndo() {
+    if (!undoStack.canUndo) return;
+    runAction(async () => {
+      const label = await undoStack.undo();
+      if (label) setToastMessage("Undone");
+    });
+  }
+
+  function handleRedo() {
+    if (!undoStack.canRedo) return;
+    runAction(async () => {
+      const label = await undoStack.redo();
+      if (label) setToastMessage("Redone");
+    });
+  }
+
+  // Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y / Delete / Backspace, never while typing
+  // in a field. Attached to `window` (via the ref + effect below) rather
+  // than as an onKeyDown on the root div: a command-panel action like
+  // Delete clears the selection as part of handling its own click, which
+  // unmounts the (until-then-focused) button — the browser then moves
+  // focus to <body>, outside this subtree, so a div-scoped listener would
+  // silently stop receiving the very next Ctrl+Z.
+  function handleWorkspaceKeyDown(event: KeyboardEvent) {
+    if (isTypingTarget(event.target)) return;
+    const isMod = event.ctrlKey || event.metaKey;
+
+    if (isMod && event.key.toLowerCase() === "z" && !event.shiftKey) {
+      event.preventDefault();
+      handleUndo();
+      return;
+    }
+    if (
+      (isMod && event.key.toLowerCase() === "z" && event.shiftKey) ||
+      (isMod && event.key.toLowerCase() === "y")
+    ) {
+      event.preventDefault();
+      handleRedo();
+      return;
+    }
+    if (
+      (event.key === "Delete" || event.key === "Backspace") &&
+      selectedRowIds.size > 0
+    ) {
+      event.preventDefault();
+      handleDeleteSelection();
+    }
+  }
+
+  const handleWorkspaceKeyDownRef = useRef(handleWorkspaceKeyDown);
+  useEffect(() => {
+    handleWorkspaceKeyDownRef.current = handleWorkspaceKeyDown;
+  });
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      handleWorkspaceKeyDownRef.current(event);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
   function handleDrawBox(box: { x: number; y: number; w: number; h: number }) {
     if (!activePage) return;
 
-    if (tool === "draw") {
-      const label = nextRowLabel(allLabels);
-      runAction(async () => {
-        await createRow(projectId, activePage.id, label, box);
-      });
-      return;
-    }
-
-    if (tool === "grid" && gridPending) {
+    if (gridPending) {
       const { count, orientation } = gridPending;
       setGridPending(null);
-      setTool("edit");
       const base = maxRowNumber(allLabels);
       const newRows = Array.from({ length: count }, (_, i) => ({
         label: `Row ${base + i + 1}`,
@@ -184,25 +245,85 @@ export function RowMarkingWorkspace({
                 h: box.h / count,
               },
       }));
-      runAction(() => createRowsBatch(projectId, activePage.id, newRows));
+      runAction(async () => {
+        const created = await createRowsBatch(projectId, activePage.id, newRows);
+        undoStack.push({
+          label: "Auto rows",
+          undo: async () => {
+            await deleteRowsBatch(
+              created.map((r) => r.id),
+              projectId
+            );
+          },
+          redo: async () => {
+            await createRowsBatch(
+              projectId,
+              activePage.id,
+              created.map((r) => ({ id: r.id, label: r.label, geometry: r.geometry }))
+            );
+          },
+        });
+      });
+      return;
     }
+
+    const label = nextRowLabel(allLabels);
+    runAction(async () => {
+      const { id } = await createRow(projectId, activePage.id, label, box);
+      undoStack.push({
+        label: "Draw row",
+        undo: async () => {
+          await deleteRowsBatch([id], projectId);
+        },
+        redo: async () => {
+          await createRow(projectId, activePage.id, label, box, id);
+        },
+      });
+    });
   }
 
-  function handleToggleRowSelection(id: string, shift: boolean) {
-    if (shift && selectAnchorId) {
-      const anchorIndex = sortedPageRowIds.indexOf(selectAnchorId);
-      const targetIndex = sortedPageRowIds.indexOf(id);
-      if (anchorIndex !== -1 && targetIndex !== -1) {
-        const [start, end] =
-          anchorIndex <= targetIndex
-            ? [anchorIndex, targetIndex]
-            : [targetIndex, anchorIndex];
-        const rangeIds = sortedPageRowIds.slice(start, end + 1);
-        setSelectedRowIds((prev) => new Set([...prev, ...rangeIds]));
-        return;
-      }
-    }
-    setSelectAnchorId(id);
+  function handleMoveRows(changes: GeometryChange[]) {
+    if (changes.length === 0) return;
+    runAction(async () => {
+      await Promise.all(
+        changes.map((c) => updateRowGeometry(c.rowId, projectId, c.after))
+      );
+      undoStack.push({
+        label: "Move",
+        undo: async () => {
+          await Promise.all(
+            changes.map((c) => updateRowGeometry(c.rowId, projectId, c.before))
+          );
+        },
+        redo: async () => {
+          await Promise.all(
+            changes.map((c) => updateRowGeometry(c.rowId, projectId, c.after))
+          );
+        },
+      });
+    });
+  }
+
+  function handleResizeRow(change: GeometryChange) {
+    runAction(async () => {
+      await updateRowGeometry(change.rowId, projectId, change.after);
+      undoStack.push({
+        label: "Resize",
+        undo: async () => {
+          await updateRowGeometry(change.rowId, projectId, change.before);
+        },
+        redo: async () => {
+          await updateRowGeometry(change.rowId, projectId, change.after);
+        },
+      });
+    });
+  }
+
+  function handleNudgeRows(changes: GeometryChange[]) {
+    handleMoveRows(changes);
+  }
+
+  function handleToggleRowSelection(id: string) {
     setSelectedRowIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -217,38 +338,184 @@ export function RowMarkingWorkspace({
 
   function handleClearSelection() {
     setSelectedRowIds(new Set());
-    setSelectAnchorId(null);
+    setActiveCommand(null);
   }
 
-  function handleDuplicateConfirm(count: number, copyMaterials: boolean) {
-    if (!activePage || !duplicateSourceRow) return;
-    const source = duplicateSourceRow;
-    const placeBesideX = source.w < source.h;
-    const base = maxRowNumber(allLabels);
+  function handleCopy() {
+    if (!activePage || selectedRowIds.size === 0) return;
+    const sources = [...selectedRowIds]
+      .map((id) => pageRows.find((row) => row.id === id))
+      .filter((row): row is ProjectRow => Boolean(row));
+    if (sources.length === 0) return;
 
-    const newRows = Array.from({ length: count }, (_, i) => {
-      const offset = i + 1;
-      const geometry = clampGeometry(
-        placeBesideX
-          ? {
-              x: source.x + source.w * offset,
-              y: source.y,
-              w: source.w,
-              h: source.h,
-            }
-          : {
-              x: source.x,
-              y: source.y + source.h * offset,
-              w: source.w,
-              h: source.h,
-            }
-      );
-      return { label: `Row ${base + i + 1}`, geometry };
+    runAction(async () => {
+      let nextNumber = maxRowNumber(allLabels) + 1;
+      const allCreated: RowSnapshot[] = [];
+      for (const source of sources) {
+        const placeBesideX = source.w < source.h;
+        const geometry = clampGeometry(
+          placeBesideX
+            ? { x: source.x + source.w, y: source.y, w: source.w, h: source.h }
+            : { x: source.x, y: source.y + source.h, w: source.w, h: source.h }
+        );
+        const label = `Row ${nextNumber}`;
+        nextNumber += 1;
+        const created = await duplicateRows(
+          projectId,
+          activePage.id,
+          source.id,
+          [{ label, geometry }],
+          true
+        );
+        allCreated.push(...created);
+      }
+      undoStack.push({
+        label: "Copy",
+        undo: async () => {
+          await deleteRowsBatch(
+            allCreated.map((r) => r.id),
+            projectId
+          );
+        },
+        redo: async () => {
+          await restoreRows(projectId, allCreated);
+        },
+      });
     });
+  }
 
-    runAction(() =>
-      duplicateRows(projectId, activePage.id, source.id, newRows, copyMaterials)
+  function handleDeleteSelection() {
+    if (selectedRowIds.size === 0) return;
+    const idsToDelete = [...selectedRowIds];
+    runAction(async () => {
+      const snapshots = await getRowSnapshots(idsToDelete);
+      await deleteRowsBatch(idsToDelete, projectId);
+      undoStack.push({
+        label: "Delete",
+        undo: async () => {
+          await restoreRows(projectId, snapshots);
+        },
+        redo: async () => {
+          await deleteRowsBatch(idsToDelete, projectId);
+        },
+      });
+    });
+    setSelectedRowIds(new Set());
+    setActiveCommand(null);
+  }
+
+  function handleRenameToggle() {
+    if (!isSingleSelection) return;
+    const row = pageRows.find((r) => r.id === [...selectedRowIds][0]);
+    setRenameValue(row?.label ?? "");
+    setActiveCommand(activeCommand === "rename" ? null : "rename");
+  }
+
+  function handleRenameSave(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!isSingleSelection) return;
+    const id = [...selectedRowIds][0];
+    const row = pageRows.find((r) => r.id === id);
+    if (!row) return;
+    const before = row.label;
+    const after = renameValue.trim();
+    setActiveCommand(null);
+    if (!after || after === before) return;
+
+    runAction(async () => {
+      await renameRow(id, projectId, after);
+      undoStack.push({
+        label: "Rename",
+        undo: async () => {
+          await renameRow(id, projectId, before);
+        },
+        redo: async () => {
+          await renameRow(id, projectId, after);
+        },
+      });
+    });
+  }
+
+  function handleApplyMaterials(
+    materialQtys: { materialId: string; requiredQty: number }[]
+  ): Promise<void> {
+    const rowIds = [...selectedRowIds];
+    const pairs = rowIds.flatMap((rowId) =>
+      materialQtys.map((m) => ({ rowId, materialId: m.materialId }))
     );
+
+    return new Promise((resolve, reject) => {
+      runAction(async () => {
+        try {
+          const before = await getRowMaterialQtys(pairs);
+          const after = before.map((entry) => ({
+            ...entry,
+            requiredQty:
+              materialQtys.find((m) => m.materialId === entry.materialId)
+                ?.requiredQty ?? entry.requiredQty,
+          }));
+          await upsertRowMaterialQtyMany(projectId, after);
+          undoStack.push({
+            label: "Set materials",
+            undo: async () => {
+              await upsertRowMaterialQtyMany(projectId, before);
+            },
+            redo: async () => {
+              await upsertRowMaterialQtyMany(projectId, after);
+            },
+          });
+          resolve();
+        } catch (err) {
+          reject(err);
+          throw err;
+        }
+      });
+    });
+  }
+
+  function handleApplyPhase(phaseId: string | null) {
+    const rowIds = [...selectedRowIds];
+    if (rowIds.length === 0) return;
+    setActiveCommand(null);
+
+    runAction(async () => {
+      const before = await getRowPhases(rowIds);
+      await setRowsPhase(projectId, rowIds, phaseId);
+      undoStack.push({
+        label: "Set phase",
+        undo: async () => {
+          await Promise.all(
+            before.map((b) => setRowsPhase(projectId, [b.rowId], b.phaseId))
+          );
+        },
+        redo: async () => {
+          await setRowsPhase(projectId, rowIds, phaseId);
+        },
+      });
+    });
+  }
+
+  function handleCreatePhaseAndApply(name: string, color: string) {
+    const rowIds = [...selectedRowIds];
+    if (rowIds.length === 0) return;
+    setActiveCommand(null);
+
+    runAction(async () => {
+      const { id: phaseId } = await createPhase(projectId, name, color);
+      const before = await getRowPhases(rowIds);
+      await setRowsPhase(projectId, rowIds, phaseId);
+      undoStack.push({
+        label: "Set phase",
+        undo: async () => {
+          await Promise.all(
+            before.map((b) => setRowsPhase(projectId, [b.rowId], b.phaseId))
+          );
+        },
+        redo: async () => {
+          await setRowsPhase(projectId, rowIds, phaseId);
+        },
+      });
+    });
   }
 
   return (
@@ -267,7 +534,6 @@ export function RowMarkingWorkspace({
               type="button"
               onClick={() => {
                 setActivePageIndex(index);
-                setSelectedRowId(null);
                 handleClearSelection();
               }}
               className={cn(
@@ -287,54 +553,43 @@ export function RowMarkingWorkspace({
         <Button
           type="button"
           size="sm"
-          variant={tool === "grid" ? "default" : "outline"}
+          variant="outline"
           onClick={() => setAutoRowsDialogOpen(true)}
         >
-          {TOOL_LABELS.grid}
+          ▦ Auto rows
         </Button>
         <Button
           type="button"
-          size="sm"
-          variant={tool === "draw" ? "default" : "outline"}
-          onClick={() => {
-            setGridPending(null);
-            setTool("draw");
-          }}
+          size="icon-sm"
+          variant={isPanMode ? "default" : "outline"}
+          onClick={() => setIsPanMode((prev) => !prev)}
+          aria-label="Pan mode"
+          title="Pan mode"
         >
-          {TOOL_LABELS.draw}
+          <Hand />
+        </Button>
+        <div className="mx-1 h-5 w-px bg-border" />
+        <Button
+          type="button"
+          size="icon-sm"
+          variant="outline"
+          disabled={!undoStack.canUndo}
+          onClick={handleUndo}
+          aria-label="Undo"
+          title="Undo (Ctrl+Z)"
+        >
+          <Undo2 />
         </Button>
         <Button
           type="button"
-          size="sm"
-          variant={tool === "edit" ? "default" : "outline"}
-          onClick={() => {
-            setGridPending(null);
-            setTool("edit");
-          }}
+          size="icon-sm"
+          variant="outline"
+          disabled={!undoStack.canRedo}
+          onClick={handleRedo}
+          aria-label="Redo"
+          title="Redo (Ctrl+Shift+Z)"
         >
-          {TOOL_LABELS.edit}
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant={tool === "select" ? "default" : "outline"}
-          onClick={() => {
-            setGridPending(null);
-            setTool("select");
-          }}
-        >
-          {TOOL_LABELS.select}
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant={tool === "pan" ? "default" : "outline"}
-          onClick={() => {
-            setGridPending(null);
-            setTool("pan");
-          }}
-        >
-          {TOOL_LABELS.pan}
+          <Redo2 />
         </Button>
 
         <span className="ml-auto text-xs text-muted-foreground">
@@ -354,16 +609,10 @@ export function RowMarkingWorkspace({
       </div>
 
       <p className="text-xs text-muted-foreground">
-        {tool === "grid" && gridPending
+        {gridPending
           ? "Drag a box over the rack area to split it."
-          : tool === "draw"
-            ? "Drag to draw a single row."
-            : tool === "select"
-              ? "Tap rows to select (shift-click for a range, or drag an empty area to marquee-select)."
-              : tool === "pan"
-                ? "Drag to pan the view."
-                : "Tap a row to rename, duplicate, or delete it. Drag to move, drag the corner dot to resize."}
-        {" · "}Scroll/pinch to zoom, hold Space to pan.
+          : "Click a row to select it (shift/ctrl-click for more, shift-drag to marquee) · drag empty space to draw · drag a selected row to move · arrow keys nudge."}
+        {" · "}Scroll/pinch to zoom, hold Space or use Pan to pan.
       </p>
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
@@ -380,40 +629,89 @@ export function RowMarkingWorkspace({
             baseWidth={activePage.width}
             baseHeight={activePage.height}
             rows={pageRows}
-            tool={tool}
-            selectedRowId={selectedRowId}
-            onSelectRow={setSelectedRowId}
-            onDrawBox={handleDrawBox}
-            onMoveRow={(id, geometry) =>
-              runAction(() => updateRowGeometry(id, projectId, geometry))
-            }
-            onResizeRow={(id, geometry) =>
-              runAction(() => updateRowGeometry(id, projectId, geometry))
-            }
-            onTapRow={(id) => {
-              setSelectedRowId(id);
-              setEditingRowId(id);
-            }}
             selectedRowIds={selectedRowIds}
+            isPanMode={isPanMode}
+            onDrawBox={handleDrawBox}
+            onSelectSingle={(id) => {
+              setSelectedRowIds(new Set([id]));
+              setActiveCommand(null);
+            }}
             onToggleRowSelection={handleToggleRowSelection}
+            onMoveRows={handleMoveRows}
+            onResizeRow={handleResizeRow}
             onMarqueeSelect={handleMarqueeSelect}
             onClearSelection={handleClearSelection}
+            onNudgeRows={handleNudgeRows}
           />
         </div>
       ) : null}
 
-      {tool === "select" && selectedRowIds.size > 0 ? (
+      {selectedCount > 0 ? (
+        <RowCommandPanel
+          selectedCount={selectedCount}
+          isSingleSelection={isSingleSelection}
+          isPending={isPending}
+          onCopy={handleCopy}
+          onDelete={handleDeleteSelection}
+          onRenameToggle={handleRenameToggle}
+          onMaterialsToggle={() =>
+            setActiveCommand(activeCommand === "materials" ? null : "materials")
+          }
+          onPhaseToggle={() =>
+            setActiveCommand(activeCommand === "phase" ? null : "phase")
+          }
+          onClearSelection={handleClearSelection}
+        />
+      ) : null}
+
+      {activeCommand === "rename" && isSingleSelection ? (
+        <form
+          onSubmit={handleRenameSave}
+          className="flex items-end gap-2 rounded-lg border border-border bg-card p-3"
+        >
+          <div className="flex flex-1 flex-col gap-1">
+            <label
+              htmlFor="rename-input"
+              className="text-xs font-medium text-foreground"
+            >
+              Row name
+            </label>
+            <Input
+              id="rename-input"
+              autoFocus
+              value={renameValue}
+              onChange={(event) => setRenameValue(event.target.value)}
+            />
+          </div>
+          <Button type="submit" size="default">
+            Save
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="default"
+            onClick={() => setActiveCommand(null)}
+          >
+            Cancel
+          </Button>
+        </form>
+      ) : null}
+
+      {activeCommand === "materials" ? (
         <BulkMaterialsPanel
-          selectedCount={selectedRowIds.size}
+          selectedCount={selectedCount}
           materials={materials}
           onClearSelection={handleClearSelection}
-          onApply={(materialQtys) =>
-            upsertRowMaterialQtyBulk(
-              projectId,
-              Array.from(selectedRowIds),
-              materialQtys
-            ).then(() => router.refresh())
-          }
+          onApply={handleApplyMaterials}
+        />
+      ) : null}
+
+      {activeCommand === "phase" ? (
+        <PhasePicker
+          phases={phases}
+          onApply={handleApplyPhase}
+          onCreateAndApply={handleCreatePhaseAndApply}
+          onCancel={() => setActiveCommand(null)}
         />
       ) : null}
 
@@ -428,31 +726,10 @@ export function RowMarkingWorkspace({
         onOpenChange={setAutoRowsDialogOpen}
         onConfirm={(count, orientation) => {
           setGridPending({ count, orientation });
-          setTool("grid");
         }}
       />
 
-      <DuplicateRowDialog
-        open={duplicateRowId !== null}
-        onOpenChange={(open) => {
-          if (!open) setDuplicateRowId(null);
-        }}
-        onConfirm={handleDuplicateConfirm}
-      />
-
-      {editingRow ? (
-        <RowEditSheet
-          key={editingRow.id}
-          row={editingRow}
-          onClose={() => setEditingRowId(null)}
-          onRename={(id, label) => renameRow(id, projectId, label)}
-          onDelete={(id) => deleteRow(id, projectId)}
-          onDuplicate={(id) => {
-            setEditingRowId(null);
-            setDuplicateRowId(id);
-          }}
-        />
-      ) : null}
+      <Toast message={toastMessage} />
     </div>
   );
 }

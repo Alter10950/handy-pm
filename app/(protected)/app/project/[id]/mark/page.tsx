@@ -1,5 +1,6 @@
 import { DrawingUpload } from "@/components/projects/drawing-upload";
 import { RowMarkingWorkspace } from "@/components/projects/row-marking-workspace";
+import { listPhases } from "@/lib/phases/queries";
 import {
   getSignedDrawingUrl,
   listDrawings,
@@ -13,10 +14,11 @@ export default async function ProjectMarkPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [drawings, rowProgress, materials] = await Promise.all([
+  const [drawings, rowProgress, materials, phases] = await Promise.all([
     listDrawings(id),
     listRowProgress(id),
     listMaterials(id),
+    listPhases(id),
   ]);
   const pages = await Promise.all(
     drawings.map(async (drawing) => ({
@@ -54,6 +56,7 @@ export default async function ProjectMarkPage({
           pages={pages}
           rows={rows}
           materials={materials}
+          phases={phases}
         />
       ) : (
         <div className="rounded-lg border border-dashed border-border bg-card p-10 text-center text-muted-foreground">

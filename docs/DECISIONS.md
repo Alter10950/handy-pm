@@ -5,6 +5,109 @@ Consequences.
 
 ---
 
+## ADR-020: Direct-manipulation layout canvas (no separate tools) + command-pattern undo/redo
+
+**Decision date:** 2026-07-03
+
+**Context:** Two requests arrived back to back, mid-batch: add undo/redo to
+the Layout tab, then — before that landed — rework the whole tool model
+(separate Draw/Edit/Select buttons) into one direct-manipulation canvas
+(click to select, drag a selected row to move it, 8 resize handles, plain
+drag on empty space to draw). The second absorbs the first (undo/redo
+needs to cover every mutation the new model can produce), so they're one
+combined change, landing before Batch 2's sub-phase B resumes.
+
+**Choice — command objects, not a type-dispatched reducer:** `useUndoStack`
+(`components/projects/use-undo-stack.ts`) holds two plain arrays of
+`{label, undo, redo}` entries. Each call site (move, resize, nudge,
+rename, delete, duplicate, auto-rows batch, bulk material/phase
+assignment) builds its own closure over the exact before/after data it
+already has, rather than a central `switch (entry.type)` that would need
+to know every mutation's shape. Since rows persist to the DB immediately,
+`undo`/`redo` are `async` and re-issue the actual inverse Server Action
+call(s) — a client-only visual rollback would drift from the database the
+moment a second person (or tab) looks at the project. The hook's
+`push`/`undo`/`redo` are deliberately plain functions reading `past`/
+`future` state directly from the render closure, not wrapped in
+`useCallback` with side-effecting state updaters — an early draft used
+`setPast(prev => { entryToUndo = prev.at(-1); return prev.slice(0, -1) })`,
+assigning an outer variable from inside a state updater, which is unsafe
+under React's potential double-invocation of updater functions. Caught in
+self-review before it ever ran.
+
+**Choice — Ctrl+Z/Ctrl+Shift+Z/Ctrl+Y attach to `window`, not a div's
+`onKeyDown`:** the first implementation attached the handler as
+`onKeyDown` on the workspace's root div, reasoning that "keydown bubbles
+from whatever's focused, up to this root" was enough scoping. It isn't:
+clicking Delete in the command panel clears the selection as part of
+handling that same click, which unmounts the command panel (and the
+now-gone Delete button, which had focus from the click). Browsers move
+focus to `<body>` when the focused element is removed from the document —
+outside the div's subtree entirely — so the very next Ctrl+Z silently
+never reached the handler. Found via `e2e/row-workspace.spec.ts`'s
+delete-then-undo step timing out waiting for a POST that never fired, not
+by inspection. Fixed by attaching the listener to `window` in a
+`useEffect` (cleaned up on unmount), mirroring the existing Space-to-pan
+listener in `row-stage.tsx` — scoped to "this component is mounted"
+rather than to live DOM focus, which is what the feature actually needs
+(`isTypingTarget` still guards against firing while typing in a field).
+
+**Choice — resize handles get their own clipping wrapper, separate from
+the row's box:** the 8 handles are centered *on* the row's border by
+design (a corner handle's center is the row's actual corner), extending a
+few pixels past the row's own edges in every direction. They render as
+children of the row's box, which has `overflow-hidden` + `rounded` so the
+fill-bar/label don't visually spill past the row's rounded corners. That
+same clipping was cutting the outer half of every handle — and for corner
+handles specifically, the clip boundary ran right through the handle's
+own geometric center, since the center *is* the row's edge. A test
+computing a handle's click target from its (unclipped)
+`getBoundingClientRect()` center would land exactly on that knife-edge,
+and the browser's hit-test would occasionally resolve to a different,
+still-partially-visible neighboring handle instead (observed: a drag
+aimed at the "se" handle silently resized only height, matching "s"'s
+behavior — "s" sits right next to "se" and was winning the ambiguous hit
+test). Fixed by moving `RowFillMarker` into its own
+`absolute inset-0 overflow-hidden rounded` wrapper, one level inside the
+row's own box, and dropping `overflow-hidden` from the row's box itself
+(its background/border still respect `rounded` on their own — clipping a
+box's own painted background never needed `overflow-hidden` in the first
+place, only clipping its *children* did). This is a real interaction bug,
+not just a test artifact: any user resizing a row via a corner handle was
+subject to the same knife-edge unreliability.
+
+**Choice — `listRowProgress` gets a real `ORDER BY`, not another
+client-side workaround:** the multi-select code already had one comment
+acknowledging "`listRowProgress` has no `ORDER BY` and Postgres doesn't
+guarantee one," and worked around it locally by sorting via `rowNumber()`
+for range-selection specifically. That workaround doesn't help rendering
+order — which row paints on top when two rows' boxes overlap (e.g. a
+freshly duplicated row placed adjacent to its source) was still
+undefined, and could flip between page loads. Found when
+`e2e/row-workspace.spec.ts` intermittently failed to click a duplicated
+row because an unrelated, earlier-created row happened to paint on top of
+it that run. Fixed at the source instead of adding a second workaround:
+migration `20260703172037_add_row_progress_ordering.sql` appends
+`rows.created_at` to the `row_progress` view (appended, not inserted —
+`CREATE OR REPLACE VIEW` only allows adding columns at the end, per
+ADR-019's `phase_id` lesson), and `listRowProgress` now does
+`.order("created_at")`. Row paint order — and everything downstream of
+it, like which row a click lands on when two overlap — is now
+deterministic.
+
+**Consequences:** `duplicate-row-dialog.tsx` and `row-edit-sheet.tsx` are
+deleted (superseded by the command panel + inline rename form — grepped
+first to confirm nothing else referenced them). `lib/rows/actions.ts`
+gained `deleteRowsBatch`, `getRowSnapshots`, `restoreRows`,
+`getRowMaterialQtys`, `setRowsPhase`, `getRowPhases`, and
+`upsertRowMaterialQtyMany` (replacing the old cross-product
+`upsertRowMaterialQtyBulk` — undo needs arbitrary `{rowId, materialId,
+requiredQty}` triples, since a redo's "before" values can differ per row,
+not just per selection). `lib/phases/{actions,queries}.ts` are new
+(`createPhase`, `listPhases`) — the Phases *sub-phase* (colors on the
+drawing, legend, filtering) is still queued in Batch 2; this rework only
+needed enough to create-and-assign a phase inline from "Set phase."
+
 ## ADR-019: Schema for Field/Crew closeout, Scheduler, Phases, multi-page drawings
 
 **Decision date:** 2026-07-03
