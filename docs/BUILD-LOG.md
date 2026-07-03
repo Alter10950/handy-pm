@@ -4,6 +4,69 @@ Engineering journal. Newest entries at top.
 
 ---
 
+## 2026-07-03 — Sub-phase B: Field/crew daily closeout
+
+**What:** Batch 2's sub-phase B, resumed after the Layout-tab rework
+interrupt. Mobile-first `/field` area: pick a project, pick a row (colored
+by phase, showing %), log material installs, report blockers with a
+photo, confirm the day's times, close the day. Full reasoning in
+`docs/DECISIONS.md` ADR-021; summary here.
+
+**New:** `/field` (project list, replaces the placeholder) and
+`/field/[projectId]` (the workspace) routes. `lib/crews/queries.ts`
+(`listCrews` — shared with the Scheduler sub-phase later).
+`lib/field/{queries,actions}.ts` — `getInstalledTotals` (per-row-material
+cumulative sum, computed here rather than via a new view since one
+project's install log is small),`listTodayDayLogs`/`listTodayBlockers`,
+`logInstallDelta` (idempotency-key-safe), `createBlocker`, `upsertDayLog`
+(hand-rolled find-or-update-or-insert — see ADR-021 for why this can't be
+a Postgres `ON CONFLICT` upsert), `closeDay`. `lib/field/offline-queue.ts`
+— localStorage-backed queue for install deltas specifically, with
+pub-sub so `useSyncExternalStore` can read `pendingCount` reactively.
+`components/field/`: `field-workspace.tsx` (orchestrator: row list ↔ row
+detail ↔ day panel, all client-side, one data fetch), `material-stepper.tsx`,
+`blocker-form.tsx` (code grid + note + photo, uploads to `daily-photos`
+client-side then records the path via a Server Action — same
+upload-then-record pattern as drawing/packing-slip uploads),
+`day-log-panel.tsx`, `use-crew-selection.ts`, `use-install-logger.ts`.
+
+**Two `react-hooks/set-state-in-effect` lint errors, both fixed with
+`useSyncExternalStore` instead of `useState`+`useEffect`:** both
+`useCrewSelection` (reading the remembered crew from `localStorage`) and
+the install queue's `pendingCount` originally read a browser-only value
+inside an effect and mirrored it into state — exactly the "extra render"
+pattern that ESLint's newer hooks rule flags. The lint rule turned out to
+trace through a same-scope `useCallback` too: routing the queue's drain
+through a `draining` boolean via `useState` still tripped the rule even
+though the `setState` call was inside a separately-defined function, not
+literally inline in the effect body — since `draining` is a pure internal
+mutex never rendered, it's now a `useRef` instead, which sidesteps the
+question entirely rather than working around it.
+
+**Verification:** `npm run lint`, `npm run typecheck`, `npm run build`,
+and the full `npm run test:e2e` (6 tests now, zero regressions) all pass.
+New `e2e/field-flow.spec.ts` (run at a 390×844 mobile viewport — this is
+the shape it's actually used at) covers, in one continuous flow: the
+project appearing in the Field list, picking a crew, logging a material
+delta and confirming the DB total, reporting a blocker, **going offline
+mid-session (`page.context().setOffline(true)`), logging a delta that
+queues instead of failing, confirming the pending-sync badge, going back
+online, and confirming it drains and lands in the database** — the
+riskiest part of this sub-phase actually exercised, not just reasoned
+about. Also extended `e2e/helpers/cleanup.ts`'s project teardown to
+recursively clean up `daily-photos` (nested paths, unlike the other two
+buckets — see ADR-021), so repeated test runs don't accumulate orphaned
+test photos in Storage.
+
+Manually reviewed screenshots at the mobile viewport for all four main
+views (project list, row detail with the material stepper, the blocker
+bottom sheet, the day panel) before considering this done — all four
+render cleanly. One known gap, not fixed here: the standard
+Projects/Scheduler/Field/Team header still shows on `/field/*`, which a
+crew member on a phone doesn't need; left as-is to avoid changing the
+shared protected-layout for one route group without being asked (see
+ADR-021's consequences).
+
 ## 2026-07-03 — Layout tab reworked into one direct-manipulation canvas + undo/redo
 
 **What:** Two requests landed back to back mid-batch (after sub-phase 0 +

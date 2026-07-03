@@ -5,6 +5,81 @@ Consequences.
 
 ---
 
+## ADR-021: Field (crew) app — append-only install log, localStorage offline queue, no crew-login link yet
+
+**Decision date:** 2026-07-03
+
+**Context:** Sub-phase B of Batch 2: a mobile-first `/field` area for crews to
+pick a project, log material installs against rows, report blockers with a
+photo, and confirm/close their day. The schema for this
+(`installs.idempotency_key`/`device_id`, `blockers`, `day_logs`,
+`daily-photos`) was already laid down in sub-phase 0 (ADR-019); this is
+building the actual UI/actions against it.
+
+**Choice — the offline queue covers install deltas only, not every
+mutation:** logging a material install is the one field action repeated
+dozens of times a shift, and the one the schema already carries
+`idempotency_key`/`device_id` for specifically to make replaying it safe.
+`lib/field/offline-queue.ts` persists pending deltas to `localStorage`
+(not IndexedDB — a queue of small JSON objects has no need for an async,
+versioned store) and drains them in FIFO order on mount and on the
+browser's `online` event, stopping at the first failure so a still-offline
+queue isn't hammered entry by entry. Blockers and day-log edits are
+low-frequency (a handful of times a day) — a plain "the button shows an
+error, tap it again" is enough there, and building a second, generic
+"replay any action" queue (closures can't be serialized to localStorage
+anyway, so it'd need its own {actionName, args} dispatch table) wasn't
+worth it for actions this infrequent. `logInstallDelta`
+(`lib/field/actions.ts`) treats a unique-violation on `idempotency_key` as
+success, not an error — the queue's retry-after-a-dropped-connection case
+needs that to be idempotent in truth, not just in intent. `pendingCount`
+is read via `useSyncExternalStore` against the queue's own pub-sub, not
+mirrored into component state — this also sidesteps
+`react-hooks/set-state-in-effect`, a newer lint rule that flags exactly
+the "read a browser-only value after mount" pattern this needs (see
+`useCrewSelection` below for the same fix applied a second time).
+
+**Choice — crew_id is a per-device localStorage preference, not tied to
+login:** `profiles` has no `crew_id` column, and there's no crew-management
+UI yet (`crews`/`crew_members` exist in the schema since Batch 1's
+foundational migration, but Sub-phase C — Scheduler — is what actually
+builds CRUD for them). Rather than block Field on that, `useCrewSelection`
+remembers "which crew this device is logging as" in `localStorage`,
+independent of the signed-in user — matching how a shared job-site phone
+or tablet is actually used (one device, whichever crew has it that day),
+not a personal login. Every crew-scoped write (`installs.crew_id`,
+`blockers.crew_id`, `day_logs.crew_id`) is nullable and works with no crew
+selected too. Implemented with `useSyncExternalStore`, same reasoning as
+the offline queue above — reading `localStorage` in a `useState`+`useEffect`
+pair is exactly the extra-render pattern that lint rule exists to catch.
+
+**Choice — day_logs upsert is hand-rolled, not a Postgres `ON CONFLICT`:**
+`day_logs` has `unique (project_id, crew_id, work_date)`, but Postgres
+treats every `NULL` in a unique column as distinct from every other
+`NULL` — so with no crew picked, `ON CONFLICT` would never match an
+existing "no crew" row for that project/day, and every "mark arrived"
+tap would insert a new row instead of updating one. `upsertDayLog`
+explicitly selects for an existing match (crew-nullable-aware) first, then
+updates or inserts accordingly.
+
+**Choice — photos attach to blockers, not a general daily-photo log:**
+the `daily-photos` bucket exists, but the only schema column referencing
+it is `blockers.photo_path` — there's no separate "photos of a row today"
+table. Rather than add one speculatively, `BlockerForm` is where photo
+capture lives (evidence for a reported issue), matching what the schema
+actually supports.
+
+**Consequences:** `e2e/helpers/cleanup.ts`'s `deleteProjectCompletely`
+gained a recursive Storage listing helper — `daily-photos` nests
+`{project_id}/{date}/{crew_id}/{filename}`, unlike the flat
+`{project_id}/{filename}` drawings/packing-slips use, and Storage's
+`list()` isn't recursive (a "folder" is just an entry with `id: null`).
+The standard app header (Projects/Scheduler/Field/Team nav) still renders
+on `/field/*` — reasonable for now (consistent with every other route),
+but a crew member on a phone doesn't need those links; a
+Field-specific compact header is a reasonable later polish, not done here
+to avoid changing the shared protected-layout unprompted.
+
 ## ADR-020: Direct-manipulation layout canvas (no separate tools) + command-pattern undo/redo
 
 **Decision date:** 2026-07-03

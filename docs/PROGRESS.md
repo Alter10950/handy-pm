@@ -72,9 +72,19 @@ the div-scoped listener that used to catch the shortcut); and row
 paint/click order was non-deterministic (`listRowProgress` had no
 `ORDER BY` — new migration `20260703172037_add_row_progress_ordering.sql`
 adds `rows.created_at` to `row_progress` and the query now orders by it).
-Full detail in `docs/BUILD-LOG.md` and ADR-020. Sub-phases B–F
-(Field/Crew closeout, Scheduler, Phases, multi-page drawings,
-packing-slip AI extraction) are queued, resuming now with sub-phase B.
+Full detail in `docs/BUILD-LOG.md` and ADR-020.
+
+**Sub-phase B — Field/crew daily closeout — done and verified live
+(2026-07-03, see ADR-021):** mobile-first `/field` — pick a project, pick
+a row, log material installs (offline-queued if the connection drops,
+with a pending-sync indicator — verified by actually going offline
+mid-test, not just reasoned about), report a blocker with a photo,
+confirm the day's times, close the day. `crews`/`crew_members`/etc. have
+existed in the schema since Batch 1 (see `docs/ARCHITECTURE.md`'s data
+model) but have no management UI yet — that's Sub-phase C; Field's crew
+picker works against whatever crews already exist and degrades cleanly
+to "no crew selected" otherwise. Sub-phases C–F (Scheduler, Phases,
+multi-page drawings, packing-slip AI extraction) are queued next.
 
 This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
 
@@ -252,8 +262,35 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
       (verified against the DB), multi-select + bulk quantities with an
       exact-boundary check, duplicate-with-materials, reload persistence.
 - [x] Found and fixed a real bug on its first run — see ADR-016.
+- [x] `e2e/field-flow.spec.ts` (2026-07-03, mobile viewport) — project
+      pick, crew pick, material install, blocker + photo, offline queue
+      (genuinely goes offline mid-test), day confirm + close.
 
-## Phase 6 — Field/Crew PWA (not started)
+## Phase 6 — Field/Crew PWA ✅ built (2026-07-03)
+
+- [x] `/field` — active projects list (name, address, %).
+- [x] `/field/[projectId]` — rows colored by phase, % or "no materials";
+      tap a row for its material steppers.
+- [x] Per-material qty stepper: +/− adjust a pending amount, "Log +N"
+      records an install delta, "Correct −N" for a mis-count (the
+      `installs` log is append-only; a correction is a negative entry,
+      never an edit/delete of a prior one).
+- [x] Offline queue for install deltas: queues in `localStorage` when the
+      request fails or the browser is already offline, shows a "N
+      updates pending sync" indicator, drains automatically on
+      reconnect. Idempotency-key-safe — a retried delta after a dropped
+      connection can't double-count.
+- [x] Report a blocker (10 fixed codes, note, optional photo → the
+      `daily-photos` bucket), scoped to a row or the whole project.
+- [x] Confirm the day: arrived / offload start+end / install start+end,
+      each a tap-to-mark-now (with reset), plus a note; "Close the day"
+      sets departed_at.
+- [x] Crew picker: remembered per-device (`localStorage`), not tied to
+      login — matches a shared job-site phone better than a personal
+      account would. Degrades cleanly to "no crew selected."
+- [x] **Verified live** — `e2e/field-flow.spec.ts`, including the
+      offline queue actually going offline and back (not simulated by
+      mocking) and draining into the database on reconnect.
 
 ## Phase 7 — Scheduler (not started)
 

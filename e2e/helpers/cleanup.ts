@@ -1,5 +1,30 @@
 import { createAdminClient } from "./supabase-admin";
 
+// Recursively collects every file path under a prefix. drawings/packing-
+// slips are flat (`{project_id}/{filename}`, one `list()` call is enough),
+// but daily-photos nests `{project_id}/{date}/{crew_id}/{filename}` —
+// Supabase Storage's `list()` isn't recursive, and a folder "entry" is
+// only distinguishable from a file by its `id` being null.
+async function listFilesRecursively(
+  admin: ReturnType<typeof createAdminClient>,
+  bucket: string,
+  prefix: string
+): Promise<string[]> {
+  const { data: entries, error } = await admin.storage.from(bucket).list(prefix);
+  if (error) throw error;
+
+  const paths: string[] = [];
+  for (const entry of entries) {
+    const path = `${prefix}/${entry.name}`;
+    if (entry.id === null) {
+      paths.push(...(await listFilesRecursively(admin, bucket, path)));
+    } else {
+      paths.push(path);
+    }
+  }
+  return paths;
+}
+
 // Deletes a test project and everything under it: the `projects` row
 // cascades to drawings/materials/rows/row_materials/installs/etc. at the
 // database level, but Storage objects have no FK relationship to DB rows,
@@ -20,6 +45,14 @@ export async function deleteProjectCompletely(projectId: string) {
         .remove(paths);
       if (removeError) throw removeError;
     }
+  }
+
+  const photoPaths = await listFilesRecursively(admin, "daily-photos", projectId);
+  if (photoPaths.length > 0) {
+    const { error: removeError } = await admin.storage
+      .from("daily-photos")
+      .remove(photoPaths);
+    if (removeError) throw removeError;
   }
 
   const { error } = await admin.from("projects").delete().eq("id", projectId);

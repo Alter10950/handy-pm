@@ -273,6 +273,78 @@ as a second, now-redundant editing surface. The grid intentionally has no
 prototype's own grid includes one; unit stays a plain field on `materials`
 with no dedicated edit UI yet.
 
+## Field / crew app (Phase 6, 2026-07-03)
+
+`/field` (active projects, `app/(protected)/field/page.tsx`) →
+`/field/[projectId]` (`app/(protected)/field/[projectId]/page.tsx`) fetch
+everything server-side in one `Promise.all` and hand it to
+`FieldWorkspace` (`components/field/field-workspace.tsx`), a single client
+component that switches between three views via local state (row list ↔
+row detail ↔ day panel) rather than separate routes — same reasoning as
+`RowMarkingWorkspace`: one data fetch, no full-page round trips between
+taps a crew member expects to feel instant.
+
+- **Crew selection is a per-device `localStorage` preference, not an
+  identity.** `profiles` has no `crew_id` column and there's no
+  crew-management UI yet (`crews`/`crew_members` have existed in the
+  schema since Batch 1 — see Data model below — but Sub-phase C is what
+  builds CRUD for them). `useCrewSelection` (`use-crew-selection.ts`)
+  remembers "which crew this device is logging as" independent of the
+  signed-in user, matching a shared job-site phone better than a personal
+  login would. Every crew-scoped write is nullable and degrades cleanly
+  with no crew picked. Implemented with `useSyncExternalStore` (a
+  module-level pub-sub over `localStorage`), not `useState` + `useEffect`
+  — the latter is exactly the "read a browser-only value after mount and
+  mirror it into state" pattern ESLint's `react-hooks/set-state-in-effect`
+  rule flags. See ADR-021.
+- **Material steppers** (`material-stepper.tsx`) show cumulative
+  installed vs. required per material, with a qty input (+/− adjust it
+  locally) and "Log +N" / "Correct −N" buttons that each record ONE
+  `installs` delta — the log stays append-only (a correction is a
+  negative entry, never editing/deleting a prior one, consistent with
+  the schema comment on `installs`).
+- **Offline queue** (`lib/field/offline-queue.ts` +
+  `use-install-logger.ts`) covers install deltas specifically, not a
+  generic "any action" queue — the one field action repeated dozens of
+  times a shift, and the one the schema already carries
+  `idempotency_key`/`device_id` for. A delta is attempted immediately;
+  if that fails (or the browser is already offline), it's persisted to
+  `localStorage` and drained in FIFO order on mount and on the `online`
+  event, stopping at the first failure. `logInstallDelta`
+  (`lib/field/actions.ts`) treats a unique-violation on
+  `idempotency_key` as success — a retry after a dropped connection (but
+  where the insert actually landed) must not double-count. `pendingCount`
+  is read via `useSyncExternalStore` against the queue's own
+  notify-on-mutation pub-sub, for the same lint-rule reason as crew
+  selection above; the queue's internal "currently draining" guard is a
+  plain `useRef`, not `useState`, since it's a mutex that's never
+  rendered — using state there tripped the same rule even called from
+  inside a `useCallback`, not literally inline in the effect. See
+  ADR-021.
+- **Blockers** (`blocker-form.tsx`) — a bottom-sheet form: 10 fixed codes
+  as a tappable grid (matching `BlockerCode`), a note, and an optional
+  photo. A photo uploads to the `daily-photos` bucket client-side (same
+  upload-then-record-the-path pattern as `DrawingUpload`) before
+  `createBlocker` records the row. Photos attach to blockers
+  specifically — the schema has no separate "daily photo log" table, so
+  this is what it actually supports rather than a speculative addition.
+- **Day log** (`day-log-panel.tsx`) — five progressive timestamps
+  (arrived, offload start/end, install start/end) each a tap-to-mark-now
+  with a reset, a note, and "Close the day" (sets `departed_at`).
+  `upsertDayLog` (`lib/field/actions.ts`) is a hand-rolled
+  find-or-update-or-insert, not a Postgres `ON CONFLICT` upsert:
+  `day_logs`' `unique (project_id, crew_id, work_date)` doesn't catch
+  "no crew picked" duplicates, since Postgres treats every `NULL` in a
+  unique column as distinct from every other `NULL`.
+- `lib/field/queries.ts`'s `getInstalledTotals` sums raw `installs` rows
+  per (row, material) in JS rather than via a new aggregate view — one
+  project's install history is small enough that this is simpler than
+  adding a view for a single caller. `listTodayDayLogs`/
+  `listTodayBlockers` return every crew's entries for today (not
+  filtered to "my crew" server-side), since which crew the client is
+  logging as is `localStorage` state the server can't know ahead of
+  render — the client matches its own `crewId` against the list instead.
+
 ## Testing
 
 `npm run test:e2e` (`npm run seed && playwright test`) runs a Playwright
@@ -305,6 +377,11 @@ short:
   updates its `<select>` optimistically, so checking the DOM value alone
   can't distinguish "saved" from "an in-flight request `page.reload()`
   is about to cancel."
+- `e2e/field-flow.spec.ts` (run at a 390×844 mobile viewport) — project
+  pick → crew pick → material install → blocker + photo → **offline
+  queue exercised for real** (`page.context().setOffline(true)`, confirm
+  it queues and shows the pending-sync indicator, go back online, confirm
+  it drains into the database) → day confirm → close the day.
 
 This suite is what caught ADR-016's env var bug — self-review and
 `next build` both stayed clean through Phases 3–5 because neither
