@@ -292,7 +292,6 @@ select
   r.id as row_id,
   r.project_id,
   r.drawing_id,
-  r.phase_id,
   r.label,
   r.x,
   r.y,
@@ -307,7 +306,12 @@ select
   end as pct,
   coalesce(agg.material_count, 0) > 0 as has_materials,
   coalesce(agg.all_materials_met, false)
-    and coalesce(agg.material_count, 0) > 0 as is_complete
+    and coalesce(agg.material_count, 0) > 0 as is_complete,
+  -- Appended, not inserted alongside the other rows.* columns above:
+  -- CREATE OR REPLACE VIEW only allows adding new columns at the END of
+  -- the list — Postgres compares old/new columns positionally, so
+  -- inserting phase_id earlier reads as "renaming" every column after it.
+  r.phase_id
 from rows r
 left join agg on agg.row_id = r.id;
 

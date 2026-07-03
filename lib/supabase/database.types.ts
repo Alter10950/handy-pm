@@ -846,7 +846,6 @@ export interface Database {
           row_id: string;
           project_id: string;
           drawing_id: string;
-          phase_id: string | null;
           label: string;
           x: number;
           y: number;
@@ -857,6 +856,7 @@ export interface Database {
           pct: number;
           has_materials: boolean;
           is_complete: boolean;
+          phase_id: string | null;
         };
         Relationships: [];
       };

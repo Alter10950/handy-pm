@@ -39,19 +39,28 @@ verified zoom-invariant against the DB directly in
 (`phases`, `blockers`, `day_logs`, `project_schedule`,
 `installs.idempotency_key`/`device_id`, `materials.size`/`labor_units`,
 one-marking-page-per-project, `daily-photos` bucket — see ADR-019) is
-**drafted and committed but not yet applied** to the live Supabase
-project — no access token/DB password was available in this environment
-to run `supabase db push` directly. **NEEDS YOU:** either give a one-time
-Supabase personal access token (Dashboard → Account → Access Tokens,
-then `npx supabase login` and `npx supabase link`) so this and every
-future migration can be pushed autonomously, or paste
-`supabase/migrations/20260703104548_phases_scheduling_field_ops.sql`
-into the Supabase SQL editor yourself (one step, safe to run more than
-once — everything in it is idempotent). Sub-phase A (Team
-deactivate/reactivate) is done and doesn't depend on this migration.
-Sub-phases B–F (Field/Crew closeout, Scheduler, Phases, multi-page
-drawings, packing-slip AI extraction) are queued and will resume as soon
-as the schema is confirmed live.
+**applied and confirmed live**. The user provided a one-time Supabase
+personal access token; the 5 original Batch-1 migrations had been
+applied by hand (via the SQL editor) so the CLI's remote migration
+history didn't know about them — `supabase migration repair --status
+applied` fixed that bookkeeping first, then `supabase db push` applied
+the new migration. Its first attempt failed
+(`cannot change name of view column "label" to "phase_id"` —
+`CREATE OR REPLACE VIEW` only allows appending new columns at the _end_
+of the list, and `phase_id` had been inserted in the middle; the whole
+migration rolled back atomically, nothing partially applied). Fixed by
+moving `phase_id` to the end of `row_progress`'s column list; re-ran
+cleanly. Verified via `supabase gen types` against the live project and
+diffed against the hand-written types — an exact match (the generator's
+plain `string` for CHECK-constrained columns vs. this codebase's literal
+union types, e.g. `BlockerCode`, is an intentional, valid improvement
+per ADR-010, not a discrepancy). Sub-phase A (Team deactivate/reactivate)
+is also done. Sub-phases B–F (Field/Crew closeout, Scheduler, Phases,
+multi-page drawings, packing-slip AI extraction) are queued — an
+interrupt arrived first asking for undo/redo plus a full rework of the
+Layout tab's interaction model (single direct-manipulation canvas
+instead of separate Draw/Edit/Select tools), tracked as its own entry
+below since it lands before sub-phase B resumes.
 
 This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
 
@@ -157,7 +166,7 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
       quantities across 3 rows, and asserts exact Assigned/Left/To-order
       numbers in both the grid and the reconciliation card.
 
-## Sub-phase 0 — Schema for Field/Scheduler/Phases ⚠️ drafted, not yet applied (2026-07-03)
+## Sub-phase 0 — Schema for Field/Scheduler/Phases ✅ applied and verified live (2026-07-03)
 
 - [x] Migration written: `phases`, `blockers`, `day_logs`,
       `project_schedule` tables; `materials.size`/`labor_units`;
@@ -167,11 +176,18 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
       `set_marking_drawing()`); `daily-photos` storage bucket; RLS on
       every new table; `row_progress.phase_id`. See ADR-019.
 - [x] `lib/supabase/database.types.ts` hand-updated to match (ADR-010's
-      pattern), so sub-phases A–F can be built and typechecked against
+      pattern), so sub-phases A–F could be built and typechecked against
       the new shape immediately.
-- [ ] **NEEDS YOU** — not yet applied to the live Supabase project (no
-      access token/DB password available here). See the status note at
-      the top of this file for the two ways to unblock it.
+- [x] **Applied to the live Supabase project** — user provided a
+      one-time personal access token; `supabase migration repair` fixed
+      the remote migration history first (Batch 1's 5 migrations were
+      originally applied by hand via the SQL editor, so the CLI's
+      ledger didn't know about them), then `supabase db push`. Fixed a
+      real bug the push caught: `row_progress`'s `CREATE OR REPLACE
+    VIEW` failed because `phase_id` was inserted mid-list rather than
+      appended at the end (Postgres compares view columns positionally
+      on replace). Confirmed live via `supabase gen types` diffed
+      against the hand-written types — exact match.
 
 ## Auth — email + password, Team management ✅ built (2026-07-03)
 

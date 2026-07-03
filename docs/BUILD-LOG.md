@@ -4,6 +4,37 @@ Engineering journal. Newest entries at top.
 
 ---
 
+## 2026-07-03 — Sub-phase 0 migration applied and verified live
+
+**What:** User provided a one-time Supabase personal access token.
+`supabase link --project-ref ntdynurigavrpvexwiij` succeeded; `supabase
+db push` initially failed because Batch 1's 5 migrations were applied
+by hand via the SQL editor originally, so the CLI's remote migration
+history table had no record of them — pushing would have tried to
+re-run all 6 files and hit "policy already exists" on the first 5.
+Fixed with `supabase migration repair --status applied <5 timestamps>`
+(pure bookkeeping, no SQL re-run), then `db push` again.
+
+**Real bug caught by the push itself:** failed with `cannot change name
+of view column "label" to "phase_id"`. Root cause: `row_progress`'s
+`CREATE OR REPLACE VIEW` inserted `r.phase_id` between `drawing_id` and
+`label` in the SELECT list — Postgres compares old/new view columns
+_positionally_ on replace and only allows appending new ones at the
+end, so inserting one mid-list reads as renaming every column after it.
+The whole migration rolled back atomically on failure (nothing
+partially applied), consistent with `supabase migration list` showing
+the new migration's remote status still empty afterward. Fixed by
+moving `r.phase_id` to the end of the column list; re-ran cleanly.
+
+**Verification:** confirmed all 4 new tables reachable via the REST API
+(200, not 404). Ran `supabase gen types typescript` against the live
+project and compared against the hand-written `database.types.ts` from
+the previous entry — exact match on every altered/new column; the only
+difference is intentional (this codebase's literal union types like
+`BlockerCode` vs. the generator's plain `string` for CHECK-constrained
+columns, per ADR-010's established practice of keeping the hand-written
+version's stronger typing). `npm run typecheck` still clean.
+
 ## 2026-07-03 — Batch 2 kickoff: schema migration drafted (sub-phase 0), Team deactivate/reactivate (sub-phase A)
 
 **What:** First two sub-phases of a large autonomous batch (schema →
