@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { signOut } from "@/lib/auth/actions";
 import { cn } from "@/lib/utils";
+import type { ProfileRole } from "@/lib/supabase/database.types";
 
 const NAV_LINKS = [
   { href: "/app", label: "Projects" },
@@ -13,8 +14,18 @@ const NAV_LINKS = [
   { href: "/field", label: "Field" },
 ];
 
-export function SiteHeader({ userEmail }: { userEmail: string }) {
+export function SiteHeader({
+  userEmail,
+  role,
+}: {
+  userEmail: string;
+  role: ProfileRole | null;
+}) {
   const pathname = usePathname();
+  const navLinks =
+    role === "owner" || role === "pm"
+      ? [...NAV_LINKS, { href: "/app/team", label: "Team" }]
+      : NAV_LINKS;
 
   return (
     <header className="sticky top-0 z-10 border-b border-border bg-background/95 backdrop-blur">
@@ -27,7 +38,7 @@ export function SiteHeader({ userEmail }: { userEmail: string }) {
         </Link>
 
         <nav className="flex flex-wrap items-center gap-1">
-          {NAV_LINKS.map((link) => {
+          {navLinks.map((link) => {
             const isActive =
               pathname === link.href || pathname.startsWith(`${link.href}/`);
             return (
@@ -51,6 +62,17 @@ export function SiteHeader({ userEmail }: { userEmail: string }) {
           <span className="hidden max-w-40 truncate text-sm text-muted-foreground sm:inline">
             {userEmail}
           </span>
+          <Link
+            href="/account"
+            className={cn(
+              "text-sm font-medium transition-colors hover:text-foreground",
+              pathname === "/account"
+                ? "text-foreground"
+                : "text-muted-foreground"
+            )}
+          >
+            Account
+          </Link>
           <form action={signOut}>
             <Button type="submit" variant="outline" size="default">
               Sign out

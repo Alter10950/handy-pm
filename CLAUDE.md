@@ -84,15 +84,20 @@ app/
   manifest.ts                PWA manifest (special file → /manifest.webmanifest)
   icon.tsx / apple-icon.tsx  generated favicon / apple touch icon (next/og)
   icons/icon-*/route.tsx     generated 192/512/512-maskable PWA icons (next/og)
-  login/page.tsx             magic-link sign-in page (public)
-  auth/callback/route.ts     exchanges the magic-link code for a session
+  login/page.tsx             email + password sign-in page (public); no
+                             sign-up form — see docs/DECISIONS.md ADR-017
   portal/[token]/page.tsx    public customer portal placeholder
   (protected)/               route group — shared authed shell
-    layout.tsx                fetches the user, redirects to /login if absent,
-                               renders SiteHeader + children (force-dynamic)
+    layout.tsx                fetches the user + profile role, redirects to
+                               /login if absent, renders SiteHeader +
+                               children (force-dynamic)
     error.tsx                  themed error boundary (Server Action throws
                                land here, e.g. "no org assigned yet")
+    account/page.tsx           self-service change-password (any role)
     app/page.tsx               "/app" — Projects list + New project dialog
+    app/team/page.tsx           "Team" — owner/pm only: create accounts
+                               (email + temp password + role), change an
+                               existing member's role, reset their password
     app/project/[id]/
       layout.tsx                 project header + ProjectTabs nav
       page.tsx                   Overview tab
@@ -107,10 +112,20 @@ app/
 
 components/
   ui/                        shadcn/ui primitives (generated, don't hand-edit)
-  site-header.tsx            authed nav + sign-out
-  login-form.tsx             magic-link form (client component)
+  site-header.tsx            authed nav + sign-out; nav is role-aware (Team
+                             link only for owner/pm)
+  login-form.tsx             email + password sign-in form (client component)
   placeholder-panel.tsx       shared placeholder page shell
   service-worker-register.tsx registers public/sw.js on mount
+  account/
+    change-password-form.tsx   calls supabase.auth.updateUser({password})
+                               directly — operates on the current session,
+                               no admin API involved
+  team/
+    add-team-member-dialog.tsx  create-account dialog (email, optional
+                               name, role, temp password w/ generate button)
+    team-member-row.tsx          per-member role select + reset-password
+                               disclosure
   projects/
     new-project-dialog.tsx      + project-card / project-tabs /
                                project-status-badge.tsx
@@ -150,6 +165,19 @@ lib/
     actions.ts                   Server Actions: create/move/resize/rename/
                                delete a row, upsert a row's required qty
                                for a material
+  team/
+    queries.ts                  listTeamMembers() — RLS-scoped profiles
+                               query joined with admin-client email lookups
+                               (auth.users isn't exposed to RLS at all)
+    actions.ts                   Server Actions: createTeamMember,
+                               updateTeamMemberRole, resetTeamMemberPassword
+                               — every one re-derives the caller's own role
+                               from the DB before touching anything; the
+                               admin-client paths explicitly re-check org
+                               membership since they bypass RLS
+    generate-password.ts        client-safe random temp-password generator
+                               (crypto.getRandomValues), used by both the
+                               create dialog and the reset-password form
   pdf/render-drawing-file.ts  browser-only PDF/image → JPEG Blob rendering
                              (pdfjs-dist + canvas) for drawing uploads
   utils.ts                    cn() class merge helper (shadcn)
@@ -162,17 +190,22 @@ supabase/
   migrations/*.sql             schema, RLS, storage, views — see
                                docs/ARCHITECTURE.md for the full data model
 
-scripts/seed.mjs               idempotent E2E org+user seed — plain Node
-                               (not part of the Next.js TS build), run via
-                               `node --env-file=.env.local`
+scripts/seed.mjs               idempotent E2E org+user+password seed —
+                               plain Node (not part of the Next.js TS
+                               build), run via `node --env-file=.env.local`
 
 e2e/
-  auth.setup.ts                 admin-generated sign-in (no email), saves
-                               storageState — Playwright "setup" project
+  auth.setup.ts                 signs in through the real /login form
+                               (email+password), saves storageState —
+                               Playwright "setup" project
   project-flow.spec.ts           main flow: create project → upload →
                                mark rows → assign materials → verify
+  team-flow.spec.ts               Team screen: create member → change role
+                               → reset password; + self-service
+                               change-password from /account
   helpers/                       env.ts, supabase-admin.ts (service-role
-                               client), cleanup.ts (deletes test data)
+                               client), cleanup.ts (deletes test
+                               projects/users)
   fixtures/test-drawing.svg      tiny fixture image for upload tests
   .auth/                         gitignored — contains a real session
 
@@ -234,7 +267,7 @@ also named `app` inside it is valid and maps to the URL `/app`. See
    command, write the script, call the API yourself. If PowerShell blocks a
    script, switch shells (`cmd`, `npx.cmd`, `node`) instead of handing it
    back to him. The bar for asking Alter to run something is: it is
-   *literally impossible* without him.
+   _literally impossible_ without him.
 7. **Only humans-only steps go to Alter — and prefer a one-time token.** The
    only things you may ask Alter to do are ones you genuinely cannot: a
    secret/credential you can't generate, or an interactive third-party

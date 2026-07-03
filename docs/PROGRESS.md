@@ -14,10 +14,17 @@ first/owner sign-in separately (see `docs/BUILD-LOG.md`).
 **Production deploy:** live at `https://handy-pm.vercel.app` — the
 `Internal Server Error` (missing Supabase env vars on Vercel) is fixed,
 all three env vars are set for Production/Preview/Development, `/login`
-confirmed returning 200. Still needs a human: add the production domain
-to Supabase's Auth **Site URL** / **Redirect URLs** in the dashboard (no
-Management API token available here — see `docs/BUILD-LOG.md` for exact
-steps).
+confirmed returning 200.
+
+**Auth:** switched from email magic-link to email + password (see
+`docs/DECISIONS.md` ADR-017) — magic-link delivery was too slow/unreliable
+to develop and sign in against. No public sign-up; accounts are created
+from the new **Team** page (`/app/team`, owner/pm only), which also
+supports changing a member's role and resetting their password. Also
+added self-service password change at `/account` (any role). This removes
+the earlier "needs a human to configure Supabase Auth Redirect URLs" item
+entirely — password sign-in has no callback URL to register, on either
+localhost or production.
 
 This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
 
@@ -107,13 +114,30 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
       quantities across 3 rows, and asserts exact Assigned/Left/To-order
       numbers in both the grid and the reconciliation card.
 
-## Testing ✅ built (2026-07-02)
+## Auth — email + password, Team management ✅ built (2026-07-03)
 
-- [x] `scripts/seed.mjs` — idempotent org + confirmed test user, replaces
-      the old manual "rename the org" one-off SQL snippet.
+- [x] `/login` — email + password (`supabase.auth.signInWithPassword`),
+      magic-link flow and `/auth/callback` removed entirely (ADR-017).
+- [x] No public sign-up. `/app/team` (owner/pm only) — create accounts
+      (email + temp password + role), change an existing member's role,
+      reset their password.
+- [x] `/account` — self-service change-password, any signed-in role.
+- [x] **Verified live** — `e2e/team-flow.spec.ts` creates a member,
+      changes their role (confirmed persisted across a real page reload,
+      not just optimistic client state), resets their password, and
+      exercises the self-service change-password flow.
+
+## Testing ✅ built (2026-07-02, extended 2026-07-03)
+
+- [x] `scripts/seed.mjs` — idempotent org + confirmed test user (+ known
+      password, reset every run), replaces the old manual "rename the
+      org" one-off SQL snippet.
 - [x] Playwright E2E suite (`npm run test:e2e`) against the live Supabase
-      project: admin-generated sign-in (no email), full create-project→
-      mark-rows→assign-materials→verify-reconciliation flow, self-cleaning.
+      project: real `/login` form sign-in (no admin backdoor needed now
+      that auth is password-based), full create-project→mark-rows→
+      assign-materials→verify-reconciliation flow, self-cleaning.
+- [x] `e2e/team-flow.spec.ts` — Team screen create/role-change/
+      password-reset + self-service change-password, self-cleaning.
 - [x] Found and fixed a real bug on its first run — see ADR-016.
 
 ## Phase 6 — Field/Crew PWA (not started)

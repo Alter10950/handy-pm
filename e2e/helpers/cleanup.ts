@@ -25,3 +25,28 @@ export async function deleteProjectCompletely(projectId: string) {
   const { error } = await admin.from("projects").delete().eq("id", projectId);
   if (error) throw error;
 }
+
+// Deletes an auth user created by the team-management flow during a test
+// run, found by email (the UI never surfaces a raw user id to look one up
+// by). `profiles` cascades via its FK to auth.users, so nothing else needs
+// cleaning up here.
+export async function deleteAuthUserByEmail(email: string) {
+  const admin = createAdminClient();
+  const perPage = 200;
+  for (let page = 1; ; page += 1) {
+    const { data, error } = await admin.auth.admin.listUsers({
+      page,
+      perPage,
+    });
+    if (error) throw error;
+    const match = data.users.find((user) => user.email === email);
+    if (match) {
+      const { error: deleteError } = await admin.auth.admin.deleteUser(
+        match.id
+      );
+      if (deleteError) throw deleteError;
+      return;
+    }
+    if (data.users.length < perPage) return;
+  }
+}

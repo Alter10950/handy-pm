@@ -2,10 +2,12 @@
 //   1. An organization named "Handy Equip" exists (creating it if this is
 //      the very first org — see docs/DECISIONS.md for the consequence
 //      that has for whoever's real first sign-in comes after this runs).
-//   2. A confirmed, passwordless test user exists (SEED_OWNER_EMAIL,
-//      default qa+owner@handyequip.test — the .test TLD is IANA-reserved
-//      for exactly this purpose, so it can never collide with a real
-//      domain).
+//   2. A confirmed test user exists (SEED_OWNER_EMAIL, default
+//      qa+owner@handyequip.test — the .test TLD is IANA-reserved for
+//      exactly this purpose, so it can never collide with a real domain)
+//      with a known password (SEED_OWNER_PASSWORD) so e2e/auth.setup.ts can
+//      sign in through the real login form — reset on every run, so a
+//      stale password from a prior run can never break the suite.
 //   3. That user's profile is set to org "Handy Equip", role "owner",
 //      regardless of what the auth-bootstrap trigger initially assigned.
 //
@@ -29,6 +31,10 @@ const SUPABASE_URL = requireEnv("NEXT_PUBLIC_SUPABASE_URL");
 const SERVICE_ROLE_KEY = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
 const SEED_OWNER_EMAIL =
   process.env.SEED_OWNER_EMAIL || "qa+owner@handyequip.test";
+// Test-only account on an IANA-reserved TLD, isolated to this Supabase
+// project — not a secret worth protecting, same as the email above.
+const SEED_OWNER_PASSWORD =
+  process.env.SEED_OWNER_PASSWORD || "e2e-test-password-1!";
 const ORG_NAME = "Handy Equip";
 
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
@@ -76,10 +82,20 @@ async function findUserByEmail(email) {
 
 async function ensureUser() {
   const existing = await findUserByEmail(SEED_OWNER_EMAIL);
-  if (existing) return { user: existing, created: false };
+  if (existing) {
+    // Reset the password every run, so this account's credentials are
+    // always exactly SEED_OWNER_PASSWORD regardless of what a prior run
+    // (or manual dashboard edit) left behind.
+    const { error } = await admin.auth.admin.updateUserById(existing.id, {
+      password: SEED_OWNER_PASSWORD,
+    });
+    if (error) throw error;
+    return { user: existing, created: false };
+  }
 
   const { data, error } = await admin.auth.admin.createUser({
     email: SEED_OWNER_EMAIL,
+    password: SEED_OWNER_PASSWORD,
     email_confirm: true,
     user_metadata: { seed: true },
   });

@@ -21,9 +21,18 @@ export default async function ProtectedLayout({
     redirect("/login");
   }
 
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+
   return (
     <div className="flex min-h-full flex-1 flex-col">
-      <SiteHeader userEmail={user.email ?? "Signed in"} />
+      <SiteHeader
+        userEmail={user.email ?? "Signed in"}
+        role={profile?.role ?? null}
+      />
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">
         {children}
       </main>

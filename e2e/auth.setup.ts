@@ -1,29 +1,21 @@
-import { test as setup } from "@playwright/test";
+import { test as setup, expect } from "@playwright/test";
 
-import { SEED_OWNER_EMAIL } from "./helpers/env";
-import { createAdminClient } from "./helpers/supabase-admin";
+import { SEED_OWNER_EMAIL, SEED_OWNER_PASSWORD } from "./helpers/env";
 
 const authFile = "e2e/.auth/owner.json";
 
-// Signs in as the seeded owner WITHOUT depending on receiving a real
-// email: admin.generateLink produces a one-time token_hash server-side,
-// and the browser exchanges it via the app's real /auth/callback route
-// (extended to accept token_hash, not just the PKCE `code` shape) — same
-// code path a real magic-link click would hit, same cookies get set.
+// Signs in through the real login form — email+password auth doesn't need
+// the admin-generated token_hash dance the old magic-link flow required,
+// so this now also exercises the actual sign-in UI a real user goes
+// through, not just a backdoor into a session.
 setup("authenticate as seeded owner", async ({ page }) => {
-  const admin = createAdminClient();
-  const { data, error } = await admin.auth.admin.generateLink({
-    type: "magiclink",
-    email: SEED_OWNER_EMAIL,
-  });
-  if (error) throw error;
+  await page.goto("/login");
+  await page.getByLabel("Work email").fill(SEED_OWNER_EMAIL);
+  await page.getByLabel("Password").fill(SEED_OWNER_PASSWORD);
+  await page.getByRole("button", { name: "Sign in" }).click();
 
-  const { hashed_token: tokenHash, verification_type: type } = data.properties;
-
-  await page.goto(
-    `/auth/callback?token_hash=${tokenHash}&type=${type}&next=/app`
-  );
   await page.waitForURL("/app");
+  await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible();
 
   await page.context().storageState({ path: authFile });
 });

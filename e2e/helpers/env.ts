@@ -15,3 +15,5 @@ export const SUPABASE_SERVICE_ROLE_KEY = requireEnv(
 );
 export const SEED_OWNER_EMAIL =
   process.env.SEED_OWNER_EMAIL || "qa+owner@handyequip.test";
+export const SEED_OWNER_PASSWORD =
+  process.env.SEED_OWNER_PASSWORD || "e2e-test-password-1!";

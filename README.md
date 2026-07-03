@@ -40,13 +40,16 @@ for current status.
    | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Settings → API → anon/public key  | Yes                  |
    | `SUPABASE_SERVICE_ROLE_KEY`     | Settings → API → service_role key | **No — server only** |
 
-3. In Supabase, enable **email magic link** sign-in (Authentication →
-   Providers → Email — enabled by default on a new project) and add your
-   local dev URL to **Authentication → URL Configuration → Redirect URLs**:
-
-   ```
-   http://localhost:3000/auth/callback
-   ```
+3. Sign-in is email + password (Authentication → Providers → Email,
+   enabled by default) — no redirect URL configuration needed, since
+   password sign-in doesn't route through an email link. There's no public
+   sign-up UI: every account is created from the in-app **Team** page
+   (owner/pm only) or `npm run seed`. The very first user in a fresh
+   project still auto-becomes `owner` of a new org (see
+   `supabase/migrations/*_auth_bootstrap.sql`) — for a brand-new project,
+   create that first account directly in the Supabase dashboard
+   (Authentication → Users → Add user); every account after that goes
+   through Team.
 
 ## Run
 
@@ -77,15 +80,10 @@ npm run format:check       # prettier --check .
 2. Add the same three environment variables from `.env.local` (Project
    Settings → Environment Variables): `NEXT_PUBLIC_SUPABASE_URL`,
    `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`.
-3. In Supabase, add your production domain's callback URL to
-   **Authentication → URL Configuration → Redirect URLs**:
-
-   ```
-   https://your-vercel-domain.vercel.app/auth/callback
-   ```
-
-4. Deploy. No build configuration overrides are needed — Vercel
-   auto-detects Next.js.
+3. Deploy. No build configuration overrides are needed — Vercel
+   auto-detects Next.js. No Supabase URL Configuration step is required —
+   email + password sign-in doesn't redirect through an email link, so
+   there's no callback URL to register.
 
 ## Tech stack
 

@@ -4,6 +4,89 @@ Engineering journal. Newest entries at top.
 
 ---
 
+## 2026-07-03 — Replaced magic-link auth with email + password, added Team management
+
+**What:** Magic-link email delivery was too slow/unreliable to sign in
+against (both for the user and, earlier, for this project's own E2E
+setup — see ADR-015). Replaced it end to end with email + password,
+added an in-app way to create accounts since there's now no email step to
+implicitly gate sign-up, and set a real password for the user's own
+account so they could sign in immediately. Full reasoning in ADR-017;
+summary here.
+
+**Login:** `/login` now collects email + password and calls
+`supabase.auth.signInWithPassword` directly from the browser client —
+`components/login-form.tsx` rewritten, no more `signInWithOtp`. Sessions
+stay persistent exactly as before (`proxy.ts`'s per-request cookie
+refresh doesn't care how a session was created) — no changes needed
+there. `app/auth/callback/route.ts` was pure magic-link/OTP verification
+code with nothing else depending on it (confirmed by grepping the whole
+repo first) — deleted rather than left disabled, along with the Supabase
+dashboard "Redirect URLs" setup step in `README.md` for both localhost
+and production, since password sign-in has no callback to register at
+all. This also makes the previous session's still-open "configure
+Supabase Auth Site URL/Redirect URLs for production" item moot — nothing
+left to configure there.
+
+**No public sign-up, Team management:** added `/app/team` (owner/pm
+only, redirects anyone else to `/app`) — `lib/team/{queries,actions}.ts`.
+`createTeamMember` uses the service-role admin client
+(`admin.auth.admin.createUser`) since creating an `auth.users` row has no
+other path without a sign-up endpoint, then overwrites the profile row
+`handle_new_user`'s trigger already inserted (org_id null, role 'crew')
+with the caller's own org and the role picked in the form — that
+overwrite specifically needs the admin client, because `profiles_update`'s
+RLS policy checks the row's *pre-update* org_id (null for a fresh
+profile), so the caller's own session could never pass that check.
+`updateTeamMemberRole` and `resetTeamMemberPassword` round out the
+screen — the first goes through the caller's normal RLS-scoped session
+(a plain role change is exactly what `profiles_update` already allows),
+the second needs the admin client again (bypasses RLS) and so explicitly
+verifies the target profile's org_id against the caller's own before
+touching `auth.users` — otherwise an owner/pm could reset a password for
+a user in a different org by guessing/knowing their id. Every mutation
+independently re-derives the caller's own role from the DB; nothing
+trusts what the client claims about itself.
+
+Also added `/account` (any signed-in role) for self-service password
+change — `supabase.auth.updateUser({password})` on the current session,
+deliberately separate from Team since it needs no admin privileges or
+org check at all.
+
+**Set a real login for the user:** ran a one-off Node script (admin API,
+`.env.local` service-role key, deleted immediately after running, per the
+same disposable-script pattern as the earlier magic-link bypass) to set a
+generated password for `alter@handyequip.com` — their profile was already
+`owner`/"Handy Equip" from the earlier bypass session, so this only
+touched the password. Password relayed directly in chat, not committed or
+logged anywhere.
+
+**E2E suite:** `e2e/auth.setup.ts` rewritten to sign in through the real
+`/login` form (email + password) instead of ADR-015's admin-generated
+`token_hash` bypass — password auth doesn't need a backdoor, so setup now
+also exercises the real sign-in UI. `scripts/seed.mjs` extended to set
+(and reset, every run) a known password for the seed test user. Added
+`e2e/team-flow.spec.ts`: create a team member → change their role →
+reset their password → self-service change-password from `/account`,
+cleaning up the created auth user afterward
+(`e2e/helpers/cleanup.ts`'s new `deleteAuthUserByEmail`).
+
+**Found and fixed a real test bug, not an app bug:** the role-change test
+step initially failed after a `page.reload()` showed the *old* role
+still persisted. Root cause was the test, not the app: `TeamMemberRow`
+updates its `<select>` optimistically (`setRole` before the Server Action
+resolves), so asserting on the DOM value alone proved nothing about
+server persistence, and reloading immediately could cancel the
+in-flight request outright. Fixed by waiting for the actual POST
+response (`page.waitForResponse`) before reloading — confirmed the role
+change genuinely persists across a real page load once the test was
+measuring the right thing.
+
+**Verification:** `npm run lint`, `npm run typecheck`, `npm run build`,
+and the full `npm run test:e2e` (4 tests: seeded sign-in, the existing
+project flow — confirming no regression — team management, and
+self-service password change) all pass.
+
 ## 2026-07-03 — Local dev port note, Vercel env vars wired, production 500 fixed
 
 **What:** Two loose ends from the previous session: document the

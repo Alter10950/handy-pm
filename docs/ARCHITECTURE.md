@@ -5,9 +5,10 @@
 | Route                         | Access    | Purpose                                                                                                                                                                                                                         |
 | ----------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `/`                           | redirect  | Sends signed-in users to `/app`, everyone else to `/login`.                                                                                                                                                                     |
-| `/login`                      | public    | Email magic-link sign-in (Handy PM branded).                                                                                                                                                                                    |
-| `/auth/callback`              | public    | Route Handler — exchanges the magic-link `code` for a session, redirects to `?next=` (default `/app`).                                                                                                                          |
+| `/login`                      | public    | Email + password sign-in (Handy PM branded). No sign-up form — see ADR-017.                                                                                                                                                     |
+| `/account`                    | protected | Self-service change-password. Any signed-in role.                                                                                                                                                                               |
 | `/app`                        | protected | Projects list (from `project_progress`) + New project dialog.                                                                                                                                                                   |
+| `/app/team`                   | protected | Team/user management — owner/pm only. Create accounts (email + temp password + role), change an existing member's role, reset their password.                                                                                 |
 | `/app/project/[id]`           | protected | Overview tab — meta, quick stats, drawing thumbnail.                                                                                                                                                                            |
 | `/app/project/[id]/mark`      | protected | "Layout" tab — drawing upload/viewer + row marking workspace (auto/draw/edit tools). Named `mark`, not `layout`, to avoid colliding with the Next.js `layout.tsx` file convention in the same folder — see `docs/DECISIONS.md`. |
 | `/app/project/[id]/materials` | protected | Materials tab — packing-slip/paste-list upload, reference drawing overlay, materials × rows grid, reconciliation card.                                                                                                          |
@@ -27,15 +28,59 @@ why `/field` is included.
 
 ## Auth flow
 
-1. User enters their email on `/login`.
-2. Browser calls `supabase.auth.signInWithOtp(...)`, which sends a magic
-   link pointing at `/auth/callback?code=...&next=...`.
-3. `/auth/callback` exchanges the code for a session (sets Supabase's auth
-   cookies via `@supabase/ssr`) and redirects to `next` (default `/app`).
-4. `proxy.ts` runs on every request, refreshing the session cookie and
-   redirecting unauthenticated requests away from protected routes.
+1. User enters email + password on `/login`; the browser calls
+   `supabase.auth.signInWithPassword(...)` directly (`lib/supabase/client.ts`),
+   which sets Supabase's auth cookies via `@supabase/ssr` — no redirect
+   link, no `/auth/callback` route (removed — see ADR-017).
+2. `proxy.ts` runs on every request, refreshing the session cookie and
+   redirecting unauthenticated requests away from protected routes. This is
+   what keeps a session alive across visits; it doesn't care how the
+   session was created.
+3. There's no public sign-up. Every account is created by an owner/pm from
+   `/app/team` (`lib/team/actions.ts`'s `createTeamMember`, service-role
+   `admin.auth.admin.createUser`) or via `scripts/seed.mjs`. A brand-new
+   project's very first user still auto-becomes `owner` of a new org
+   (`handle_new_user` trigger, unchanged) — that path just isn't reachable
+   from the UI anymore, only from the Supabase dashboard or a script.
+4. Self-service password change lives at `/account`
+   (`components/account/change-password-form.tsx`), calling
+   `supabase.auth.updateUser({ password })` on the current session directly
+   — no admin API involved, since a user changing their own password
+   doesn't need to bypass RLS.
 5. Sign-out is a Server Action (`lib/auth/actions.ts`) invoked from a form in
    `SiteHeader`.
+
+### Team management (`/app/team`)
+
+Owner/pm only — `app/(protected)/app/team/page.tsx` redirects anyone else
+to `/app`, and every mutation in `lib/team/actions.ts` independently
+re-derives the caller's role from the DB (never trusts the client), since
+this is the one area of the app that reaches for the service-role admin
+client:
+
+- `createTeamMember` — `admin.auth.admin.createUser` (email + the temp
+  password typed into the form, visible not masked, so the admin can read
+  it back to share with the new hire), then overwrites the profile row the
+  `handle_new_user` trigger just inserted (org_id null, role 'crew') with
+  the caller's org and the selected role. That overwrite has to go through
+  the admin client — `profiles_update`'s RLS `using` clause checks the
+  row's *pre-update* org_id, which is null for a brand-new profile, so the
+  caller's own RLS-scoped session could never pass that check itself.
+- `updateTeamMemberRole` — a plain role change (org_id unchanged) is
+  exactly what `profiles_update`'s RLS already allows an owner/pm to do
+  directly, so this one uses the normal cookie-scoped client, not admin.
+  Blocks changing your own role from this screen (self-lockout guard).
+- `resetTeamMemberPassword` — `admin.auth.admin.updateUserById(...,
+  {password})`. Since this goes through the admin client (bypasses RLS),
+  it explicitly checks the target profile's `org_id` against the caller's
+  own before touching `auth.users` — otherwise an owner/pm could reset a
+  password for a user in a different org by guessing/knowing their id.
+
+`lib/team/queries.ts`'s `listTeamMembers()` reads profiles via the normal
+RLS-scoped client (already correctly limited to the caller's org) and
+resolves each member's email with `admin.auth.admin.getUserById` — bounded
+to this org's own member count, never a whole-project user dump, since
+`auth.users` isn't exposed through RLS/PostgREST at all.
 
 ## Projects feature (Phase 3)
 
@@ -152,13 +197,15 @@ suite against the **real Supabase project**, driving `next dev` on
 short:
 
 - `scripts/seed.mjs` — idempotent: ensures org "Handy Equip" and a
-  confirmed test user (`qa+owner@handyequip.test`) exist and are wired
-  together (`profiles.org_id`/`role`). Safe to run any number of times,
+  confirmed test user (`qa+owner@handyequip.test`) exist, wired together
+  (`profiles.org_id`/`role`) with a known password
+  (`SEED_OWNER_PASSWORD`, reset on every run so a stale password from a
+  prior run can never break the suite). Safe to run any number of times,
   including as part of every `test:e2e` invocation.
-- `e2e/auth.setup.ts` — signs in as that user via an admin-generated
-  `token_hash` (no email involved), through the app's real
-  `/auth/callback` route. Saves `storageState` for reuse by the rest of
-  the suite.
+- `e2e/auth.setup.ts` — signs in as that user through the real `/login`
+  form (email + password) — no admin/backdoor sign-in needed now that
+  auth is password-based, so this also exercises the actual sign-in UI.
+  Saves `storageState` for reuse by the rest of the suite.
 - `e2e/project-flow.spec.ts` — the main flow: create project → upload a
   drawing (`e2e/fixtures/test-drawing.svg`) → auto-create rows → paste a
   material list → assign quantities in the grid → verify the
@@ -166,6 +213,14 @@ short:
   Storage objects) in `test.afterAll` via `e2e/helpers/cleanup.ts`
   (service-role, so cleanup succeeds independent of the browser
   session's state).
+- `e2e/team-flow.spec.ts` — creates a team member from `/app/team`,
+  changes their role, resets their password; separately exercises
+  self-service password change from `/account`. Deletes the created auth
+  user in `test.afterAll` (`deleteAuthUserByEmail`). The role-change step
+  waits for the actual POST response before reloading to verify — the row
+  updates its `<select>` optimistically, so checking the DOM value alone
+  can't distinguish "saved" from "an in-flight request `page.reload()`
+  is about to cancel."
 
 This suite is what caught ADR-016's env var bug — self-review and
 `next build` both stayed clean through Phases 3–5 because neither

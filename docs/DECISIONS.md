@@ -5,6 +5,75 @@ Consequences.
 
 ---
 
+## ADR-017: Email magic-link auth replaced with email + password, no public sign-up
+
+**Decision date:** 2026-07-03
+
+**Context:** Supabase's built-in magic-link email delivery proved too slow
+and unreliable to develop/test against comfortably (this is what motivated
+ADR-015's admin-generated `token_hash` E2E workaround in the first place).
+Password sign-in removes the email dependency entirely for every sign-in,
+not just the test suite's.
+
+**Choice:**
+
+- `/login` now collects email + password and calls
+  `supabase.auth.signInWithPassword` directly from the browser client — no
+  redirect link, so `app/auth/callback/route.ts` (pure magic-link/OTP
+  verification code) was deleted rather than left disabled; nothing else
+  in the app used it (confirmed by grepping the whole repo before removal).
+  This also deletes the Supabase dashboard "Redirect URLs" setup step for
+  both localhost and production — password sign-in has no callback to
+  register.
+- No sign-up form exists anywhere in the app. Every account is created
+  from a new **Team** page (`/app/team`, owner/pm only) via
+  `lib/team/actions.ts`'s `createTeamMember`, which uses the service-role
+  admin client (`admin.auth.admin.createUser`) since there's no other way
+  to create a `auth.users` row without a client-facing sign-up endpoint.
+  The `handle_new_user` "first user becomes owner" trigger (ADR at
+  Phase 2) is untouched — it still fires on any `auth.users` insert,
+  admin-API-created or not — so a brand-new project's first account still
+  needs creating directly in the Supabase dashboard (or via
+  `scripts/seed.mjs`), then everyone after that goes through Team.
+- Team also supports changing an existing member's role and resetting
+  their password (`updateTeamMemberRole`, `resetTeamMemberPassword`) —
+  both natural siblings of "assign a role during creation" using the same
+  underlying primitives, not separately-scoped features. Every mutation
+  re-derives the caller's own role from the DB before doing anything
+  (never trusts the client); the two admin-client paths (create, reset
+  password) additionally verify the *target* profile's org_id by hand,
+  since bypassing RLS means the org boundary that normally protects
+  `profiles` rows has to be re-checked explicitly instead of inherited for
+  free — `updateTeamMemberRole` doesn't need this because it goes through
+  the caller's own RLS-scoped session, where `profiles_update`'s policy
+  already enforces it.
+- Self-service password change lives at `/account` (any signed-in role),
+  calling `supabase.auth.updateUser({password})` on the current session —
+  deliberately not part of Team, since changing your *own* password needs
+  no admin privileges and no org-membership check at all.
+- `e2e/auth.setup.ts` was rewritten to sign in through the real `/login`
+  form instead of ADR-015's admin-generated `token_hash` bypass — password
+  auth doesn't need a backdoor, so the E2E setup now also exercises the
+  real sign-in UI rather than routing around it.
+- `scripts/seed.mjs` was extended to set (and reset, every run) a known
+  password for the seed user, so the suite never depends on a password
+  that might have drifted from a prior run or a manual edit.
+
+**Consequences:** Signing in no longer depends on email delivery at all,
+for real users or tests. The "first user becomes owner" bootstrap path is
+now reachable only from the Supabase dashboard/a script, not the UI —
+documented in `README.md` so a fresh project's setup steps stay accurate.
+Team's "reset password" capability means a forgotten password never needs
+a code-level fix or a support script — an owner/pm handles it from the UI,
+using the exact code path already required for the one-off "set my own
+password" bootstrap this decision also needed. Optional follow-up, not
+done here: disabling "Enable email signups" in the Supabase dashboard as
+defense-in-depth against someone calling `auth.signUp` directly against
+the API (the app itself never exposes that path, so this is redundant
+hardening, not a functional gap).
+
+---
+
 ## ADR-016: `NEXT_PUBLIC_*` env vars must be read via static `process.env.X`, never `process.env[name]`, in browser code
 
 **Decision date:** 2026-07-02
