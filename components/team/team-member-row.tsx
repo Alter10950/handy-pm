@@ -7,11 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   resetTeamMemberPassword,
+  setTeamMemberActive,
   updateTeamMemberRole,
 } from "@/lib/team/actions";
 import { generateTempPassword } from "@/lib/team/generate-password";
 import type { TeamMember } from "@/lib/team/queries";
 import type { ProfileRole } from "@/lib/supabase/database.types";
+import { cn } from "@/lib/utils";
 
 export function TeamMemberRow({
   member,
@@ -21,6 +23,7 @@ export function TeamMemberRow({
   isSelf: boolean;
 }) {
   const [role, setRole] = useState<ProfileRole>(member.role);
+  const [isActive, setIsActive] = useState(member.isActive);
   const [resetOpen, setResetOpen] = useState(false);
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +43,25 @@ export function TeamMemberRow({
         router.refresh();
       } catch (err) {
         setRole(previous);
+        setError(err instanceof Error ? err.message : "Could not save.");
+      }
+    });
+  }
+
+  function handleToggleActive() {
+    const nextActive = !isActive;
+    const previous = isActive;
+    setIsActive(nextActive);
+    setError(null);
+    startTransition(async () => {
+      try {
+        const formData = new FormData();
+        formData.set("member_id", member.id);
+        formData.set("active", String(nextActive));
+        await setTeamMemberActive(formData);
+        router.refresh();
+      } catch (err) {
+        setIsActive(previous);
         setError(err instanceof Error ? err.message : "Could not save.");
       }
     });
@@ -73,13 +95,28 @@ export function TeamMemberRow({
   return (
     <div
       data-testid={`team-member-row-${member.email}`}
-      className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4"
+      className={cn(
+        "flex flex-col gap-3 rounded-lg border border-border bg-card p-4",
+        !isActive && "opacity-60"
+      )}
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="font-medium text-foreground">
-            {member.fullName || member.email}
-          </p>
+          <div className="flex items-center gap-2">
+            <p className="font-medium text-foreground">
+              {member.fullName || member.email}
+            </p>
+            <span
+              className={cn(
+                "rounded-full px-2 py-0.5 text-xs font-medium",
+                isActive
+                  ? "bg-success/15 text-success"
+                  : "bg-destructive/15 text-destructive"
+              )}
+            >
+              {isActive ? "Active" : "Deactivated"}
+            </span>
+          </div>
           {member.fullName ? (
             <p className="text-sm text-muted-foreground">{member.email}</p>
           ) : null}
@@ -105,16 +142,29 @@ export function TeamMemberRow({
               variant="outline"
               size="sm"
               onClick={handleResetOpen}
+              disabled={isPending}
             >
               Reset password
             </Button>
           ) : null}
+
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={isSelf || isPending}
+            onClick={handleToggleActive}
+            className={isActive ? "text-destructive" : undefined}
+          >
+            {isActive ? "Deactivate" : "Reactivate"}
+          </Button>
         </div>
       </div>
 
       {isSelf ? (
         <p className="text-xs text-muted-foreground">
-          That&apos;s you — change your own role from another owner/PM account.
+          That&apos;s you — change your own role or active status from another
+          owner/PM account.
         </p>
       ) : null}
 

@@ -4,6 +4,64 @@ Engineering journal. Newest entries at top.
 
 ---
 
+## 2026-07-03 — Batch 2 kickoff: schema migration drafted (sub-phase 0), Team deactivate/reactivate (sub-phase A)
+
+**What:** First two sub-phases of a large autonomous batch (schema →
+Team polish → Field/Crew closeout → Scheduler → Phases → multi-page
+drawings → packing-slip AI extraction). This entry covers the first two;
+later entries cover each subsequent sub-phase as it lands.
+
+**Sub-phase 0 — schema (drafted, not yet applied):** one combined,
+idempotent migration
+(`supabase/migrations/20260703104548_phases_scheduling_field_ops.sql`)
+adding everything sub-phases B–F need — full reasoning in ADR-019.
+Attempted `npx supabase db push` first; failed with "Cannot find project
+ref" (not linked, no access token in this environment — same gap as
+Phase 2's original migration). Rather than block the whole batch on
+that, hand-updated `lib/supabase/database.types.ts` to match the new
+schema (same approach ADR-010 used for the original schema, before this
+project was linked), so every subsequent sub-phase can be written and
+typechecked against the real shape immediately. The migration file
+itself is real, reviewed, committed code — "applying" it to a specific
+environment is a separate, one-time operational step, not a reason to
+withhold it from source control. **This is the batch's one NEEDS-YOU
+item** — see `docs/PROGRESS.md`'s status note for the two ways to
+unblock it (a one-time access token, or a one-step SQL editor paste).
+
+**Sub-phase A — Team deactivate/reactivate:** `setTeamMemberActive`
+(`lib/team/actions.ts`) sets/lifts a ~100-year Supabase Auth ban via
+`admin.auth.admin.updateUserById(..., { ban_duration })` — deactivating
+never deletes anything, the profile and all their history stay put, and
+reactivating is just clearing the ban. Blocks sign-in and token refresh
+from that point on; an already-active session isn't instantly killed,
+it can keep working up to its natural ~1h access-token expiry (Supabase
+doesn't expose a "revoke this user's sessions right now" admin call to
+pair with the ban). Self-lockout guarded (can't deactivate your own
+account), same pattern as the existing role-change guard. Extracted the
+"verify this target profile is in my org" check (previously duplicated
+only in `resetTeamMemberPassword`) into a shared `requireMemberInOrg`
+helper now that a second admin-client action needs the identical guard.
+`TeamMemberRow` shows an Active/Deactivated badge and dims the whole row
+when deactivated.
+
+Also re-verified (unchanged since the previous session, but re-run
+here since the E2E suite's first step in every run _is_ a real
+password-based sign-in): email+password login continues to work end to
+end on localhost via the full `npm run test:e2e` run below. Production
+(`https://handy-pm.vercel.app`) was verified with a real headless
+browser against a disposable test account in the prior session and
+nothing auth-related has changed since — re-confirmed at this batch's
+next production deploy rather than redundantly right now.
+
+**E2E:** extended `e2e/team-flow.spec.ts` with a
+deactivate-then-reactivate step: clicks Deactivate, waits for the real
+POST response (not just the badge text) before checking, confirms via
+`admin.auth.admin.listUsers()` that `banned_until` is actually in the
+future; then reactivates and confirms it's cleared.
+
+**Verification:** `npm run lint`, `npm run typecheck`, `npm run build`,
+and the full `npm run test:e2e` (5 tests, zero regressions) all pass.
+
 ## 2026-07-03 — Layout tab: zoom/pan/fullscreen, multi-select bulk quantities, duplicate row
 
 **What:** Real feedback from the first live layout (Bingo Warehouse): big

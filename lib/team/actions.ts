@@ -113,6 +113,24 @@ export async function updateTeamMemberRole(formData: FormData) {
   revalidatePath("/app/team");
 }
 
+// updateUserById uses the admin client, which bypasses RLS entirely — so
+// unlike a plain profiles update, org membership has to be checked by hand
+// before ever touching auth.users, or an owner/pm could act on a user in a
+// different org by guessing/knowing their id. Shared by every action below
+// that goes through the admin client.
+async function requireMemberInOrg(memberId: string, orgId: string) {
+  const supabase = await createClient();
+  const { data: target, error } = await supabase
+    .from("profiles")
+    .select("org_id")
+    .eq("id", memberId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!target || target.org_id !== orgId) {
+    throw new Error("That team member wasn't found in your organization.");
+  }
+}
+
 export async function resetTeamMemberPassword(formData: FormData) {
   const memberId = String(formData.get("member_id") ?? "");
   const password = String(formData.get("password") ?? "");
@@ -122,25 +140,38 @@ export async function resetTeamMemberPassword(formData: FormData) {
   }
 
   const { orgId } = await requireOwnerOrPm();
-
-  // updateUserById uses the admin client, which bypasses RLS entirely — so
-  // unlike the role update above, org membership has to be checked by hand
-  // here before ever touching auth.users, or an owner/pm could reset a
-  // password for a user in a different org by guessing/knowing their id.
-  const supabase = await createClient();
-  const { data: target, error: targetError } = await supabase
-    .from("profiles")
-    .select("org_id")
-    .eq("id", memberId)
-    .maybeSingle();
-  if (targetError) throw targetError;
-  if (!target || target.org_id !== orgId) {
-    throw new Error("That team member wasn't found in your organization.");
-  }
+  await requireMemberInOrg(memberId, orgId);
 
   const admin = createAdminClient();
   const { error } = await admin.auth.admin.updateUserById(memberId, {
     password,
+  });
+  if (error) throw error;
+
+  revalidatePath("/app/team");
+}
+
+// Deactivating never deletes anything — it sets a very long Supabase Auth
+// ban (their existing profile/history stays put), reactivating clears it.
+// Already-issued access tokens can keep working for up to their natural
+// ~1h expiry; this blocks sign-in and token refresh from that point on,
+// it isn't an instant kill-switch on an active session.
+const PERMANENT_BAN_DURATION = "876000h"; // ~100 years
+
+export async function setTeamMemberActive(formData: FormData) {
+  const memberId = String(formData.get("member_id") ?? "");
+  const active = formData.get("active") === "true";
+  if (!memberId) throw new Error("Missing member id.");
+
+  const { userId, orgId } = await requireOwnerOrPm();
+  if (memberId === userId) {
+    throw new Error("You can't deactivate your own account here.");
+  }
+  await requireMemberInOrg(memberId, orgId);
+
+  const admin = createAdminClient();
+  const { error } = await admin.auth.admin.updateUserById(memberId, {
+    ban_duration: active ? "none" : PERMANENT_BAN_DURATION,
   });
   if (error) throw error;
 

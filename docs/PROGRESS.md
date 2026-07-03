@@ -35,6 +35,24 @@ still normalized 0..1 in the DB; zoom/pan is purely a view transform,
 verified zoom-invariant against the DB directly in
 `e2e/row-workspace.spec.ts`, not just by inspection.
 
+**Batch 2 (in progress, 2026-07-03):** sub-phase 0's schema migration
+(`phases`, `blockers`, `day_logs`, `project_schedule`,
+`installs.idempotency_key`/`device_id`, `materials.size`/`labor_units`,
+one-marking-page-per-project, `daily-photos` bucket — see ADR-019) is
+**drafted and committed but not yet applied** to the live Supabase
+project — no access token/DB password was available in this environment
+to run `supabase db push` directly. **NEEDS YOU:** either give a one-time
+Supabase personal access token (Dashboard → Account → Access Tokens,
+then `npx supabase login` and `npx supabase link`) so this and every
+future migration can be pushed autonomously, or paste
+`supabase/migrations/20260703104548_phases_scheduling_field_ops.sql`
+into the Supabase SQL editor yourself (one step, safe to run more than
+once — everything in it is idempotent). Sub-phase A (Team
+deactivate/reactivate) is done and doesn't depend on this migration.
+Sub-phases B–F (Field/Crew closeout, Scheduler, Phases, multi-page
+drawings, packing-slip AI extraction) are queued and will resume as soon
+as the schema is confirmed live.
+
 This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
 
 2. DB schema/RLS/storage/types
@@ -139,6 +157,22 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
       quantities across 3 rows, and asserts exact Assigned/Left/To-order
       numbers in both the grid and the reconciliation card.
 
+## Sub-phase 0 — Schema for Field/Scheduler/Phases ⚠️ drafted, not yet applied (2026-07-03)
+
+- [x] Migration written: `phases`, `blockers`, `day_logs`,
+      `project_schedule` tables; `materials.size`/`labor_units`;
+      `installs.idempotency_key`/`device_id`; `rows.phase_id`;
+      `drawings.role`/`projects.mark_drawing_id` (one marking page per
+      project, DB-enforced via a partial unique index +
+      `set_marking_drawing()`); `daily-photos` storage bucket; RLS on
+      every new table; `row_progress.phase_id`. See ADR-019.
+- [x] `lib/supabase/database.types.ts` hand-updated to match (ADR-010's
+      pattern), so sub-phases A–F can be built and typechecked against
+      the new shape immediately.
+- [ ] **NEEDS YOU** — not yet applied to the live Supabase project (no
+      access token/DB password available here). See the status note at
+      the top of this file for the two ways to unblock it.
+
 ## Auth — email + password, Team management ✅ built (2026-07-03)
 
 - [x] `/login` — email + password (`supabase.auth.signInWithPassword`),
@@ -147,10 +181,20 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
       (email + temp password + role), change an existing member's role,
       reset their password.
 - [x] `/account` — self-service change-password, any signed-in role.
+- [x] Deactivate/reactivate a team member (sub-phase A, 2026-07-03) — a
+      ~100-year Supabase Auth ban / lifted ban, not a delete; blocks
+      sign-in and token refresh (an already-active session can keep
+      working up to its natural ~1h expiry). Self-lockout guarded, same
+      as the role-change action.
 - [x] **Verified live** — `e2e/team-flow.spec.ts` creates a member,
       changes their role (confirmed persisted across a real page reload,
-      not just optimistic client state), resets their password, and
-      exercises the self-service change-password flow.
+      not just optimistic client state), resets their password,
+      deactivates then reactivates them (confirmed via the admin API's
+      `banned_until`), and exercises the self-service change-password
+      flow. This run is also the standing proof that email+password
+      login works end to end on localhost; production
+      (`https://handy-pm.vercel.app`) was verified separately the same
+      way it was built (see `docs/BUILD-LOG.md` 2026-07-03 entries).
 
 ## Testing ✅ built (2026-07-02, extended 2026-07-03)
 

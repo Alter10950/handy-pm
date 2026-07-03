@@ -7,7 +7,16 @@ export interface TeamMember {
   email: string;
   fullName: string | null;
   role: ProfileRole;
+  isActive: boolean;
   createdAt: string;
+}
+
+// Supabase never fully "unsets" a lifted ban — updateUserById('none') just
+// resets banned_until to a value at or before now, so an expired/past ban
+// date also counts as active, not just an absent one.
+function isUserActive(bannedUntil: string | null | undefined): boolean {
+  if (!bannedUntil) return true;
+  return new Date(bannedUntil).getTime() <= Date.now();
 }
 
 /**
@@ -38,6 +47,7 @@ export async function listTeamMembers(): Promise<TeamMember[]> {
         email: data.user?.email ?? "(unknown)",
         fullName: profile.full_name,
         role: profile.role,
+        isActive: isUserActive(data.user?.banned_until),
         createdAt: profile.created_at,
       };
     })

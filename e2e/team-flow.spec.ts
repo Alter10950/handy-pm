@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 import { deleteAuthUserByEmail } from "./helpers/cleanup";
+import { createAdminClient } from "./helpers/supabase-admin";
 
 // .test is IANA-reserved — can never collide with a real domain, same
 // reasoning as the seeded owner account in scripts/seed.mjs.
@@ -70,6 +71,55 @@ test("create team member, change role, reset password", async ({ page }) => {
     await expect(
       row.getByRole("button", { name: "Reset password" })
     ).toBeVisible();
+  });
+
+  await test.step("deactivate then reactivate the member", async () => {
+    const row = page.getByTestId(`team-member-row-${MEMBER_EMAIL}`);
+    await expect(row.getByText("Active", { exact: true })).toBeVisible();
+
+    const [deactivateResponse] = await Promise.all([
+      page.waitForResponse(
+        (res) =>
+          res.request().method() === "POST" && res.url().endsWith("/app/team")
+      ),
+      row.getByRole("button", { name: "Deactivate" }).click(),
+    ]);
+    expect(deactivateResponse.ok()).toBeTruthy();
+    await expect(row.getByText("Deactivated", { exact: true })).toBeVisible();
+
+    const admin = createAdminClient();
+    const { data: afterDeactivate, error: deactivateError } =
+      await admin.auth.admin.listUsers();
+    if (deactivateError) throw deactivateError;
+    const deactivatedUser = afterDeactivate.users.find(
+      (u) => u.email === MEMBER_EMAIL
+    );
+    expect(deactivatedUser).toBeTruthy();
+    expect(
+      deactivatedUser!.banned_until &&
+        new Date(deactivatedUser!.banned_until).getTime() > Date.now()
+    ).toBe(true);
+
+    const [reactivateResponse] = await Promise.all([
+      page.waitForResponse(
+        (res) =>
+          res.request().method() === "POST" && res.url().endsWith("/app/team")
+      ),
+      row.getByRole("button", { name: "Reactivate" }).click(),
+    ]);
+    expect(reactivateResponse.ok()).toBeTruthy();
+    await expect(row.getByText("Active", { exact: true })).toBeVisible();
+
+    const { data: afterReactivate, error: reactivateError } =
+      await admin.auth.admin.listUsers();
+    if (reactivateError) throw reactivateError;
+    const reactivatedUser = afterReactivate.users.find(
+      (u) => u.email === MEMBER_EMAIL
+    );
+    const stillBanned =
+      reactivatedUser?.banned_until &&
+      new Date(reactivatedUser.banned_until).getTime() > Date.now();
+    expect(stillBanned).toBeFalsy();
   });
 });
 

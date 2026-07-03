@@ -285,14 +285,20 @@ or upload click does.
 
 ## Data model
 
-Built in Phase 2. Migrations live in `supabase/migrations/`, applied in
-this order:
+Built in Phase 2, extended 2026-07-03 for Field/Scheduler/Phases (see
+ADR-019). Migrations live in `supabase/migrations/`, applied in this
+order:
 
 1. `schema_core.sql` — tables, checks, FKs, indexes.
 2. `auth_bootstrap.sql` — `handle_new_user` trigger.
 3. `rls_policies.sql` — helper functions, RLS policies, grants.
 4. `storage_buckets.sql` — `drawings` / `packing-slips` buckets + policies.
 5. `views.sql` — `row_progress`, `project_progress`, `material_reconciliation`.
+6. `phases_scheduling_field_ops.sql` — `phases`, `blockers`, `day_logs`,
+   `project_schedule` tables; `materials.size`/`labor_units`;
+   `installs.idempotency_key`/`device_id`; `rows.phase_id`;
+   `drawings.role` + `projects.mark_drawing_id` (one marking page per
+   project); `daily-photos` bucket; `row_progress.phase_id`.
 
 ### Tables
 
@@ -300,30 +306,47 @@ Every table is scoped to an `organizations` row, directly (`org_id`) or
 transitively via `project_id` → `projects.org_id` or `crew_id` →
 `crews.org_id`.
 
-| Table                                    | Scoped via                    | Purpose                                                                                                                                                                                                                                |
-| ---------------------------------------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `organizations`                          | —                             | Tenant boundary. One per Handy Equip-style deployment (see auth bootstrap below); multi-org support exists in the schema but isn't exercised yet.                                                                                      |
-| `profiles`                               | `org_id` (nullable)           | One row per `auth.users`, `role` ∈ `owner`/`pm`/`scheduler`/`crew`.                                                                                                                                                                    |
-| `projects`                               | `org_id`                      | A racking-install job. `status` ∈ `active`/`on_hold`/`complete`.                                                                                                                                                                       |
-| `crews` / `crew_members`                 | `org_id` / via `crews`        | Install crews and their members (Phase 6/7).                                                                                                                                                                                           |
-| `drawings`                               | `project_id`                  | One row per rendered page (`page_index` 0-based) of an uploaded layout PDF/image. `storage_path` points into the private `drawings` bucket.                                                                                            |
-| `packing_slips`                          | `project_id`                  | Uploaded packing-slip files; `parsed` reserved for future OCR/extraction.                                                                                                                                                              |
-| `materials`                              | `project_id`                  | The job's material catalog — `total_needed` (job total) and `received` (from packing slips) live here; per-row requirements live in `row_materials`.                                                                                   |
-| `rows`                                   | `project_id` (+ `drawing_id`) | A marked rack section on a drawing page. `x/y/w/h` are **normalized 0..1** fractions of the drawing's rendered size, so marks stay correct at any zoom/display size — matches the reference marking-tool prototype's coordinate model. |
-| `row_materials`                          | via `rows`                    | Required qty of a material for a specific row. `unique(row_id, material_id)`.                                                                                                                                                          |
-| `installs`                               | via `rows`                    | Append-only log of installed qty per row/material/date. `qty` may be negative (a correction entry) — never edit history in place. Written by the Phase 6 field app; empty until then.                                                  |
-| `assignments` / `targets` / `crew_rates` | `project_id` / `crew_id`      | Scheduling (Phase 7). Created now so FKs are clean from day one.                                                                                                                                                                       |
-| `share_tokens`                           | `project_id`                  | Customer portal tokens (Phase 8). Not publicly RLS-readable — see below.                                                                                                                                                               |
+| Table                                    | Scoped via                    | Purpose                                                                                                                                                                                                                                     |
+| ---------------------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `organizations`                          | —                             | Tenant boundary. One per Handy Equip-style deployment (see auth bootstrap below); multi-org support exists in the schema but isn't exercised yet.                                                                                           |
+| `profiles`                               | `org_id` (nullable)           | One row per `auth.users`, `role` ∈ `owner`/`pm`/`scheduler`/`crew`.                                                                                                                                                                         |
+| `projects`                               | `org_id`                      | A racking-install job. `status` ∈ `active`/`on_hold`/`complete`. `planned_days` (Scheduler target math) and `mark_drawing_id` (the one markable page — see below) added 2026-07-03.                                                         |
+| `crews` / `crew_members`                 | `org_id` / via `crews`        | Install crews and their members (Scheduler sub-phase).                                                                                                                                                                                      |
+| `drawings`                               | `project_id`                  | One row per rendered page (`page_index` 0-based) of an uploaded layout PDF/image. `storage_path` points into the private `drawings` bucket. `role` ∈ `reference`/`marking` — see below.                                                     |
+| `packing_slips`                          | `project_id`                  | Uploaded packing-slip files; `parsed` reserved for future OCR/extraction.                                                                                                                                                                   |
+| `materials`                              | `project_id`                  | The job's material catalog — `total_needed` (job total) and `received` (from packing slips) live here; per-row requirements live in `row_materials`. `size` (free-form, e.g. `36SQ10`) and `labor_units` (Scheduler math) added 2026-07-03. |
+| `rows`                                   | `project_id` (+ `drawing_id`) | A marked rack section on a drawing page. `x/y/w/h` are **normalized 0..1** fractions of the drawing's rendered size, so marks stay correct at any zoom/display size. `phase_id` (nullable) added 2026-07-03.                                |
+| `row_materials`                          | via `rows`                    | Required qty of a material for a specific row. `unique(row_id, material_id)`.                                                                                                                                                               |
+| `installs`                               | via `rows`                    | Append-only log of installed qty per row/material/date. `qty` may be negative (a correction entry) — never edit history in place. `idempotency_key` (unique, nullable) + `device_id` added 2026-07-03 for the field app's offline queue.    |
+| `phases`                                 | `project_id`                  | A named, colored grouping of rows — `color` renders on the drawing, `sort_order` controls legend/list order.                                                                                                                                |
+| `blockers`                               | `project_id`                  | A logged reason work stopped — `code` is one of 10 fixed values, plus note/photo. `resolved_at` null until cleared.                                                                                                                         |
+| `day_logs`                               | `project_id`                  | One row per crew/project/day (`unique(project_id, crew_id, work_date)`), filled in progressively and updated (not re-inserted) as the day closes out.                                                                                       |
+| `assignments` / `targets` / `crew_rates` | `project_id` / `crew_id`      | Scheduling. Created in Phase 2 so FKs were clean from day one; built out by the Scheduler sub-phase.                                                                                                                                        |
+| `project_schedule`                       | `project_id`                  | Presence of a row = a scheduled working day (`unique(project_id, work_date)`) — a date range can be picked and specific days skipped without a separate flag.                                                                               |
+| `share_tokens`                           | `project_id`                  | Customer portal tokens (Phase 8). Not publicly RLS-readable — see below.                                                                                                                                                                    |
+
+**Exactly one marking page per project:** `drawings.role` defaults to
+`'reference'`; a partial unique index
+(`drawings (project_id) where role = 'marking'`) makes "at most one
+marking drawing per project" a DB-level guarantee. Re-designating which
+page is the marking one goes through `set_marking_drawing(project_id,
+drawing_id)` — a `security invoker` function that flips every drawing's
+`role` and updates `projects.mark_drawing_id` together, so it can never
+leave two drawings marked `'marking'` or the pointer out of sync, and it
+only succeeds when the calling user's own RLS already permits those
+writes (it does not bypass RLS the way the org/role helpers deliberately
+do). See ADR-019 for the backfill logic that assigned existing projects a
+marking page when this migration ran.
 
 ### Auth bootstrap
 
 `handle_new_user()` (SECURITY DEFINER trigger on `auth.users` insert): the
 **first** user ever created becomes `owner` of a freshly-created
-organization. Every subsequent signup gets `role='crew'`, `org_id=null` —
-there's no self-serve invite flow yet, so an owner/pm must manually move
-them into the org (e.g. via the SQL editor) until a later phase builds
-proper invites. After your first sign-in, rename the auto-created org:
-`update organizations set name = 'Handy Equip';`.
+organization — this bootstrap path is now reachable only via the
+Supabase dashboard or `scripts/seed.mjs` (see ADR-017), since there's no
+public sign-up. Every subsequent account is created from `/app/team`
+(owner/pm only), which sets the right org/role immediately via the
+service-role admin API — no manual SQL needed.
 
 ### RLS & authorization
 
@@ -333,11 +356,18 @@ the caller's own `profiles` row via `auth.uid()`; the role helper is NOT
 named `current_role()` — that collides with a reserved Postgres keyword,
 see ADR-008 update below). Role model:
 
-- `owner` / `pm` / `scheduler` — full CRUD within their org. (Finer-grained
-  differences between these three are deferred until a later phase's UI
-  actually needs them.)
-- `crew` — read access to their org's data, plus **INSERT on `installs`
-  only**. Cannot create/edit/delete projects, materials, or rows.
+- `owner` / `pm` / `scheduler` — full CRUD within their org on most tables.
+  (Finer-grained differences between these three are deferred until a
+  later phase's UI actually needs them, except where noted below.)
+- `crew` — read access to their org's data, plus:
+  - **INSERT on `installs`** (log field work) — never update/delete.
+  - **INSERT on `blockers`** (report a stoppage) — resolving/editing/
+    deleting is owner/pm only.
+  - **INSERT + UPDATE own row on `day_logs`** (`created_by = auth.uid()`)
+    while filling in the day progressively; owner/pm can edit/delete any.
+  - **INSERT on the `daily-photos` storage bucket.**
+  - Cannot create/edit/delete projects, materials, rows, phases, or the
+    project schedule.
 
 `share_tokens` is deliberately **not** readable via any anon RLS policy —
 the Phase 8 customer portal will read it through a server Route Handler
@@ -363,11 +393,16 @@ per row/material (matching the reference prototype's `zonePct`/
 
 ### Storage
 
-Two private buckets, `drawings` and `packing-slips`, path convention
-`{project_id}/{filename}`. RLS policies on `storage.objects` derive the
+Three private buckets: `drawings` and `packing-slips`, path convention
+`{project_id}/{filename}`; `daily-photos` (added 2026-07-03), path
+convention `{project_id}/{date}/{crew_id}/{filename}` — the extra path
+segments don't change the org-scoping check below, since it only ever
+looks at the _first_ segment. RLS policies on `storage.objects` derive the
 owning project from the first path segment
 (`(storage.foldername(name))[1]::uuid`) and check it against
-`current_org_id()`. The app always reads via short-lived signed URLs
+`current_org_id()`. `daily-photos` allows INSERT from any org role
+(crew uploads photos in the field); `drawings`/`packing-slips` stay
+owner/pm-only for writes. The app always reads via short-lived signed URLs
 (`lib/supabase/server.ts` → `storage.from(bucket).createSignedUrl(...)`),
 never public bucket URLs.
 

@@ -18,6 +18,18 @@ export type Json =
 
 export type ProfileRole = "owner" | "pm" | "scheduler" | "crew";
 export type ProjectStatus = "active" | "on_hold" | "complete";
+export type DrawingRole = "reference" | "marking";
+export type BlockerCode =
+  | "MISSING_MATERIAL"
+  | "WRONG_MATERIAL"
+  | "CUSTOMER_DELAY"
+  | "AREA_BLOCKED"
+  | "FLOOR_ISSUE"
+  | "DRAWING_ISSUE"
+  | "CREW_SHORT"
+  | "EQUIPMENT_ISSUE"
+  | "WEATHER_TRUCK"
+  | "OTHER";
 
 export interface Database {
   public: {
@@ -80,6 +92,8 @@ export interface Database {
           site_address: string | null;
           status: ProjectStatus;
           deadline: string | null;
+          planned_days: number | null;
+          mark_drawing_id: string | null;
           created_by: string | null;
           created_at: string;
         };
@@ -90,6 +104,8 @@ export interface Database {
           site_address?: string | null;
           status?: ProjectStatus;
           deadline?: string | null;
+          planned_days?: number | null;
+          mark_drawing_id?: string | null;
           created_by?: string | null;
           created_at?: string;
         };
@@ -100,6 +116,8 @@ export interface Database {
           site_address?: string | null;
           status?: ProjectStatus;
           deadline?: string | null;
+          planned_days?: number | null;
+          mark_drawing_id?: string | null;
           created_by?: string | null;
           created_at?: string;
         };
@@ -109,6 +127,13 @@ export interface Database {
             columns: ["org_id"];
             isOneToOne: false;
             referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "projects_mark_drawing_id_fkey";
+            columns: ["mark_drawing_id"];
+            isOneToOne: false;
+            referencedRelation: "drawings";
             referencedColumns: ["id"];
           },
         ];
@@ -182,6 +207,7 @@ export interface Database {
           storage_path: string;
           width: number | null;
           height: number | null;
+          role: DrawingRole;
           created_at: string;
         };
         Insert: {
@@ -191,6 +217,7 @@ export interface Database {
           storage_path: string;
           width?: number | null;
           height?: number | null;
+          role?: DrawingRole;
           created_at?: string;
         };
         Update: {
@@ -200,6 +227,7 @@ export interface Database {
           storage_path?: string;
           width?: number | null;
           height?: number | null;
+          role?: DrawingRole;
           created_at?: string;
         };
         Relationships: [
@@ -249,27 +277,33 @@ export interface Database {
           id: string;
           project_id: string;
           name: string;
+          size: string | null;
           unit: string;
           total_needed: number;
           received: number;
+          labor_units: number;
           created_at: string;
         };
         Insert: {
           id?: string;
           project_id: string;
           name: string;
+          size?: string | null;
           unit?: string;
           total_needed?: number;
           received?: number;
+          labor_units?: number;
           created_at?: string;
         };
         Update: {
           id?: string;
           project_id?: string;
           name?: string;
+          size?: string | null;
           unit?: string;
           total_needed?: number;
           received?: number;
+          labor_units?: number;
           created_at?: string;
         };
         Relationships: [
@@ -282,11 +316,47 @@ export interface Database {
           },
         ];
       };
+      phases: {
+        Row: {
+          id: string;
+          project_id: string;
+          name: string;
+          color: string;
+          sort_order: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          project_id: string;
+          name: string;
+          color: string;
+          sort_order?: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          project_id?: string;
+          name?: string;
+          color?: string;
+          sort_order?: number;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "phases_project_id_fkey";
+            columns: ["project_id"];
+            isOneToOne: false;
+            referencedRelation: "projects";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       rows: {
         Row: {
           id: string;
           project_id: string;
           drawing_id: string;
+          phase_id: string | null;
           label: string;
           x: number;
           y: number;
@@ -298,6 +368,7 @@ export interface Database {
           id?: string;
           project_id: string;
           drawing_id: string;
+          phase_id?: string | null;
           label: string;
           x: number;
           y: number;
@@ -309,6 +380,7 @@ export interface Database {
           id?: string;
           project_id?: string;
           drawing_id?: string;
+          phase_id?: string | null;
           label?: string;
           x?: number;
           y?: number;
@@ -329,6 +401,13 @@ export interface Database {
             columns: ["drawing_id"];
             isOneToOne: false;
             referencedRelation: "drawings";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "rows_phase_id_fkey";
+            columns: ["phase_id"];
+            isOneToOne: false;
+            referencedRelation: "phases";
             referencedColumns: ["id"];
           },
         ];
@@ -381,6 +460,8 @@ export interface Database {
           installed_on: string;
           crew_id: string | null;
           note: string | null;
+          idempotency_key: string | null;
+          device_id: string | null;
           created_by: string | null;
           created_at: string;
         };
@@ -392,6 +473,8 @@ export interface Database {
           installed_on?: string;
           crew_id?: string | null;
           note?: string | null;
+          idempotency_key?: string | null;
+          device_id?: string | null;
           created_by?: string | null;
           created_at?: string;
         };
@@ -403,6 +486,8 @@ export interface Database {
           installed_on?: string;
           crew_id?: string | null;
           note?: string | null;
+          idempotency_key?: string | null;
+          device_id?: string | null;
           created_by?: string | null;
           created_at?: string;
         };
@@ -423,6 +508,133 @@ export interface Database {
           },
           {
             foreignKeyName: "installs_crew_id_fkey";
+            columns: ["crew_id"];
+            isOneToOne: false;
+            referencedRelation: "crews";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      blockers: {
+        Row: {
+          id: string;
+          project_id: string;
+          row_id: string | null;
+          crew_id: string | null;
+          code: BlockerCode;
+          note: string | null;
+          photo_path: string | null;
+          work_date: string;
+          resolved_at: string | null;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          project_id: string;
+          row_id?: string | null;
+          crew_id?: string | null;
+          code: BlockerCode;
+          note?: string | null;
+          photo_path?: string | null;
+          work_date?: string;
+          resolved_at?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          project_id?: string;
+          row_id?: string | null;
+          crew_id?: string | null;
+          code?: BlockerCode;
+          note?: string | null;
+          photo_path?: string | null;
+          work_date?: string;
+          resolved_at?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "blockers_project_id_fkey";
+            columns: ["project_id"];
+            isOneToOne: false;
+            referencedRelation: "projects";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "blockers_row_id_fkey";
+            columns: ["row_id"];
+            isOneToOne: false;
+            referencedRelation: "rows";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "blockers_crew_id_fkey";
+            columns: ["crew_id"];
+            isOneToOne: false;
+            referencedRelation: "crews";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      day_logs: {
+        Row: {
+          id: string;
+          project_id: string;
+          crew_id: string | null;
+          work_date: string;
+          arrived_at: string | null;
+          offload_start: string | null;
+          offload_end: string | null;
+          install_start: string | null;
+          install_end: string | null;
+          departed_at: string | null;
+          note: string | null;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          project_id: string;
+          crew_id?: string | null;
+          work_date?: string;
+          arrived_at?: string | null;
+          offload_start?: string | null;
+          offload_end?: string | null;
+          install_start?: string | null;
+          install_end?: string | null;
+          departed_at?: string | null;
+          note?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          project_id?: string;
+          crew_id?: string | null;
+          work_date?: string;
+          arrived_at?: string | null;
+          offload_start?: string | null;
+          offload_end?: string | null;
+          install_start?: string | null;
+          install_end?: string | null;
+          departed_at?: string | null;
+          note?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "day_logs_project_id_fkey";
+            columns: ["project_id"];
+            isOneToOne: false;
+            referencedRelation: "projects";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "day_logs_crew_id_fkey";
             columns: ["crew_id"];
             isOneToOne: false;
             referencedRelation: "crews";
@@ -528,6 +740,35 @@ export interface Database {
           },
         ];
       };
+      project_schedule: {
+        Row: {
+          id: string;
+          project_id: string;
+          work_date: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          project_id: string;
+          work_date: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          project_id?: string;
+          work_date?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "project_schedule_project_id_fkey";
+            columns: ["project_id"];
+            isOneToOne: false;
+            referencedRelation: "projects";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       crew_rates: {
         Row: {
           id: string;
@@ -605,6 +846,7 @@ export interface Database {
           row_id: string;
           project_id: string;
           drawing_id: string;
+          phase_id: string | null;
           label: string;
           x: number;
           y: number;
@@ -672,6 +914,10 @@ export interface Database {
       org_id_of_row: {
         Args: { p_row_id: string };
         Returns: string | null;
+      };
+      set_marking_drawing: {
+        Args: { p_project_id: string; p_drawing_id: string };
+        Returns: undefined;
       };
     };
     Enums: Record<string, never>;

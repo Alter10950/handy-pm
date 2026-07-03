@@ -5,6 +5,83 @@ Consequences.
 
 ---
 
+## ADR-019: Schema for Field/Crew closeout, Scheduler, Phases, multi-page drawings
+
+**Decision date:** 2026-07-03
+
+**Context:** One combined migration (`20260703104548_phases_scheduling_field_ops.sql`)
+adds everything the next batch of sub-phases needs: offline-safe installs,
+phases, blockers, day logs, project scheduling, and "exactly one marking
+page per project." Written as a single idempotent file per this batch's
+brief, rather than split into schema/rls/storage files like Phase 2 — the
+smaller Phase 2 split earned its complexity by being the _first_ migration
+ever reviewed; this one is additive to an already-documented schema, so
+one file is easier to review end to end.
+
+**Choice — installs stays append-only, just dedupe-able:** `idempotency_key`
+(unique, nullable) and `device_id` are added, not a rework of the
+event-log model — the field app generates a key client-side per logged
+delta, so replaying an offline queue after reconnecting can't double-count
+even if the network ACK was lost and the client retries. Nullable because
+existing/manually-created rows have none; Postgres treats multiple NULLs
+in a unique column as distinct, so this doesn't constrain them.
+
+**Choice — day_logs is NOT append-only, unlike installs/blockers:** a crew's
+day is filled in progressively (arrived, then offload/install times, then
+departed) and "closed" once — modeling that as one row per crew/project/
+day (`unique(project_id, crew_id, work_date)`) that gets updated, not
+inserted repeatedly, matches the actual UX ("confirm the day's times...
+submit"). RLS lets crew update their own entry
+(`created_by = auth.uid()`) while the day is still open; owner/pm can
+edit/delete any. Installs and blockers deliberately stay append-only/
+insert-only for crew (existing behavior for installs; blockers is a report
+log, not a single record to revise).
+
+**Choice — exactly one marking page, enforced at two levels:** a partial
+unique index (`drawings (project_id) where role = 'marking'`) makes "at
+most one" a DB-level guarantee, not just an application convention.
+Re-designating which page is "the" marking page is a
+`security invoker` function (`set_marking_drawing`, not `security
+definer`) doing both `drawings.role` flips and the `projects.mark_drawing_id`
+pointer update together — invoker, deliberately, so it only succeeds when
+the _calling_ user's own RLS already permits those writes (owner/pm via
+the existing `drawings_write`/`projects_update` policies), rather than
+bypassing RLS the way the org/role helper functions intentionally do.
+Existing projects are backfilled by picking the drawing with the most
+existing rows as a best-guess "the page they were already marking" (ties
+broken toward the lower `page_index`) — a safe default even for a project
+that genuinely had rows spread across multiple pages before this
+constraint existed, since existing rows keep working everywhere else
+(progress/materials are project-scoped, not marking-page-scoped); the
+constraint only affects where _new_ rows can be drawn going forward,
+which the multi-page sub-phase's UI enforces.
+
+**Choice — RLS follows the existing three-tier pattern exactly:**
+owner/pm/scheduler manage `phases`/`project_schedule` (scheduling-adjacent,
+matching `assignments`/`targets`'s existing policy); crew gets INSERT-only
+on `blockers` (report, don't resolve — owner/pm resolves) and INSERT +
+own-row UPDATE on `day_logs`; everyone in the org reads everything. No new
+helper functions needed — every new table is `project_id`-scoped directly,
+so the existing `org_id_of_project()` covers all of them.
+
+**Choice — `row_progress` gains `phase_id`, nothing else changes:** the
+Layout/Progress tabs need to color/filter/group by phase; adding the
+column to the existing view is enough for that. Phase-filtered _material_
+reconciliation (a phase's rows only) is deferred to the Phases sub-phase
+as an application-level query joining `row_materials`/`rows`/`installs`
+directly, rather than reshaping the shared `material_reconciliation` view
+that the whole-project Materials tab already depends on unfiltered.
+
+**Consequences:** `materials.labor_units` and `projects.planned_days` are
+unused by any UI yet — they exist now so the Scheduler sub-phase's target
+math has a real column to read instead of inventing one mid-feature.
+`database.types.ts` was hand-updated to match (ADR-010's established
+pattern) ahead of the migration actually being applied to the live
+project, since no Supabase access token/DB password was available in this
+environment — see `docs/BUILD-LOG.md` for how it was actually applied.
+
+---
+
 ## ADR-018: Zoom/pan as a pure CSS transform; multi-select ordering; duplicate placement
 
 **Decision date:** 2026-07-03
