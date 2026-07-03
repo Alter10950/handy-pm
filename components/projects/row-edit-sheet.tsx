@@ -18,11 +18,13 @@ export function RowEditSheet({
   onClose,
   onRename,
   onDelete,
+  onDuplicate,
 }: {
   row: { id: string; label: string };
   onClose: () => void;
   onRename: (id: string, label: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  onDuplicate: (id: string) => void;
 }) {
   const [label, setLabel] = useState(row.label);
   const [isPending, startTransition] = useTransition();
@@ -85,6 +87,14 @@ export function RowEditSheet({
             className="text-destructive"
           >
             Delete row
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={isPending}
+            onClick={() => onDuplicate(row.id)}
+          >
+            Duplicate…
           </Button>
           <Button type="button" size="lg" onClick={save} disabled={isPending}>
             {isPending ? "Saving..." : "Save row"}

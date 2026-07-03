@@ -133,8 +133,23 @@ components/
     row-fill-marker.tsx           shared fill/label/hazard visual — used by
                                  both row-stage.tsx (editable) and
                                  materials-reference-stage.tsx (read-only)
-    row-stage.tsx                 pointer-interactive marking canvas
-    row-marking-workspace.tsx      + auto-rows-dialog / row-edit-sheet.tsx
+    row-stage.tsx                 pointer-interactive marking canvas —
+                                 zoom/pan/multi-select/marquee live here;
+                                 see docs/ARCHITECTURE.md for why the
+                                 existing draw/move/resize math needed no
+                                 changes for zoom/pan to work
+    use-zoom-pan.ts                zoom/pan state + wheel/pinch handling —
+                                 takes the viewport ref as a param rather
+                                 than creating/returning one; see its
+                                 docstring and docs/DECISIONS.md ADR-018
+                                 before "simplifying" that back
+    zoom-controls.tsx              floating +/−/Fit/% overlay
+    row-marking-workspace.tsx      + auto-rows-dialog / row-edit-sheet.tsx /
+                                 duplicate-row-dialog.tsx /
+                                 bulk-materials-panel.tsx
+    duplicate-row-dialog.tsx        copy count + "also copy materials" toggle
+    bulk-materials-panel.tsx        one qty input per material, applies to
+                                 every selected row in one action
     materials-reference-stage.tsx  read-only drawing view, click-to-highlight
     materials-grid.tsx             the spreadsheet (sticky header/column)
     materials-workspace.tsx        orchestrates the two above + highlight state
@@ -161,10 +176,13 @@ lib/
                                uploads are NOT here
     parse-material-list.ts      pure "name, qty" line parser
   rows/
-    naming.ts                   pure sequential "Row N" auto-naming
+    naming.ts                   pure sequential "Row N" auto-naming +
+                               rowNumber() (single-label N, for
+                               multi-select range ordering)
     actions.ts                   Server Actions: create/move/resize/rename/
-                               delete a row, upsert a row's required qty
-                               for a material
+                               delete/duplicate a row, upsert a row's (or,
+                               in bulk, many rows') required qty for a
+                               material
   team/
     queries.ts                  listTeamMembers() — RLS-scoped profiles
                                query joined with admin-client email lookups
@@ -203,6 +221,11 @@ e2e/
   team-flow.spec.ts               Team screen: create member → change role
                                → reset password; + self-service
                                change-password from /account
+  row-workspace.spec.ts           zoom-invariant drawing accuracy (checked
+                               against the DB, not just rendered CSS),
+                               multi-select + bulk quantities with an
+                               exact-boundary check, duplicate-with-
+                               materials, reload persistence
   helpers/                       env.ts, supabase-admin.ts (service-role
                                client), cleanup.ts (deletes test
                                projects/users)

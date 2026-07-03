@@ -8,7 +8,7 @@
 | `/login`                      | public    | Email + password sign-in (Handy PM branded). No sign-up form — see ADR-017.                                                                                                                                                     |
 | `/account`                    | protected | Self-service change-password. Any signed-in role.                                                                                                                                                                               |
 | `/app`                        | protected | Projects list (from `project_progress`) + New project dialog.                                                                                                                                                                   |
-| `/app/team`                   | protected | Team/user management — owner/pm only. Create accounts (email + temp password + role), change an existing member's role, reset their password.                                                                                 |
+| `/app/team`                   | protected | Team/user management — owner/pm only. Create accounts (email + temp password + role), change an existing member's role, reset their password.                                                                                   |
 | `/app/project/[id]`           | protected | Overview tab — meta, quick stats, drawing thumbnail.                                                                                                                                                                            |
 | `/app/project/[id]/mark`      | protected | "Layout" tab — drawing upload/viewer + row marking workspace (auto/draw/edit tools). Named `mark`, not `layout`, to avoid colliding with the Next.js `layout.tsx` file convention in the same folder — see `docs/DECISIONS.md`. |
 | `/app/project/[id]/materials` | protected | Materials tab — packing-slip/paste-list upload, reference drawing overlay, materials × rows grid, reconciliation card.                                                                                                          |
@@ -64,14 +64,14 @@ client:
   `handle_new_user` trigger just inserted (org_id null, role 'crew') with
   the caller's org and the selected role. That overwrite has to go through
   the admin client — `profiles_update`'s RLS `using` clause checks the
-  row's *pre-update* org_id, which is null for a brand-new profile, so the
+  row's _pre-update_ org_id, which is null for a brand-new profile, so the
   caller's own RLS-scoped session could never pass that check itself.
 - `updateTeamMemberRole` — a plain role change (org_id unchanged) is
   exactly what `profiles_update`'s RLS already allows an owner/pm to do
   directly, so this one uses the normal cookie-scoped client, not admin.
   Blocks changing your own role from this screen (self-lockout guard).
 - `resetTeamMemberPassword` — `admin.auth.admin.updateUserById(...,
-  {password})`. Since this goes through the admin client (bypasses RLS),
+{password})`. Since this goes through the admin client (bypasses RLS),
   it explicitly checks the target profile's `org_id` against the caller's
   own before touching `auth.users` — otherwise an owner/pm could reset a
   password for a user in a different org by guessing/knowing their id.
@@ -106,45 +106,101 @@ render each PDF page (capped at 15 pages) or a plain image onto a
 the browser client, then calls a Server Action once just to insert the
 `drawings`/`packing_slips` row and revalidate. See ADR-012 and ADR-013.
 
-## Drawing marking (Phase 4)
+## Drawing marking (Phase 4, zoom/pan/multi-select/duplicate added 2026-07-03)
 
 `/app/project/[id]/mark` renders `RowMarkingWorkspace`
 (`components/projects/row-marking-workspace.tsx`), which owns tool
-selection (`grid` / `draw` / `edit`), the active page, and orchestrates
-three pieces:
+selection (`grid` / `draw` / `edit` / `select` / `pan`), fullscreen state,
+multi-select state, the active page, and orchestrates:
 
-- `RowStage` (`row-stage.tsx`) — the actual pointer-interactive canvas.
-  Pointer capture on `pointerdown` (so drags keep tracking even if the
-  cursor leaves the element) drives three drag modes: `draw` (drag a new
-  box — used by both "Draw one" and, once "Auto rows" is armed with a
-  count/orientation, "Auto rows"), `move`, and `resize` (via a corner
-  handle, edit tool only). Geometry updates render from local "draft"
-  state during a drag and only call back to the parent (to persist) on
-  `pointerup` — never on every `pointermove`, or every frame would hit the
-  database. A `pointerup` with no net movement is treated as a tap, which
-  opens the rename/delete sheet instead of persisting a move.
+- `RowStage` (`row-stage.tsx`) — the pointer-interactive canvas. Pointer
+  capture on `pointerdown` (so drags keep tracking even if the cursor
+  leaves the element) drives drag modes: `draw` (drag a new box — used by
+  both "Draw one" and, once "Auto rows" is armed with a count/orientation,
+  "Auto rows"), `move`, `resize` (corner handle, edit tool only), `pan`
+  (Hand tool, or holding Space, or a native touch drag), and `marquee`
+  (Select tool, drag over empty area). Geometry updates render from local
+  "draft" state during a drag and only call back to the parent (to
+  persist) on `pointerup` — never on every `pointermove`, or every frame
+  would hit the database. A `pointerup` with no net movement is treated as
+  a tap: in `edit` it opens the rename/duplicate/delete sheet; in `select`
+  a tap on empty space clears the selection instead.
   Row fill orientation (does the progress bar fill bottom-to-top or
   left-to-right?) is decided by comparing **rendered pixel** dimensions
-  (`geometry.h * stageHeightPx >= geometry.w * stageWidthPx`, tracked via
-  `ResizeObserver`), not the raw normalized `w`/`h` — those are only
-  directly comparable when the stage happens to be square. Caught in
-  self-review; see `docs/BUILD-LOG.md`.
+  (`geometry.h * effectiveHeight >= geometry.w * effectiveWidth`) against
+  the stage's known natural size — not the raw normalized `w`/`h`, which
+  are only directly comparable when the stage happens to be square.
+  Caught in self-review; see `docs/BUILD-LOG.md`.
+- **Zoom/pan** (`use-zoom-pan.ts` + `zoom-controls.tsx`) — a pure CSS
+  `transform: translate() scale()` on the stage element, inside a
+  fixed-size `overflow: hidden` viewport. Row geometry stays normalized
+  0..1 in the DB; the draw/move/resize math above needs **no changes** to
+  stay correct under this transform, because every formula reads the
+  stage's _current_ `getBoundingClientRect()`, and the browser already
+  folds the live transform into that rect — `(clientX - rect.left) /
+rect.width` yields the same 0..1 fraction at any zoom/pan, the
+  transform cancels out of the ratio automatically. Verified directly (not
+  just by inspection): `e2e/row-workspace.spec.ts` draws a row at fit-zoom,
+  zooms in ~2.4x, drags over the exact same underlying content region
+  (computed from the stage's post-zoom bounding rect), and asserts both
+  rows land within 0.02 of the same normalized geometry in the DB.
+  Wheel (any) zooms toward the cursor; native (non-React) wheel/touch
+  listeners are used so `preventDefault()` actually suppresses the
+  browser's own scroll/pinch — React's `onWheel`/`onTouch*` props are
+  passive by default and silently ignore `preventDefault()`. Two-finger
+  touch drives combined pinch-zoom + pan via native `touchstart/move/end`,
+  tracked separately from the single-pointer drag state above. Holding
+  Space temporarily engages pan regardless of the active tool (ignored
+  while typing in a field). `useZoomPan` takes the viewport ref as an
+  argument rather than creating and returning it, and callers destructure
+  its return value into plain local variables — both deliberate: mixing a
+  ref into an object whose other fields are read via `.property` access
+  trips `eslint-plugin-react-hooks`'s stricter `react-hooks/refs` rule
+  even for the non-ref fields.
+- **Fullscreen** — `RowMarkingWorkspace`'s root (toolbar + stage, not just
+  the stage) is the `requestFullscreen()` target, so the tool/zoom
+  controls stay reachable in fullscreen. Listens for `fullscreenchange`
+  (handles Esc-to-exit, which bypasses the button).
+- **Multi-select + bulk quantities** — `select` tool: tap toggles a row
+  in/out of `selectedRowIds`; shift-click selects the contiguous range
+  from the last-tapped row (the anchor) to the clicked one, using rows
+  sorted by `rowNumber()` (`lib/rows/naming.ts`) rather than raw
+  array/DB order, since `listRowProgress` has no `ORDER BY` and Postgres
+  doesn't guarantee one — "select rows 2-11" needs a numeric, not
+  incidental, ordering. Marquee-drag unions in every row whose bounding
+  box intersects the dragged rectangle. `BulkMaterialsPanel` then shows one
+  quantity input per project material (blank = leave untouched) and calls
+  `upsertRowMaterialQtyBulk` once for the whole selection × the filled-in
+  materials — one upsert covering every (row, material) pair, not N×M
+  round trips.
 - `AutoRowsDialog` — count + orientation ("vertical, side-by-side,
   left→right" splits width into N columns; "horizontal, stacked,
   top→bottom" splits height into N rows), matching the reference
   prototype's `applyGrid` math exactly. Confirming arms grid mode; after
   one box is dragged and the batch is created, the tool auto-returns to
   `edit` rather than staying armed for a second (dialog-less) batch.
-- `RowEditSheet` — rename or delete the tapped row. Deliberately does
-  **not** touch required-material quantities — that's the Materials tab's
-  job (`row_materials`), coming in Phase 5. Keeps the two concerns (row
-  geometry vs. row×material data) cleanly separated.
+- `RowEditSheet` — rename, **duplicate**, or delete the tapped row.
+  Deliberately does not touch required-material quantities directly
+  (that's the Materials tab's job, or the bulk panel above) except via
+  duplicate's own copy-materials option.
+- `DuplicateRowDialog` + `duplicateRows` (`lib/rows/actions.ts`) — copies
+  are placed adjacent to the source (offset by the source's own width if
+  it's narrower than tall, matching how "vertical" auto-rows sit
+  side-by-side; offset by height otherwise, matching "horizontal"
+  auto-rows stacking), auto-named the next sequential "Row N", clamped to
+  stay within `[0, 1]`. `copyMaterials` (default on) also copies the
+  source row's current `row_materials` onto every copy in the same
+  action — two round trips (insert rows, then read + insert
+  `row_materials` using the new rows' generated ids), not N one-off calls.
 
 Auto-naming (`lib/rows/naming.ts`, pure functions) scans **every** row
 label in the project — not just the active page's — for the highest
-`Row N`, so numbering continues correctly across pages. Mutations
-(`lib/rows/actions.ts`: `createRow`, `createRowsBatch`, `updateRowGeometry`,
-`renameRow`, `deleteRow`) are Server Actions, consistent with ADR-012.
+`Row N`, so numbering continues correctly across pages; `rowNumber()`
+extracts a single label's N (or `null` for a custom-renamed label), used
+for the multi-select ordering above. Mutations (`lib/rows/actions.ts`:
+`createRow`, `createRowsBatch`, `updateRowGeometry`, `renameRow`,
+`deleteRow`, `duplicateRows`, `upsertRowMaterialQtyBulk`) are Server
+Actions, consistent with ADR-012.
 
 `RowFillMarker` (`components/projects/row-fill-marker.tsx`) — the fill
 bar + label + hazard-icon visual — is shared between `RowStage` (editable)

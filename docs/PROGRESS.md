@@ -26,6 +26,15 @@ the earlier "needs a human to configure Supabase Auth Redirect URLs" item
 entirely — password sign-in has no callback URL to register, on either
 localhost or production.
 
+**Layout tab:** zoom/pan/fullscreen, multi-select + bulk quantities, and
+row duplication added on top of Phase 4 (see `docs/DECISIONS.md`
+ADR-018) — real feedback from the first live layout (Bingo Warehouse):
+big warehouses need to zoom/pan to draw precisely, and marking many
+near-identical rows one at a time was too slow. Row coordinates are
+still normalized 0..1 in the DB; zoom/pan is purely a view transform,
+verified zoom-invariant against the DB directly in
+`e2e/row-workspace.spec.ts`, not just by inspection.
+
 This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
 
 2. DB schema/RLS/storage/types
@@ -93,13 +102,29 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
       — create-project-through-upload-materials flow confirmed working
       against the real Supabase project, not just self-review.
 
-## Phase 4 — Drawing marking / row setup ✅ built (2026-07-02)
+## Phase 4 — Drawing marking / row setup ✅ built (2026-07-02, extended 2026-07-03)
 
 - [x] Layout tab: drawing stage with row overlays (`RowStage`).
 - [x] Auto rows tool (drag box → split N equal, orientation choice).
 - [x] Draw one / Edit tools (select, move, resize, rename, delete).
 - [x] Sequential auto-naming, immediate persistence, multi-page aware.
 - [x] Row fill % + hazard indicator for unassigned rows.
+- [x] Zoom (wheel/ctrl+wheel/pinch toward cursor, +/−/Fit buttons) + pan
+      (Hand tool, space-drag, two-finger touch) + Fullscreen — a pure
+      view transform, row coordinates stay normalized 0..1 in the DB.
+- [x] Select tool: tap/shift-range/marquee multi-select rows, then
+      "Set materials for selected rows" writes required_qty for every
+      selected row × filled-in material in one action.
+- [x] Duplicate a row (same geometry, placed adjacent, auto-named,
+      optional "duplicate N times"), with or without copying its
+      material assignments.
+- [x] **Verified live** — `e2e/row-workspace.spec.ts`: draws a row at
+      fit-zoom and again after zooming ~2.4x over the same content,
+      confirming normalized geometry matches within tolerance directly
+      against the DB; selects rows 2-11 and bulk-sets 2 materials,
+      confirming rows 1/12 (just outside the range) got neither;
+      duplicates a row twice with materials copied; reloads and confirms
+      everything persisted.
 - [x] **Verified live** — the fixed pixel-vs-normalized fill-orientation
       bug (self-review catch) and the auto-rows drag flow are both
       exercised by the E2E suite.
@@ -138,6 +163,9 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
       assign-materials→verify-reconciliation flow, self-cleaning.
 - [x] `e2e/team-flow.spec.ts` — Team screen create/role-change/
       password-reset + self-service change-password, self-cleaning.
+- [x] `e2e/row-workspace.spec.ts` — zoom-invariant drawing accuracy
+      (verified against the DB), multi-select + bulk quantities with an
+      exact-boundary check, duplicate-with-materials, reload persistence.
 - [x] Found and fixed a real bug on its first run — see ADR-016.
 
 ## Phase 6 — Field/Crew PWA (not started)

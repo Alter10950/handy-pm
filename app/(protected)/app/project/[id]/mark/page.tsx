@@ -3,6 +3,7 @@ import { RowMarkingWorkspace } from "@/components/projects/row-marking-workspace
 import {
   getSignedDrawingUrl,
   listDrawings,
+  listMaterials,
   listRowProgress,
 } from "@/lib/projects/queries";
 
@@ -12,15 +13,18 @@ export default async function ProjectMarkPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [drawings, rowProgress] = await Promise.all([
+  const [drawings, rowProgress, materials] = await Promise.all([
     listDrawings(id),
     listRowProgress(id),
+    listMaterials(id),
   ]);
   const pages = await Promise.all(
     drawings.map(async (drawing) => ({
       id: drawing.id,
       pageIndex: drawing.page_index,
       url: await getSignedDrawingUrl(drawing.storage_path),
+      width: drawing.width ?? 0,
+      height: drawing.height ?? 0,
     }))
   );
 
@@ -45,7 +49,12 @@ export default async function ProjectMarkPage({
       </div>
 
       {pages.length > 0 ? (
-        <RowMarkingWorkspace projectId={id} pages={pages} rows={rows} />
+        <RowMarkingWorkspace
+          projectId={id}
+          pages={pages}
+          rows={rows}
+          materials={materials}
+        />
       ) : (
         <div className="rounded-lg border border-dashed border-border bg-card p-10 text-center text-muted-foreground">
           Upload a layout drawing to get started, then mark rows on it.

@@ -4,6 +4,99 @@ Engineering journal. Newest entries at top.
 
 ---
 
+## 2026-07-03 — Layout tab: zoom/pan/fullscreen, multi-select bulk quantities, duplicate row
+
+**What:** Real feedback from the first live layout (Bingo Warehouse): big
+warehouses need zoom/pan to draw precisely, and setting up many
+near-identical rows one at a time is too slow. Added zoom/pan/fullscreen,
+multi-select → bulk quantity assignment, and row duplication to the
+Layout tab, keeping the non-negotiable constraint: row coordinates stay
+normalized 0..1 in the DB, zoom/pan is a view-only transform. Full
+reasoning in ADR-018; summary here.
+
+**Zoom/pan (`components/projects/use-zoom-pan.ts`):** a plain
+`transform: translate() scale()` on the stage element inside a
+fixed-size `overflow: hidden` viewport. The existing draw/move/resize
+math needed **zero changes** — it already computes normalized fractions
+from the stage's live `getBoundingClientRect()`, which the browser
+reports post-transform, so the transform cancels out of the ratio
+automatically at any zoom/pan. Wheel (any) zooms toward the cursor;
++/−/Fit buttons and a live percentage float in the stage's corner
+(`zoom-controls.tsx`). Pan via a new Hand tool, holding Space (ignored
+while typing), or a native two-finger touch drag; two-finger touch also
+pinch-zooms. Both wheel-zoom and touch pinch/pan use native (non-React)
+event listeners in a `useEffect`, not React's `onWheel`/`onTouch*` props
+— those are passive by default, so `preventDefault()` silently no-ops
+and the browser's own scroll/pinch would otherwise fight the custom
+handling.
+
+**Fullscreen:** `RowMarkingWorkspace`'s root (toolbar + stage together,
+not just the stage) is the `requestFullscreen()` target, so the tool and
+zoom controls stay reachable. Listens for `fullscreenchange` to also
+catch Esc-to-exit.
+
+**Multi-select + bulk quantities:** a new `select` tool — tap toggles a
+row, shift-click selects the contiguous range from the last-tapped row,
+drag-marquee unions in every row it touches. Rows are sorted by a new
+`rowNumber()` helper (`lib/rows/naming.ts`) for this, not raw array/DB
+order — `listRowProgress` has no `ORDER BY`, so "select rows 2-11" needs
+a numeric ordering, not an incidental one. `BulkMaterialsPanel` shows one
+quantity input per material (blank = leave untouched) and calls a new
+`upsertRowMaterialQtyBulk` (`lib/rows/actions.ts`) once for the whole
+`rowIds x materialQtys` cross product — one upsert, not N×M round trips,
+through the same RLS-scoped client and `onConflict` target as the
+existing single-cell upsert (multi-select needed no RLS changes).
+
+**Duplicate a row:** `RowEditSheet` gained a "Duplicate…" button →
+`DuplicateRowDialog` (copy count, "also copy material assignments"
+toggle, default on) → a new `duplicateRows` Server Action. Copies are
+placed adjacent to the source, offset by its own width or height
+depending on which is smaller (matching exactly how "vertical" vs.
+"horizontal" Auto Rows already arranges adjacent rows, rather than a new
+placement convention), auto-named the next sequential "Row N", clamped
+into `[0, 1]`. Copying materials is two round trips (insert the new
+rows, then read the source's `row_materials` and insert copies using the
+new rows' generated ids) — necessarily two, since Postgres has to hand
+back the new ids before `row_materials` can reference them.
+
+**A real lint rule fought back:** `eslint-plugin-react-hooks`'s
+`react-hooks/refs` rule flagged `zoomPan.zoom`, `zoomPan.fit`, etc. as
+"cannot access ref during render" even though those specific fields are
+plain values, not refs — apparently the rule doesn't trace precisely
+enough to clear non-ref fields on an object that _also_ carries a ref
+(`viewportRef`) anywhere. Fixed by having `useZoomPan` take the viewport
+ref as a parameter instead of creating/returning it, and having every
+call site destructure the hook's return into plain local variables
+rather than holding the object and writing `zoomPan.zoom` in JSX. A
+second instance of the same rule family caught a real anti-pattern:
+syncing a ref directly in the render body (`zoomPanRef.current = ...`)
+instead of inside a `useEffect` — moved accordingly.
+
+**E2E (`e2e/row-workspace.spec.ts`):** the most important test here
+verifies the zoom-invariance claim isn't just asserted in a comment — it
+draws a row at fit-zoom, zooms in ~2.4x, drags over the _exact same
+underlying content region_ (computed from the stage's post-zoom bounding
+rect) and confirms both rows land within 0.02 of the same normalized
+geometry, read directly from the DB. Getting this test right took two
+iterations: the first attempt dragged a fixed _viewport-relative_ box
+size at every zoom level, which produces a _smaller_ stage fraction once
+zoomed in — correct app behavior, wrong test, since it wasn't actually
+comparing "the same content at two zoom levels." Also covers: selecting
+rows 2-11 and bulk-setting two materials, with an explicit DB check that
+rows 1 and 12 (just outside the range) got neither material (confirms an
+exact boundary, not an off-by-one); duplicating a row twice with
+materials copied, verified per-copy; and a reload to confirm persistence.
+A second, genuine (if minor) bug surfaced along the way and was fixed in
+the test, not the app: `[140, 20].sort()` defaults to lexicographic
+string comparison in JS, so it doesn't actually sort numbers — needed an
+explicit `(a, b) => a - b` comparator.
+
+**Verification:** `npm run lint`, `npm run typecheck`, `npm run build`,
+and the full `npm run test:e2e` (5 tests, including the two new/extended
+specs above, zero regressions in the existing project-flow and
+team-flow suites) all pass. No orphaned E2E test data confirmed via a
+direct query afterward.
+
 ## 2026-07-03 — Replaced magic-link auth with email + password, added Team management
 
 **What:** Magic-link email delivery was too slow/unreliable to sign in
@@ -36,7 +129,7 @@ other path without a sign-up endpoint, then overwrites the profile row
 `handle_new_user`'s trigger already inserted (org_id null, role 'crew')
 with the caller's own org and the role picked in the form — that
 overwrite specifically needs the admin client, because `profiles_update`'s
-RLS policy checks the row's *pre-update* org_id (null for a fresh
+RLS policy checks the row's _pre-update_ org_id (null for a fresh
 profile), so the caller's own session could never pass that check.
 `updateTeamMemberRole` and `resetTeamMemberPassword` round out the
 screen — the first goes through the caller's normal RLS-scoped session
@@ -72,7 +165,7 @@ cleaning up the created auth user afterward
 (`e2e/helpers/cleanup.ts`'s new `deleteAuthUserByEmail`).
 
 **Found and fixed a real test bug, not an app bug:** the role-change test
-step initially failed after a `page.reload()` showed the *old* role
+step initially failed after a `page.reload()` showed the _old_ role
 still persisted. Root cause was the test, not the app: `TeamMemberRow`
 updates its `<select>` optimistically (`setRole` before the Server Action
 resolves), so asserting on the DOM value alone proved nothing about
