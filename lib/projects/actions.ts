@@ -133,6 +133,54 @@ export async function pasteMaterialList(
   revalidatePath(`/app/project/${projectId}/materials`);
 }
 
+export async function confirmExtractedMaterials(
+  projectId: string,
+  items: { code: string; description: string; size: string; qty: number }[],
+  replaceExisting: boolean
+) {
+  // code/description/size are folded into one `name` — materials has no
+  // dedicated code/size column, and the composed name (e.g. "36SQ10 Beam
+  // 144\"") is what keeps two same-description-different-size lines (like
+  // two beam lengths) distinguishable in the grid.
+  const cleaned = items
+    .map((item) => ({
+      name: [item.code, item.description, item.size]
+        .map((part) => part.trim())
+        .filter(Boolean)
+        .join(" "),
+      qty: Math.round(Number(item.qty)),
+    }))
+    .filter(
+      (item) => item.name.length > 0 && Number.isFinite(item.qty) && item.qty >= 0
+    );
+  if (cleaned.length === 0) {
+    throw new Error("No valid material lines to add.");
+  }
+
+  const supabase = await createClient();
+
+  if (replaceExisting) {
+    const { error: deleteError } = await supabase
+      .from("materials")
+      .delete()
+      .eq("project_id", projectId);
+    if (deleteError) throw deleteError;
+  }
+
+  const { error } = await supabase.from("materials").insert(
+    cleaned.map((item) => ({
+      project_id: projectId,
+      name: item.name,
+      total_needed: item.qty,
+      received: item.qty,
+    }))
+  );
+  if (error) throw error;
+
+  revalidatePath(`/app/project/${projectId}`);
+  revalidatePath(`/app/project/${projectId}/materials`);
+}
+
 export async function recordDrawingUpload(
   projectId: string,
   pages: {

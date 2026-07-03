@@ -1,4 +1,5 @@
 import { MaterialsWorkspace } from "@/components/projects/materials-workspace";
+import { PackingSlipExtractDialog } from "@/components/projects/packing-slip-extract-dialog";
 import { PackingSlipUpload } from "@/components/projects/packing-slip-upload";
 import { ReconciliationCard } from "@/components/projects/reconciliation-card";
 import { listPhases } from "@/lib/phases/queries";
@@ -57,6 +58,7 @@ export default async function ProjectMaterialsPage({
         id: slip.id,
         name: fileNameFromPath(slip.storage_path),
         url: await getSignedPackingSlipUrl(slip.storage_path),
+        storagePath: slip.storage_path,
       }))
     ),
   ]);
@@ -88,9 +90,9 @@ export default async function ProjectMaterialsPage({
           <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
             Uploaded packing slips
           </h3>
-          <ul className="flex flex-col gap-1">
+          <ul className="flex flex-col gap-2">
             {packingSlipLinks.map((slip) => (
-              <li key={slip.id}>
+              <li key={slip.id} className="flex flex-wrap items-center gap-2">
                 <a
                   href={slip.url}
                   target="_blank"
@@ -99,6 +101,11 @@ export default async function ProjectMaterialsPage({
                 >
                   {slip.name}
                 </a>
+                <PackingSlipExtractDialog
+                  projectId={id}
+                  storagePath={slip.storagePath}
+                  slipName={slip.name}
+                />
               </li>
             ))}
           </ul>

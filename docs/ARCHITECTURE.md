@@ -451,6 +451,47 @@ own that isn't a named Sub-phase C requirement; targets are generated
 from remaining-qty ÷ remaining-days only, not adjusted by a crew's
 historical rate.
 
+## Packing-slip AI extraction (Sub-phase F, 2026-07-03)
+
+`app/api/packing-slips/extract/route.ts` is the app's first Route
+Handler under `app/api/` (everything else is Server Components/Actions).
+`POST` body is `{storagePath}`; the route re-signs it
+(`getSignedPackingSlipUrl`), fetches the bytes server-side, and calls
+the Anthropic Messages API (`api.anthropic.com/v1/messages`) directly
+via `fetch()` — no `@anthropic-ai/sdk` dependency for one call site.
+
+- **Auth:** `process.env.ANTHROPIC_API_KEY`, read inside the handler
+  (server-only — a Route Handler never ships to the browser bundle).
+  Missing key → a `500` with a clear message, not a crash; there is no
+  fallback path, since there's nothing sensible to extract without it.
+- **Content-type branch:** `PackingSlipUpload`'s `<input type="file">`
+  has no `accept` restriction, so the uploaded slip could be a PDF or a
+  photo. The route reads the signed URL's response `content-type` header
+  and sends either an `image` content block (real media type) or a
+  `document` block (`media_type: "application/pdf"`) — the two aren't
+  interchangeable on the Anthropic API.
+- **Structured output via forced tool-use:** one tool
+  (`record_materials`, `items: {code, description, size, qty}[]`) with
+  `tool_choice: {type: "tool", name: "record_materials"}` forces a
+  structured response instead of free text that would need parsing.
+- **Review before save:** the route only extracts; nothing reaches
+  `materials` until a human confirms.
+  `components/projects/packing-slip-extract-dialog.tsx` renders every
+  extracted line as an editable row (code/description/size/qty, remove,
+  add-line), wired in twice — right after a fresh upload in
+  `PackingSlipUpload`, and next to every previously-uploaded slip on the
+  Materials page (`app/(protected)/app/project/[id]/materials/page.tsx`)
+  — so extraction works on old slips too, not just the one just
+  uploaded. "Replace the current list" mirrors `PasteMaterialsDialog`.
+- **Save:** `confirmExtractedMaterials` (`lib/projects/actions.ts`)
+  composes one `name` string per line — `[code, description,
+  size].filter(Boolean).join(" ")` — since `materials` has no dedicated
+  code/size column; this is also what keeps two lines sharing a product
+  code but differing in size (e.g. two beam lengths) distinguishable as
+  separate rows. Otherwise identical to `pasteMaterialList`: qty writes
+  to both `total_needed` and `received`, an optional delete-first
+  "replace" flag. See ADR-025 for the full reasoning.
+
 ## Testing
 
 `npm run test:e2e` (`npm run seed && playwright test`) runs a Playwright
@@ -517,6 +558,17 @@ short:
   — see ADR-024 — that broke every drawing upload across the whole
   suite, a reminder that a shared code path's blast radius isn't
   contained to the one feature touching it.
+- `e2e/packing-slip-extract-flow.spec.ts` — the first spec in this
+  suite to conditionally exercise a live third-party API rather than
+  only the app's own Supabase backend. Two tests, `test.skip` on
+  opposite `ANTHROPIC_API_KEY`-configured conditions so exactly one runs
+  in any given environment (never both, never silently neither): with
+  no key, asserts the extraction route's graceful `500` surfaces as a
+  clear error in the UI; with a key, screenshots a throwaway
+  Playwright page rendering a synthetic packing slip (no binary fixture
+  committed) and asserts the real extraction keeps two same-code/
+  different-size lines distinct and drops a freight line, then confirms
+  the save actually creates the right materials rows.
 
 This suite is what caught ADR-016's env var bug — self-review and
 `next build` both stayed clean through Phases 3–5 because neither

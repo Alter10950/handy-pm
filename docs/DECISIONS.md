@@ -5,6 +5,89 @@ Consequences.
 
 ---
 
+## ADR-025: Packing-slip AI extraction — plain `fetch()` to the Anthropic Messages API, tool-use for structured output, code+size folded into `name`
+
+**Decision date:** 2026-07-03
+
+**Context:** Sub-phase F of Batch 2: a server route that reads an
+uploaded packing slip (PDF or photo) and extracts material line items —
+code, description, size, qty — via the Anthropic API, a review/edit
+table before anything is saved, and a confirm step that writes to
+`materials`. The real packing slip this needs to handle correctly has
+two line items sharing one product code (`36SQ10`, two beam lengths)
+and a line that must be excluded (freight), which shaped several of the
+choices below.
+
+**Choice — plain `fetch()` to `api.anthropic.com/v1/messages`, no
+`@anthropic-ai/sdk` dependency:** `app/api/packing-slips/extract/route.ts`
+is the only caller in the app; adding a whole SDK for one call site's
+worth of usage is more dependency surface than the feature needs. The
+route reads `ANTHROPIC_API_KEY` from `process.env` (server-only Route
+Handler, never a browser bundle) and returns a clean `500` with an
+explanatory message if it isn't configured, rather than crashing — the
+key genuinely doesn't exist in any environment yet (a real human-only
+credential, requested once from the user rather than worked around).
+
+**Choice — tool-use (forced `tool_choice`), not free-text parsing, for
+the extraction shape:** the model is given one tool (`record_materials`,
+an array of `{code, description, size, qty}`) and
+`tool_choice: {type: "tool", name: "record_materials"}` forces it to
+call that tool rather than reply conversationally. This is the
+reliable-structured-output mechanism the Anthropic API offers — parsing
+free text back into a line-item shape would be strictly worse for a
+feature whose whole point is turning unstructured slip content into
+structured rows.
+
+**Choice — branch on the uploaded file's actual content-type between an
+`image` and a `document` content block:** `PackingSlipUpload`'s
+`<input type="file">` has no `accept` restriction (a packing slip could
+be a scanned PDF or a phone photo), and Anthropic's two content-block
+types aren't interchangeable — a PDF must be sent as `document` with
+`media_type: "application/pdf"`, an image as `image` with its own real
+media type. The route reads the signed URL's response `content-type`
+header and picks the block type accordingly, rather than assuming every
+upload is a PDF.
+
+**Choice — code + description + size are folded into one `name` string
+at save time, not new `materials` columns:** `materials` has no
+dedicated code/size column (`name`, `unit`, `total_needed`, `received`
+only), and adding one for this feature alone would ripple into the
+grid, reconciliation view, and every other materials query for a
+benefit only this one entry path uses. `confirmExtractedMaterials`
+(`lib/projects/actions.ts`) composes `name` as
+`[code, description, size].filter(Boolean).join(" ")` — e.g.
+`"36SQ10 Beam 144\""` and `"36SQ10 Beam 96\""` — which is also what
+keeps the real slip's two same-code, different-size beam lines
+distinguishable as two separate materials rather than colliding into
+one. Mirrors `pasteMaterialList`'s existing shape exactly otherwise (qty
+→ both `total_needed` and `received`; an optional "replace the current
+list" delete-first).
+
+**Choice — the review table is mandatory, not a "trust it" auto-save:**
+extraction always lands in an editable table
+(`PackingSlipExtractDialog`) — fix a misread code/description/size/qty,
+remove a non-material line the model missed (the prompt explicitly
+instructs it to skip freight/permits/discounts/taxes, but a human review
+step is the actual safety net, not the prompt wording), or add a line it
+missed — before "Add N materials" writes anything. Nothing from the AI
+call reaches the database un-reviewed.
+
+**Consequences:** the feature is fully built and passes
+lint/typecheck/build, but cannot be live-validated against the real
+packing slip (42"x24' upright, two 36SQ10 beam sizes, 42"x46" wire deck,
+spacers/barriers/protectors/two anchor types) until the user provides
+`ANTHROPIC_API_KEY` — tracked as the batch's one remaining NEEDS-YOU
+item. `e2e/packing-slip-extract-flow.spec.ts` is written to run either
+way: with no key configured it asserts the route's graceful-error path
+(always runs, no live API needed); with a key configured it renders a
+small synthetic packing-slip image in-memory (two share-a-code-
+different-size beam lines + a freight line to skip) and asserts against
+the real Anthropic response — the first test in this suite that
+conditionally exercises a live third-party API rather than only the
+app's own Supabase backend.
+
+---
+
 ## ADR-024: Multi-page drawings — first upload auto-marks, RowStage gains a readOnly mode
 
 **Decision date:** 2026-07-03

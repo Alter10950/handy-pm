@@ -118,9 +118,28 @@ are fully zoomable/pannable/fullscreen-able but not markable —
 that shared behavior doesn't fork. Caught a real bug along the way (an
 `.order()` chained after an insert-returning `.select()` that broke
 *every* drawing upload, not just the new auto-marking logic — see
-ADR-024) before it reached the batch's final report. Sub-phase F
-(packing-slip AI extraction) is queued next — it needs an
-`ANTHROPIC_API_KEY`, not yet provided.
+ADR-024) before it reached the batch's final report.
+
+**Sub-phase F — Packing-slip AI extraction — built, not yet
+live-validated (2026-07-03, see ADR-025):** a new
+`app/api/packing-slips/extract` route sends an uploaded packing slip
+(PDF or photo — content-type detected, not assumed) to the Anthropic
+API, forcing a tool-use call so the response is structured
+`{code, description, size, qty}[]` rather than free text to parse.
+Extraction always opens in an editable review table
+(`PackingSlipExtractDialog`) — fix a misread field, remove a
+non-material line, add one that was missed — before anything writes to
+`materials`; confirming composes `name` from
+`[code, description, size].filter(Boolean).join(" ")`, which is what
+keeps two same-code-different-size lines (like the real slip's two
+`36SQ10` beam lengths) distinguishable as separate rows instead of
+colliding into one. `npm run lint`/`typecheck`/`build` all pass. New
+`e2e/packing-slip-extract-flow.spec.ts` has two mutually-exclusive
+tests keyed on whether `ANTHROPIC_API_KEY` is configured — one always
+runs — but **live validation against the real packing slip (42"x24'
+upright, two 36SQ10 beam sizes, 42"x46" wire deck, spacers/barriers/
+protectors/two anchor types) is still pending the user providing that
+key.** This is the batch's one remaining NEEDS-YOU item.
 
 This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
 
@@ -318,6 +337,13 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
       creates zero rows, via a direct DB count); zoom/fullscreen still
       work on it; switching the marking page flips both pages' roles
       correctly.
+- [x] `e2e/packing-slip-extract-flow.spec.ts` (2026-07-03) — two tests,
+      mutually exclusive on whether `ANTHROPIC_API_KEY` is configured
+      (`test.skip` guards so exactly one runs anywhere): the no-key path
+      always runs and asserts a graceful error; the live path (needs a
+      real key) renders a synthetic packing-slip image in-memory and
+      checks the AI keeps two same-code/different-size lines distinct
+      while dropping a freight line.
 
 ## Phase 6 — Field/Crew PWA ✅ built (2026-07-03)
 
@@ -365,6 +391,37 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
 - [x] Overall Schedule Performance Index badge (actual ÷ planned,
       cumulative to today), green/amber/red.
 - [x] **Verified live** — `e2e/scheduler-flow.spec.ts`.
+
+## Sub-phase F — Packing-slip AI extraction ✅ built, ⏳ not yet live-validated (2026-07-03)
+
+- [x] `app/api/packing-slips/extract/route.ts` — signs and fetches the
+      requested packing slip, sends it to the Anthropic Messages API
+      (`claude-sonnet-5`, plain `fetch()`, no new SDK dependency) as an
+      `image` or `document` block depending on actual content-type, with
+      a forced tool-use call for structured `{code, description, size,
+      qty}[]` output. Returns a clean 500 if `ANTHROPIC_API_KEY` isn't
+      configured.
+- [x] `PackingSlipExtractDialog` — review/edit table (add/remove/edit
+      any field) between extraction and save; "Replace the current
+      list" option, same convention as `PasteMaterialsDialog`. Wired
+      into both `PackingSlipUpload` (right after a fresh upload) and the
+      Materials page's list of previously-uploaded slips.
+- [x] `confirmExtractedMaterials` (`lib/projects/actions.ts`) — folds
+      code+description+size into one `name` (keeps same-code/
+      different-size lines distinguishable), writes qty to both
+      `total_needed` and `received`, same shape as `pasteMaterialList`.
+- [x] `.env.local.example` documents `ANTHROPIC_API_KEY` (server-only).
+- [x] `npm run lint` / `typecheck` / `build` all pass.
+- [x] `e2e/packing-slip-extract-flow.spec.ts` — one test asserts the
+      no-key graceful-error path (always runs); one drives a real
+      extraction against a synthetic in-memory packing-slip image and
+      checks distinct sizes survive + non-material lines are skipped
+      (skipped unless `ANTHROPIC_API_KEY` is configured).
+- [ ] **Live validation against the user's real packing slip** (42"x24'
+      upright, two 36SQ10 beam sizes at 144"/96", 42"x46" wire deck, row
+      spacers, end barriers, post protectors, two anchor types — all
+      sizes preserved) — blocked on the user providing `ANTHROPIC_API_KEY`.
+      See the batch's NEEDS-YOU list.
 
 ## Phase 8 — Customer portal (not started)
 

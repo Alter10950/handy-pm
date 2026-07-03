@@ -4,6 +4,61 @@ Engineering journal. Newest entries at top.
 
 ---
 
+## 2026-07-03 — Sub-phase F: Packing-slip AI extraction
+
+**What:** Batch 2's sub-phase F, the batch's last sub-phase. A server
+route reads an uploaded packing slip (PDF or photo) and asks the
+Anthropic API to extract material line items — code, description,
+size, qty — skipping non-material lines (freight, permits, discounts).
+Extraction always lands in a review/edit table; nothing saves to
+`materials` until a human confirms. Full reasoning in
+`docs/DECISIONS.md` ADR-025; summary here.
+
+**Build:** `app/api/packing-slips/extract/route.ts` — reads
+`ANTHROPIC_API_KEY` from the server environment (500 with a clear
+message if unset), re-signs the requested packing slip's storage path,
+fetches it, and sends it to `claude-sonnet-5` via plain `fetch()` (no
+new SDK dependency) as either an `image` or `document` content block
+depending on the file's actual content-type (the upload input accepts
+any file type). A forced tool-use call (`record_materials`) gets
+structured `{code, description, size, qty}[]` back instead of free
+text. `components/projects/packing-slip-extract-dialog.tsx` — new: a
+"✨ Extract with AI" button (shown after a fresh upload in
+`PackingSlipUpload`, and next to every historical slip on the Materials
+page) opens a dialog, calls the route, and renders every extracted line
+as an editable row (code/description/size/qty inputs, remove, add-line)
+with a "Replace the current list" option, matching
+`PasteMaterialsDialog`'s existing convention. `confirmExtractedMaterials`
+(`lib/projects/actions.ts`) composes `name` from
+`[code, description, size].filter(Boolean).join(" ")` — the two
+real-slip beam lines that share one product code (`36SQ10`) but differ
+in length stay distinguishable this way instead of colliding into one
+row — and otherwise writes exactly like `pasteMaterialList` (qty → both
+`total_needed` and `received`).
+
+**Verification:** `npm run lint`, `npm run typecheck`, `npm run build`
+all pass. New `e2e/packing-slip-extract-flow.spec.ts` has two tests,
+mutually exclusive on whether `ANTHROPIC_API_KEY` is configured
+(`test.skip` on opposite conditions, so exactly one runs in any given
+environment and neither is silently absent): with no key, asserts the
+route's graceful `500` surfaces to the UI as a clear error; with a key,
+renders a small synthetic packing-slip image in-memory (a Playwright
+screenshot of a throwaway page — two beam lines sharing a code but
+different sizes, plus a freight line that must be skipped) and asserts
+the review table has exactly 4 rows, both beam sizes (144"/96") survive
+as distinct rows, the freight line is absent, and confirming actually
+creates 4 materials rows. No `ANTHROPIC_API_KEY` is configured in this
+environment yet, so only the no-key path has actually run; ran the full
+10-test suite once (`npm run test:e2e`) to confirm zero regressions
+elsewhere first. Found and fixed two test-authoring bugs along the way
+(not app bugs): copy-pasted a suffix-anchored regex (`/uploaded\.$/`)
+from the drawing-upload test without checking `PackingSlipUpload`'s
+actual message text (`"Uploaded {filename}."` — a prefix, not a
+suffix); and a genuine locator ambiguity once a slip exists on a project
+(the upload toast and the page's "Uploaded packing slips" heading both
+match `/^Uploaded /`) — fixed with a `data-testid` on the toast message,
+this codebase's established fix for this exact class of bug.
+
 ## 2026-07-03 — Sub-phase E: Multi-page drawings
 
 **What:** Batch 2's sub-phase E. The schema for "exactly one marking
