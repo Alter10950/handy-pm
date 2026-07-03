@@ -228,9 +228,22 @@ also named `app` inside it is valid and maps to the URL `/app`. See
    justified in a comment. No unused code.
 5. **No secrets in git.** Secrets go in `.env.local` (gitignored). Keep
    `.env.local.example` current with placeholders.
-6. **Ask if blocked.** If a required decision or credential is missing, stop
-   and ask rather than guessing.
-7. **Keep it simple and readable.** Prefer clear, conventional patterns over
+6. **Do it yourself — never offload work you can do.** If a step can be run
+   from the terminal, a script, or an API, DO IT. Do not ask Alter to run
+   commands, edit files, or click through UIs on your behalf — run the shell
+   command, write the script, call the API yourself. If PowerShell blocks a
+   script, switch shells (`cmd`, `npx.cmd`, `node`) instead of handing it
+   back to him. The bar for asking Alter to run something is: it is
+   *literally impossible* without him.
+7. **Only humans-only steps go to Alter — and prefer a one-time token.** The
+   only things you may ask Alter to do are ones you genuinely cannot: a
+   secret/credential you can't generate, or an interactive third-party
+   browser login you can't perform as him. Even then, prefer asking him once
+   for an access token (e.g. a Vercel or Supabase personal token he pastes in)
+   so all future runs are fully autonomous. When you must involve him, don't
+   halt the whole run — keep doing everything that isn't blocked and collect
+   the human-only items into one clear "NEEDS YOU" list with exact steps.
+8. **Keep it simple and readable.** Prefer clear, conventional patterns over
    clever ones. Organize by feature.
 
 ## Start of session checklist
