@@ -4,6 +4,55 @@ Engineering journal. Newest entries at top.
 
 ---
 
+## 2026-07-03 — Sub-phase E: Multi-page drawings
+
+**What:** Batch 2's sub-phase E. The schema for "exactly one marking
+page per project" (`drawings.role`, `projects.mark_drawing_id`, a
+partial unique index, `set_marking_drawing()`) was laid down in
+sub-phase 0; this sub-phase builds the UI that actually enforces it —
+browsing every uploaded page, designating which one is markable, and
+making the rest view-only (still zoomable/pannable/fullscreen-able).
+Full reasoning in `docs/DECISIONS.md` ADR-024; summary here.
+
+**Build:** `recordDrawingUpload` (`lib/projects/actions.ts`) now
+auto-designates a project's very first upload as its marking page (no
+extra step for the common single-page case); a new `setMarkingDrawing`
+action wraps the `set_marking_drawing` RPC for switching it later.
+`RowStage` gained a `readOnly` prop: `handleStagePointerDown` skips
+draw/marquee (pan still works), `handleRowPointerDown` skips select/
+move, `handleKeyDown` skips nudge/delete, and resize handles are gated
+`isSingleSelected && !readOnly`. `RowMarkingWorkspace`'s page tabs show
+a ★ on the marking page; the toolbar area shows either "★ This is the
+marking page" or "View-only reference page…" + a "Set as marking page"
+button; "Auto rows" is disabled (with an explanatory `title`, not just
+silently inert) while viewing a non-marking page.
+
+**Real bug caught by the E2E suite, not self-review:**
+`recordDrawingUpload`'s insert used
+`.insert(...).select("id").order("page_index", ...)` to find the
+first-inserted page for the auto-marking logic above — this throws
+`column drawings.page_index does not exist`. Chaining `.order()` after
+an insert-returning `.select()` resolves the ORDER against the
+statement's own RETURNING context, not the underlying table, even
+though the column obviously exists there. Every single E2E test that
+uploads a drawing failed identically (field-flow, phases-flow,
+project-flow, row-workspace, scheduler-flow — 5 of 9), which is exactly
+the risk of touching a shared code path: the blast radius wasn't
+contained to the one feature being built. Fixed by selecting
+`id, page_index` and sorting in JS instead of asking Postgres to order
+an insert's return.
+
+**Verification:** `npm run lint`, `npm run typecheck`, `npm run build`,
+and the full `npm run test:e2e` (9 tests now, zero regressions once the
+bug above was fixed) all pass. New `e2e/multi-page-flow.spec.ts` covers:
+first upload auto-becoming the marking page, a second upload defaulting
+to view-only with "Auto rows" disabled, confirming a drag on the
+view-only page creates no row at all (a direct DB count, not just "no
+error shown"), zoom and fullscreen still working there, and switching
+the marking page to page 2 — confirming both that page 2 flips to
+`'marking'` *and* that page 1 flips back to `'reference'` (the "exactly
+one" constraint enforced both ways, not just checking the new page).
+
 ## 2026-07-03 — Sub-phase D: Phases full UI
 
 **What:** Batch 2's sub-phase D. Phase creation/assignment already

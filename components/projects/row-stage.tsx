@@ -155,6 +155,7 @@ export function RowStage({
   selectedRowIds,
   phases,
   hiddenPhaseIds,
+  readOnly,
   isPanMode,
   onDrawBox,
   onSelectSingle,
@@ -172,6 +173,12 @@ export function RowStage({
   selectedRowIds: Set<string>;
   phases: Tables<"phases">[];
   hiddenPhaseIds: Set<string>;
+  // A non-marking reference page (Sub-phase E, multi-page drawings):
+  // still fully zoomable/pannable/fullscreen-able, just not markable —
+  // no new rows drawn, no moving/resizing/selecting whatever rows
+  // happen to already be on it (there normally aren't any: new rows can
+  // only be drawn on the marking page going forward).
+  readOnly: boolean;
   isPanMode: boolean;
   onDrawBox: (box: Box) => void;
   onSelectSingle: (id: string) => void;
@@ -421,6 +428,7 @@ export function RowStage({
     row: StageRow
   ) {
     if (shouldPan) return; // let it bubble to the stage-level pan handler
+    if (readOnly) return;
 
     if (event.shiftKey || event.ctrlKey || event.metaKey) {
       event.stopPropagation();
@@ -544,11 +552,13 @@ export function RowStage({
       beginPanDrag(event);
       return;
     }
+    if (readOnly) return;
     beginDrawOrMarquee(event, event.shiftKey ? "marquee" : "draw");
   }
 
   function handleKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
-    if (isTypingTarget(event.target) || selectedRowIds.size === 0) return;
+    if (isTypingTarget(event.target) || selectedRowIds.size === 0 || readOnly)
+      return;
 
     const rect = stageRect();
     if (!rect) return;
@@ -669,7 +679,7 @@ export function RowStage({
                   isVertical={isVertical}
                 />
               </div>
-              {isSingleSelected
+              {isSingleSelected && !readOnly
                 ? HANDLES.map((handle) => (
                     <div
                       key={handle.id}

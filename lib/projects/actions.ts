@@ -143,20 +143,60 @@ export async function recordDrawingUpload(
   }[]
 ) {
   const supabase = await createClient();
-  const { error } = await supabase.from("drawings").insert(
-    pages.map((page) => ({
-      project_id: projectId,
-      page_index: page.pageIndex,
-      storage_path: page.storagePath,
-      width: page.width,
-      height: page.height,
-    }))
-  );
+  // Ordering by page_index has to happen client-side, not via .order() on
+  // an insert-returning query — that form errors with "column
+  // drawings.page_index does not exist" (PostgREST resolves the ORDER
+  // against the statement's own RETURNING/insert-values context, not the
+  // table itself, even though the column obviously exists there).
+  const { data: inserted, error } = await supabase
+    .from("drawings")
+    .insert(
+      pages.map((page) => ({
+        project_id: projectId,
+        page_index: page.pageIndex,
+        storage_path: page.storagePath,
+        width: page.width,
+        height: page.height,
+      }))
+    )
+    .select("id, page_index");
   if (error) throw error;
+
+  // A project's very first upload becomes its marking page automatically —
+  // "exactly one marking page, owner/pm chooses" (see ADR-019) means manual
+  // choice for *changing* it later, not friction on the common case of a
+  // single-page project that couldn't mark anything until someone picked
+  // one. Later uploads default to 'reference' (the column's own default)
+  // and need an explicit "Set as marking page."
+  const { data: project, error: projectError } = await supabase
+    .from("projects")
+    .select("mark_drawing_id")
+    .eq("id", projectId)
+    .single();
+  if (projectError) throw projectError;
+  if (!project.mark_drawing_id && inserted.length > 0) {
+    const firstPage = [...inserted].sort(
+      (a, b) => a.page_index - b.page_index
+    )[0];
+    await setMarkingDrawing(projectId, firstPage.id);
+  }
 
   revalidatePath(`/app/project/${projectId}`);
   revalidatePath(`/app/project/${projectId}/mark`);
   revalidatePath(`/app/project/${projectId}/materials`);
+}
+
+export async function setMarkingDrawing(
+  projectId: string,
+  drawingId: string
+): Promise<void> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("set_marking_drawing", {
+    p_project_id: projectId,
+    p_drawing_id: drawingId,
+  });
+  if (error) throw error;
+  revalidatePath(`/app/project/${projectId}/mark`);
 }
 
 export async function recordPackingSlipUpload(

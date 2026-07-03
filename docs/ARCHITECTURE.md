@@ -106,7 +106,7 @@ render each PDF page (capped at 15 pages) or a plain image onto a
 the browser client, then calls a Server Action once just to insert the
 `drawings`/`packing_slips` row and revalidate. See ADR-012 and ADR-013.
 
-## Drawing marking (Phase 4; reworked into one direct-manipulation canvas + undo/redo, 2026-07-03)
+## Drawing marking (Phase 4; reworked into one direct-manipulation canvas + undo/redo, multi-page 2026-07-03)
 
 `/app/project/[id]/mark` renders `RowMarkingWorkspace`
 (`components/projects/row-marking-workspace.tsx`), which owns selection
@@ -215,6 +215,25 @@ state, undo/redo, fullscreen state, the active page, and orchestrates:
   its rows out of `RowStage`'s render entirely (`rows.filter(...)`
   before the `.map()`), not just dims them, so a hidden row is also not
   selectable/draggable/resizable while out of the way.
+- **Multi-page drawings (Sub-phase E, 2026-07-03, see ADR-024).** Every
+  uploaded page is browsable via the page tabs (a ★ marks the current
+  marking page), but exactly one is markable — enforced by
+  `drawings.role`/`projects.mark_drawing_id` (ADR-019) plus `RowStage`'s
+  new `readOnly` prop, true whenever the active page isn't
+  `markDrawingId`. `readOnly` short-circuits
+  `handleStagePointerDown`'s draw/marquee branch (pan still works — a
+  view control, not a mark), `handleRowPointerDown` (select/move), and
+  `handleKeyDown` (nudge/delete); resize handles are additionally gated
+  `isSingleSelected && !readOnly`. Zoom/pan/fullscreen are entirely
+  unaffected — they're not part of `RowStage`'s own interaction
+  handlers. A project's first upload auto-becomes its marking page
+  (`recordDrawingUpload`, `lib/projects/actions.ts`); later uploads
+  default to `'reference'` and need an explicit "Set as marking page"
+  (`setMarkingDrawing`, wrapping the `set_marking_drawing` RPC), which
+  `RowMarkingWorkspace` shows next to the page tabs whenever the active
+  page isn't the marking one (alongside a disabled, tooltip-explained
+  "Auto rows" button — letting someone arm grid mode and then have the
+  drag silently do nothing would look like a bug, not a boundary).
 - `duplicateRows` (`lib/rows/actions.ts`) — copies are placed adjacent to
   the source (offset by the source's own width if it's narrower than
   tall, matching how "vertical" auto-rows sit side-by-side; offset by
@@ -488,6 +507,16 @@ short:
   still-mounted select instead. Fixed by waiting for a
   Progress-tab-specific element first; worth remembering for any test
   that reuses label text across pages.
+- `e2e/multi-page-flow.spec.ts` — first upload auto-becomes the marking
+  page; a second upload defaults to view-only (a drag there is confirmed
+  to create zero rows via a direct DB count, not just "no error
+  appeared"); zoom and fullscreen still work on it; switching the
+  marking page confirms *both* pages' roles flip correctly (the new page
+  to `'marking'` and the old one back to `'reference'`), not just the
+  new one. This work also caught a real bug unrelated to the test itself
+  — see ADR-024 — that broke every drawing upload across the whole
+  suite, a reminder that a shared code path's blast radius isn't
+  contained to the one feature touching it.
 
 This suite is what caught ADR-016's env var bug — self-review and
 `next build` both stayed clean through Phases 3–5 because neither

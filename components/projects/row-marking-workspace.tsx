@@ -28,6 +28,7 @@ import { useUndoStack } from "@/components/projects/use-undo-stack";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createPhase } from "@/lib/phases/actions";
+import { setMarkingDrawing } from "@/lib/projects/actions";
 import {
   createRow,
   createRowsBatch,
@@ -44,7 +45,7 @@ import {
   type RowSnapshot,
 } from "@/lib/rows/actions";
 import { maxRowNumber, nextRowLabel } from "@/lib/rows/naming";
-import type { Tables } from "@/lib/supabase/database.types";
+import type { DrawingRole, Tables } from "@/lib/supabase/database.types";
 import { cn, isTypingTarget } from "@/lib/utils";
 
 export interface WorkspacePage {
@@ -53,6 +54,7 @@ export interface WorkspacePage {
   url: string;
   width: number;
   height: number;
+  role: DrawingRole;
 }
 
 export interface ProjectRow {
@@ -95,12 +97,14 @@ export function RowMarkingWorkspace({
   rows,
   materials,
   phases,
+  markDrawingId,
 }: {
   projectId: string;
   pages: WorkspacePage[];
   rows: ProjectRow[];
   materials: Tables<"materials">[];
   phases: Tables<"phases">[];
+  markDrawingId: string | null;
 }) {
   const [activePageIndex, setActivePageIndex] = useState(0);
   const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set());
@@ -119,6 +123,7 @@ export function RowMarkingWorkspace({
   const fullscreenRef = useRef<HTMLDivElement>(null);
 
   const activePage = pages[activePageIndex];
+  const isMarkingPage = activePage?.id === markDrawingId;
   const allLabels = useMemo(() => rows.map((row) => row.label), [rows]);
   const pageRows = useMemo(
     () => rows.filter((row) => row.drawingId === activePage?.id),
@@ -161,6 +166,11 @@ export function RowMarkingWorkspace({
         setError(err instanceof Error ? err.message : "Could not save.");
       }
     });
+  }
+
+  function handleSetMarkingPage() {
+    if (!activePage || isMarkingPage) return;
+    runAction(() => setMarkingDrawing(projectId, activePage.id));
   }
 
   function handleUndo() {
@@ -547,8 +557,33 @@ export function RowMarkingWorkspace({
               )}
             >
               Page {page.pageIndex + 1}
+              {page.id === markDrawingId ? " ★" : ""}
             </button>
           ))}
+        </div>
+      ) : null}
+
+      {pages.length > 1 ? (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          {isMarkingPage ? (
+            <span>★ This is the marking page — rows can be drawn here.</span>
+          ) : (
+            <>
+              <span>
+                View-only reference page — rows can&apos;t be drawn or
+                edited here.
+              </span>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={isPending}
+                onClick={handleSetMarkingPage}
+              >
+                Set as marking page
+              </Button>
+            </>
+          )}
         </div>
       ) : null}
 
@@ -557,6 +592,12 @@ export function RowMarkingWorkspace({
           type="button"
           size="sm"
           variant="outline"
+          disabled={!isMarkingPage}
+          title={
+            isMarkingPage
+              ? undefined
+              : "Switch to the marking page to draw rows"
+          }
           onClick={() => setAutoRowsDialogOpen(true)}
         >
           ▦ Auto rows
@@ -650,6 +691,7 @@ export function RowMarkingWorkspace({
             selectedRowIds={selectedRowIds}
             phases={phases}
             hiddenPhaseIds={hiddenPhaseIds}
+            readOnly={!isMarkingPage}
             isPanMode={isPanMode}
             onDrawBox={handleDrawBox}
             onSelectSingle={(id) => {

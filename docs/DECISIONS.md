@@ -5,7 +5,60 @@ Consequences.
 
 ---
 
-## ADR-023: Phases full UI — inline border color (not a fill), hide filters rows out of the render entirely
+## ADR-024: Multi-page drawings — first upload auto-marks, RowStage gains a readOnly mode
+
+**Decision date:** 2026-07-03
+
+**Context:** Sub-phase E of Batch 2: browse every uploaded page, exactly
+one is the designated marking page (owner/pm chooses), non-marking pages
+are viewable (zoom/pan/fullscreen) but not markable. The schema
+(`drawings.role`, `projects.mark_drawing_id`, the partial unique index,
+`set_marking_drawing()`) was laid down in sub-phase 0 (ADR-019); this is
+the UI enforcing it.
+
+**Choice — a project's first upload becomes its marking page
+automatically:** the spec's "owner/pm chooses" describes how to *change*
+the marking page, not a mandatory extra step for the common case (most
+projects have one page). Without this, a brand-new project couldn't mark
+any rows until someone explicitly designated a page first — pure friction
+for the typical single-page project. `recordDrawingUpload`
+(`lib/projects/actions.ts`) checks `projects.mark_drawing_id` after
+inserting; if it's still null (this is the project's very first
+drawing), it calls the new `setMarkingDrawing` action immediately.
+Second and later uploads default to `'reference'` (the column's own
+default) and need an explicit "Set as marking page" click.
+
+**Choice — `RowStage` gets a `readOnly` boolean prop, not a second
+component:** a non-marking page needs the *exact* same zoom/pan/
+fullscreen/phase-coloring behavior as the marking page — only
+draw/move/resize/select/keyboard-shortcuts differ. Forking a whole
+second stage component (the way `MaterialsReferenceStage` exists
+separately, for a genuinely different read-only *display* need) would
+duplicate all of that shared behavior for a difference that's really
+just "don't start these specific interactions." `readOnly` short-circuits
+`handleStagePointerDown`'s draw/marquee branch (pan still works — that's
+a view control, not a mark), `handleRowPointerDown` (select/move), and
+`handleKeyDown` (nudge/delete); resize handles are additionally gated
+`isSingleSelected && !readOnly` for defense in depth, even though
+selection can't happen at all when `readOnly` is true so they'd never
+render anyway. The "Auto rows" button is disabled with an explanatory
+`title` on a non-marking page too — otherwise arming grid-mode and then
+dragging would silently do nothing (the drag never starts once
+`readOnly` blocks it), which reads as a bug rather than a boundary.
+
+**Consequences:** found a real, unrelated bug while building this:
+`recordDrawingUpload`'s insert used
+`.insert(...).select("id").order("page_index", ...)` to find the
+first-inserted page — chaining `.order()` after an insert-returning
+`.select()` throws `column drawings.page_index does not exist`
+(PostgREST resolves the ORDER against the statement's own
+RETURNING/insert-values context, not the underlying table, even though
+the column plainly exists there). Sorting the returned rows in JS instead
+(`.select("id, page_index")` then a plain array `.sort()`) avoids the
+issue entirely. Caught by the E2E suite — every test that uploads a
+drawing failed the same way, a good reminder that a single shared code
+path change can have a blast radius wider than the one feature it was
+written for.
 
 **Decision date:** 2026-07-03
 

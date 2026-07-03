@@ -107,8 +107,20 @@ them, so they're not selectable/draggable while hidden. The Materials
 and Progress tabs each gained a phase filter (Materials: narrows which
 rows show on the drawing/grid plus a compact per-phase assigned-qty
 summary; Progress: phase-scoped row count/complete/pct), both computed
-from data the pages already fetch — no new queries needed. Sub-phases
-E–F (multi-page drawings, packing-slip AI extraction) are queued next.
+from data the pages already fetch — no new queries needed.
+
+**Sub-phase E — Multi-page drawings — done and verified live (2026-07-03,
+see ADR-024):** a project's first upload auto-becomes its marking page
+(no extra step for the common single-page case); switching it later is
+one click ("Set as marking page" on any other page). Non-marking pages
+are fully zoomable/pannable/fullscreen-able but not markable —
+`RowStage` gained a `readOnly` mode rather than a second component, so
+that shared behavior doesn't fork. Caught a real bug along the way (an
+`.order()` chained after an insert-returning `.select()` that broke
+*every* drawing upload, not just the new auto-marking logic — see
+ADR-024) before it reached the batch's final report. Sub-phase F
+(packing-slip AI extraction) is queued next — it needs an
+`ANTHROPIC_API_KEY`, not yet provided.
 
 This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
 
@@ -177,10 +189,15 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
       — create-project-through-upload-materials flow confirmed working
       against the real Supabase project, not just self-review.
 
-## Phase 4 — Drawing marking / row setup ✅ built (2026-07-02, reworked 2026-07-03)
+## Phase 4 — Drawing marking / row setup ✅ built (2026-07-02, reworked + multi-page 2026-07-03)
 
 - [x] Layout tab: drawing stage with row overlays (`RowStage`).
 - [x] Auto rows tool (drag box → split N equal, orientation choice).
+- [x] Multi-page drawings (Sub-phase E, 2026-07-03, see ADR-024): browse
+      every uploaded page; exactly one is the marking page (a project's
+      first upload auto-designates, switching later is one click); every
+      other page is fully zoomable/pannable/fullscreen-able but not
+      markable — no drawing, moving, resizing, or keyboard shortcuts.
 - [x] One direct-manipulation canvas — no separate Draw/Edit/Select
       tools (reworked 2026-07-03, see ADR-020): click to select
       (shift/ctrl-click for multi, shift-drag to marquee), drag a
@@ -296,6 +313,11 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
       phase and confirm its border color actually changed (polled via
       `getComputedStyle`), hide/un-hide the phase, filter Materials and
       Progress by phase.
+- [x] `e2e/multi-page-flow.spec.ts` (2026-07-03) — first upload
+      auto-marks; a second page is view-only (confirms a drag there
+      creates zero rows, via a direct DB count); zoom/fullscreen still
+      work on it; switching the marking page flips both pages' roles
+      correctly.
 
 ## Phase 6 — Field/Crew PWA ✅ built (2026-07-03)
 
