@@ -4,6 +4,54 @@ Engineering journal. Newest entries at top.
 
 ---
 
+## 2026-07-03 — Sub-phase C: Scheduler
+
+**What:** Batch 2's sub-phase C. Crew CRUD, assigning a crew to a
+project/rows/phase on a date, a date-range schedule (with per-day
+skip, e.g. weekends/holidays), daily targets auto-suggested from
+remaining material ÷ remaining scheduled days, actual-vs-target with a
+Hit/Miss/Exceeded badge per day and an overall Schedule Performance
+Index badge, and a week view. Full reasoning in `docs/DECISIONS.md`
+ADR-022; summary here.
+
+**New:** `/scheduler` (replaces the placeholder — crew management +
+active-project list) and `/scheduler/[projectId]` (the workspace)
+routes. `lib/crews/actions.ts` — `createCrew`/`updateCrew`/`deleteCrew`,
+`addCrewMember`/`removeCrewMember` (crews/crew_members have existed
+since Batch 1 with no UI until now). `lib/scheduler/{queries,actions}.ts`
+— `listRemainingByMaterial` (assigned − installed per material — **not**
+`material_reconciliation.left_qty`, which is a different number,
+needed − assigned; see ADR-022), `getDailyActuals`, `setProjectSchedule`
+(replace-the-whole-set), `generateTargets` (splits each material's
+remaining qty evenly across every scheduled day from today forward,
+project-wide), `createAssignment`/`deleteAssignment`, `upsertTarget`
+(hand-rolled find-or-update-or-insert, same reasoning as `day_logs` in
+ADR-021 — `targets` has no unique constraint at all). `components/scheduler/`:
+`crew-manager.tsx`, `scheduler-workspace.tsx` (orchestrator: planned
+days, SPI badge, schedule builder, week view), `schedule-builder.tsx`
+(date range → candidate days → tap to exclude one → save),
+`week-view.tsx` (prev/next week, per-day target/actual/status, assigned
+crews), `assign-crew-form.tsx` (whole project / specific rows / a
+phase's rows).
+
+**Verification:** `npm run lint`, `npm run typecheck`, `npm run build`,
+and the full `npm run test:e2e` (7 tests now, zero regressions) all pass.
+New `e2e/scheduler-flow.spec.ts` covers, in one flow: creating a crew and
+adding a member, building a 2-week schedule (confirming weekends were
+actually skipped), generating targets, assigning the crew to today
+(whole-project scope) and confirming it shows in the week view, and
+unassigning it — each step confirmed against the database via
+`expect.poll`, not just the UI. One assertion (today's row showing a
+target number, not just the "done" toast) caught a real timing gap
+worth knowing about: `router.refresh()` isn't awaited by the button
+handler, so the "Targets set for N days" message can render a beat
+before the week view's own re-render lands with the new numbers — not
+a correctness bug (the data is right, confirmed by the DB poll), but the
+test now explicitly waits for the UI to catch up rather than just the
+toast, and a manual visual check hit this exact gap first (a screenshot
+taken right after the toast showed no target yet; a second one taken
+after the stronger assertion passed showed it correctly).
+
 ## 2026-07-03 — Sub-phase B: Field/crew daily closeout
 
 **What:** Batch 2's sub-phase B, resumed after the Layout-tab rework

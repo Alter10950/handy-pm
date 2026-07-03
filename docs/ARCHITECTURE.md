@@ -345,6 +345,65 @@ taps a crew member expects to feel instant.
   logging as is `localStorage` state the server can't know ahead of
   render — the client matches its own `crewId` against the list instead.
 
+## Scheduler (Phase 7, 2026-07-03)
+
+`/scheduler` (`app/(protected)/scheduler/page.tsx`) renders `CrewManager`
+(crew CRUD: name/size/cost-per-hour, add/remove `crew_members`; `crews`
+and `crew_members` have existed in the schema since Batch 1 with no UI
+until now) and `SchedulerProjectList` (active projects, linking into each
+one's workspace). `/scheduler/[projectId]` fetches everything server-side
+in one `Promise.all` and hands it to `SchedulerWorkspace`
+(`components/scheduler/scheduler-workspace.tsx`):
+
+- **Remaining-qty math uses `assigned − installed`, not
+  `material_reconciliation.left_qty`.** `left_qty` is
+  `needed − assigned` — procurement's "still needs to be ordered/
+  allocated," a different number from "how much of what's assigned to a
+  row still needs to physically go in," which is what a schedule target
+  is about. `lib/scheduler/queries.ts`'s `listRemainingByMaterial`
+  computes it directly from `material_reconciliation`'s own `assigned`/
+  `installed` columns. See ADR-022.
+- **`ScheduleBuilder`** (`schedule-builder.tsx`) — pick a start/end date,
+  optionally skip weekends, generate the candidate day list, tap any day
+  to exclude it (e.g. a holiday), save. `setProjectSchedule`
+  (`lib/scheduler/actions.ts`) replaces the whole `project_schedule` set
+  for the project rather than diffing against the existing one — a date
+  is either scheduled or it isn't, nothing else to preserve.
+- **`generateTargets`** (`lib/scheduler/actions.ts`) — "daily targets
+  auto-suggested from remaining material ÷ remaining days": splits each
+  material's remaining qty evenly across every scheduled day from today
+  forward, project-wide (`targets.crew_id: null` — a day can have more
+  than one crew assigned, and splitting a target across them needs a
+  rule, evenly/by size/by cost, that isn't specified). Deletes and
+  regenerates only `crew_id is null` rows from today forward first, so
+  re-running it after progress changes is a clean recompute rather than
+  layering on stale suggestions; past-dated and any manually-set
+  per-crew targets are left untouched. `upsertTarget` is a hand-rolled
+  find-or-update-or-insert (`targets` has no unique constraint at all,
+  unlike `day_logs` — same reasoning as ADR-021's day_logs upsert).
+- **`WeekView`** (`week-view.tsx`) — prev/next week navigation; each
+  scheduled day shows assigned crews (+ unassign), target vs. actual
+  (summed across materials — the Scheduler cares about total daily
+  output, not a per-material breakdown, which is the Materials tab's
+  job), and a status badge (Exceeded ≥110% of target, Hit ≥100%, Close
+  ≥70%, Miss below — reasonable defaults, not spec'd numbers). Days not
+  in `project_schedule` render dimmed, for context, without a target/
+  actual. `AssignCrewForm` (`assign-crew-form.tsx`) offers three
+  assignment scopes — whole project (`assignments.row_id: null`),
+  specific rows (multi-select), or a phase (resolved client-side to that
+  phase's *current* row ids and inserted as one `assignments` row per
+  row — a snapshot at assignment time, not a live link to the phase).
+- **SPI badge** (`SchedulerWorkspace`) — cumulative actual ÷ cumulative
+  planned (sum of all targets) through today, green ≥1.0 / amber ≥0.8 /
+  red below. Standard EVM-style thresholds, not numbers from the spec.
+
+Crew rate tracking (`crew_rates.units_per_hour`) isn't built — the schema
+anticipates it as a *derived* metric (actual installed ÷ actual hours
+from `day_logs`/`installs`), a non-trivial aggregation pipeline of its
+own that isn't a named Sub-phase C requirement; targets are generated
+from remaining-qty ÷ remaining-days only, not adjusted by a crew's
+historical rate.
+
 ## Testing
 
 `npm run test:e2e` (`npm run seed && playwright test`) runs a Playwright
@@ -382,6 +441,13 @@ short:
   queue exercised for real** (`page.context().setOffline(true)`, confirm
   it queues and shows the pending-sync indicator, go back online, confirm
   it drains into the database) → day confirm → close the day.
+- `e2e/scheduler-flow.spec.ts` — crew + member creation, schedule build
+  (confirms weekends were actually skipped, not just that some days were
+  saved), target generation, assign + unassign a crew — each step
+  confirmed against the database, not just the UI's own "done" message
+  (a real timing gap surfaced here: the week view's re-render isn't
+  awaited by the generate-targets button, so a naive assertion on the
+  toast alone could pass a beat before the UI actually caught up).
 
 This suite is what caught ADR-016's env var bug — self-review and
 `next build` both stayed clean through Phases 3–5 because neither

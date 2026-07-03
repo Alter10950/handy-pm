@@ -5,6 +5,79 @@ Consequences.
 
 ---
 
+## ADR-022: Scheduler — remaining-qty targets, project-wide (not per-crew), replace-not-merge schedule/targets
+
+**Decision date:** 2026-07-03
+
+**Context:** Sub-phase C of Batch 2: crew CRUD, assigning crews to a
+project/rows/phases, a date-range schedule, daily targets auto-suggested
+from remaining material ÷ remaining days, actual-vs-target with an SPI
+badge, and a week view. `crews`/`crew_members`/`assignments`/`targets`/
+`crew_rates` have existed in the schema since Batch 1 (created ahead of
+time — see `schema_core.sql`'s own comment, "created now so
+installs/targets can reference crews cleanly from day one"); this is the
+first UI/logic built against them.
+
+**Choice — "remaining" for target math is `assigned − installed`, not
+`material_reconciliation.left_qty`:** `left_qty` is
+`needed − assigned` — procurement's "still needs to be ordered or
+allocated to a row," a different number from "how much of what's already
+assigned to a row still needs to physically go in." Scheduler targets are
+about the latter. `lib/scheduler/queries.ts`'s `listRemainingByMaterial`
+computes `assigned − installed` directly from `material_reconciliation`'s
+own `assigned`/`installed` columns rather than reusing `left_qty`, which
+would silently understate (or overstate, if under-assigned) how much work
+is actually left to install.
+
+**Choice — targets are project-wide, not split per crew:** `targets.crew_id`
+is nullable and `generateTargets` (`lib/scheduler/actions.ts`) always
+writes `crew_id: null`. A day can have more than one crew assigned; the
+spec asks for "daily targets auto-suggested from remaining material ÷
+remaining days" with no mention of splitting that across whichever crews
+happen to be scheduled that day, and doing so would need a rule for
+how to split (evenly? by crew size? by cost?) that isn't specified.
+Actual-vs-target and the SPI badge are likewise computed project-wide per
+day, not per crew.
+
+**Choice — both `setProjectSchedule` and `generateTargets` replace rather
+than merge:** rebuilding the schedule deletes all of a project's
+`project_schedule` rows and re-inserts the new set (a date is either
+scheduled or it isn't — nothing else to preserve across a rebuild).
+`generateTargets` deletes-and-regenerates only `crew_id is null` rows
+from today forward (past-dated and any manually-set per-crew targets are
+left alone), so re-running it after progress changes gives a clean
+recompute instead of layering stale suggestions on top of fresh ones.
+
+**Choice — "assign to project/rows/phases" is assignment *granularity*,
+not a `phase_id` column:** `assignments` has `row_id` (nullable) but no
+`phase_id`. `AssignCrewForm` offers three scopes — whole project
+(`row_id: null`), specific rows (multi-select), or a phase (resolved
+client-side to that phase's current row ids and inserted as one
+`assignments` row per row) — reading the spec's "rows/phases" as scope
+options in the UI, not a schema requirement. A phase assignment is a
+snapshot of that phase's membership at assignment time; it doesn't stay
+live if rows are reassigned to a different phase afterward, consistent
+with `assignments` otherwise having no phase awareness at all.
+
+**Choice — `targets` and `day_logs`-style upserts use the same hand-rolled
+find-or-update-or-insert pattern (ADR-021), not `ON CONFLICT`:** `targets`
+has no unique constraint at all (unlike `day_logs`), so `upsertTarget`
+finds an existing row by `(project_id, work_date, material_id, crew_id)`
+— crew-nullable-aware, same reasoning as `day_logs` — before deciding
+insert vs. update.
+
+**Consequences:** Crew rate tracking (`crew_rates.units_per_hour`) isn't
+built — the schema anticipates it as a *derived* metric (actual
+installed ÷ actual hours from `day_logs`/`installs`), which is a
+non-trivial aggregation pipeline of its own and isn't named as a Sub-phase
+C requirement; targets are generated from remaining-qty ÷ remaining-days
+only, not adjusted by a crew's historical rate. `SchedulerWorkspace`'s SPI
+badge (green ≥1.0, amber ≥0.8, red below) and `WeekView`'s per-day status
+(Exceeded ≥110% of target, Hit ≥100%, Close ≥70%, Miss below) are
+reasonable defaults, not numbers from the spec — a candidate for a
+config/settings surface later if a real project's cadence wants different
+thresholds.
+
 ## ADR-021: Field (crew) app — append-only install log, localStorage offline queue, no crew-login link yet
 
 **Decision date:** 2026-07-03

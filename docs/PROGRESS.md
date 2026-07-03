@@ -83,8 +83,19 @@ confirm the day's times, close the day. `crews`/`crew_members`/etc. have
 existed in the schema since Batch 1 (see `docs/ARCHITECTURE.md`'s data
 model) but have no management UI yet — that's Sub-phase C; Field's crew
 picker works against whatever crews already exist and degrades cleanly
-to "no crew selected" otherwise. Sub-phases C–F (Scheduler, Phases,
-multi-page drawings, packing-slip AI extraction) are queued next.
+to "no crew selected" otherwise.
+
+**Sub-phase C — Scheduler — done and verified live (2026-07-03, see
+ADR-022):** `/scheduler` now has real crew CRUD (name, size, cost/hour,
+members) instead of just being a data source for Field's picker. Per
+project: a date-range schedule builder (skip weekends/holidays), "Generate
+targets" that splits each material's remaining qty (assigned − installed
+— deliberately not `material_reconciliation.left_qty`, a different
+number; see ADR-022) evenly across every remaining scheduled day, a week
+view with per-day target/actual/Hit-Miss-Exceeded, an overall SPI badge,
+and assigning a crew to a day at whole-project / specific-rows / a-phase
+granularity. Sub-phases D–F (Phases full UI, multi-page drawings,
+packing-slip AI extraction) are queued next.
 
 This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
 
@@ -265,6 +276,9 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
 - [x] `e2e/field-flow.spec.ts` (2026-07-03, mobile viewport) — project
       pick, crew pick, material install, blocker + photo, offline queue
       (genuinely goes offline mid-test), day confirm + close.
+- [x] `e2e/scheduler-flow.spec.ts` (2026-07-03) — crew + member creation,
+      schedule build (confirms weekends actually skipped), target
+      generation, assign + unassign a crew, each verified against the DB.
 
 ## Phase 6 — Field/Crew PWA ✅ built (2026-07-03)
 
@@ -292,7 +306,26 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
       offline queue actually going offline and back (not simulated by
       mocking) and draining into the database on reconnect.
 
-## Phase 7 — Scheduler (not started)
+## Phase 7 — Scheduler ✅ built (2026-07-03)
+
+- [x] `/scheduler` — crew CRUD (name, size, cost/hour) + members
+      (add/remove), active-project list linking into each project's
+      scheduler workspace.
+- [x] `/scheduler/[projectId]` — planned days, a date-range schedule
+      builder (skip weekends by default, tap any day to exclude it e.g.
+      a holiday, rebuildable).
+- [x] "Generate targets from today forward": splits each material's
+      remaining qty (assigned − installed, not the Materials tab's
+      `left_qty` — a different number, see ADR-022) evenly across every
+      remaining scheduled day, project-wide.
+- [x] Week view (prev/next navigation): per scheduled day, assigned
+      crews (+ unassign), target vs. actual, and a Hit/Miss/Exceeded
+      badge; not-scheduled days shown dimmed for context.
+- [x] Assign a crew to a day at whole-project, specific-rows, or
+      a-phase's-rows granularity.
+- [x] Overall Schedule Performance Index badge (actual ÷ planned,
+      cumulative to today), green/amber/red.
+- [x] **Verified live** — `e2e/scheduler-flow.spec.ts`.
 
 ## Phase 8 — Customer portal (not started)
 
