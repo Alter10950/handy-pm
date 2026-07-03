@@ -4,6 +4,42 @@ Engineering journal. Newest entries at top.
 
 ---
 
+## 2026-07-03 — Local dev port note, Vercel env vars wired, production 500 fixed
+
+**What:** Two loose ends from the previous session: document the
+alternate dev port, and get the production deployment past the
+`Internal Server Error` it was throwing (missing Supabase env vars on
+Vercel — the server client throws on boot when they're absent).
+
+**Local dev:** `npm run dev` binds port 3000 by default; when that's
+already taken (it was, by the E2E suite's `webServer`), README now notes
+the fix: `npm run dev -- -p 3001`.
+
+**Vercel:** ran `vercel link` (user-authenticated, confirmed correct
+project: `handy-pm`, org `seder-s-projects`) — repo-level linking, so
+only `.vercel/repo.json` exists (no `.vercel/project.json`, which is
+expected for current Vercel CLI versions, not a misconfiguration. Then
+added all three Supabase env vars (`NEXT_PUBLIC_SUPABASE_URL`,
+`NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`) to
+Production, Preview, and Development via `vercel env add`, piping each
+value directly from `.env.local` through a shell pipeline so the secret
+never appeared in any command string or visible output. Triggered
+`vercel --prod`; build succeeded and aliased to
+`https://handy-pm.vercel.app`. Confirmed via `curl`: `/` now returns
+`307` → `/login` returns `200` (previously `500`).
+
+**Not done (needs a human with dashboard access):** Supabase Auth **Site
+URL** and **Redirect URLs** still need the production domain added —
+there's no Supabase Management API token available in this environment,
+so this can't be done from the terminal. Exact steps are in the chat
+report; nothing else is blocked on it since `localhost:3001` was already
+added in the previous session for E2E/manual testing.
+
+**Also cleaned up:** `.gitignore` had picked up a redundant trailing
+`.vercel` / `.env*` pair (Vercel CLI appends these during `vercel link`,
+not knowing they're already covered by existing entries higher up) —
+removed the duplicate, no behavior change.
+
 ## 2026-07-02 — Automated Batch 1 verification: E2E suite, found + fixed a real bug
 
 **What:** Built what Phases 3–5 were missing — automated proof they

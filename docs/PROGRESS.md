@@ -11,6 +11,14 @@ because none of that exercises a real browser. Org "Handy Equip" exists
 (seeded by `scripts/seed.mjs`); the user is doing their own real
 first/owner sign-in separately (see `docs/BUILD-LOG.md`).
 
+**Production deploy:** live at `https://handy-pm.vercel.app` — the
+`Internal Server Error` (missing Supabase env vars on Vercel) is fixed,
+all three env vars are set for Production/Preview/Development, `/login`
+confirmed returning 200. Still needs a human: add the production domain
+to Supabase's Auth **Site URL** / **Redirect URLs** in the dashboard (no
+Management API token available here — see `docs/BUILD-LOG.md` for exact
+steps).
+
 This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
 
 2. DB schema/RLS/storage/types

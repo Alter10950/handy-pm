@@ -56,6 +56,12 @@ npm run build           # production build
 npm run start            # run the production build locally
 ```
 
+If port 3000 is already in use by something else, pass an alternate port:
+
+```bash
+npm run dev -- -p 3001
+```
+
 ## Quality gates
 
 ```bash
