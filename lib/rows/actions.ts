@@ -110,6 +110,39 @@ export async function updateRowGeometry(
   revalidateProjectTabs(projectId);
 }
 
+export interface RowReadinessInputs {
+  materialsReady?: boolean;
+  areaAccessible?: boolean;
+  drawingApproved?: boolean;
+}
+
+// Sets the three manual readiness inputs row_progress.readiness_status is
+// computed from (crew_assigned is the fourth input, but it's derived from
+// assignments, not settable here). Batch 3 sub-phase 0 added these
+// columns; this is the first application code to actually write them.
+export async function updateRowReadiness(
+  rowId: string,
+  projectId: string,
+  inputs: RowReadinessInputs
+): Promise<void> {
+  await requireRole(ROW_EDITORS);
+  const supabase = await createClient();
+  const patch: {
+    materials_ready?: boolean;
+    area_accessible?: boolean;
+    drawing_approved?: boolean;
+  } = {};
+  if (inputs.materialsReady !== undefined) patch.materials_ready = inputs.materialsReady;
+  if (inputs.areaAccessible !== undefined) patch.area_accessible = inputs.areaAccessible;
+  if (inputs.drawingApproved !== undefined) patch.drawing_approved = inputs.drawingApproved;
+  if (Object.keys(patch).length === 0) return;
+
+  const { error } = await supabase.from("rows").update(patch).eq("id", rowId);
+  if (error) throw error;
+
+  revalidateProjectTabs(projectId);
+}
+
 export async function renameRow(
   rowId: string,
   projectId: string,

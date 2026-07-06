@@ -11,6 +11,7 @@ export function RowCommandPanel({
   onRenameToggle,
   onMaterialsToggle,
   onPhaseToggle,
+  onReadinessToggle,
   onClearSelection,
 }: {
   selectedCount: number;
@@ -21,6 +22,7 @@ export function RowCommandPanel({
   onRenameToggle: () => void;
   onMaterialsToggle: () => void;
   onPhaseToggle: () => void;
+  onReadinessToggle: () => void;
   onClearSelection: () => void;
 }) {
   return (
@@ -67,6 +69,17 @@ export function RowCommandPanel({
         >
           Set phase
         </Button>
+        {isSingleSelection ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={isPending}
+            onClick={onReadinessToggle}
+          >
+            Readiness
+          </Button>
+        ) : null}
         <Button
           type="button"
           size="sm"

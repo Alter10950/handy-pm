@@ -4,6 +4,64 @@ Engineering journal. Newest entries at top.
 
 ---
 
+## 2026-07-06 — Batch 3 sub-phase F: Material status lifecycle, reorder list, row readiness
+
+**What:** A new Receiving project tab (check materials in against a
+per-status log — ordered/received/verified/staged/short/damaged/wrong —
+with a reorder list and a per-material expandable history), row
+readiness inputs (materials ready / area accessible / drawing approved,
+surfaced as a colored dot on the drawing and a status badge), a
+scheduler warning before assigning a crew to a row still flagged
+blocked, and four new identity columns on the Materials grid (Profile,
+Capacity, Condition, System). Full reasoning in `docs/DECISIONS.md`
+ADR-033; summary here.
+
+**Build:** No schema migration — sub-phase 0 already shipped
+`material_receipts`, the `rows` readiness columns, `row_progress.
+readiness_status`, and the richer `materials` columns; this sub-phase
+is entirely UI + Server Actions on top of what already existed.
+New `lib/materials/{queries,actions}.ts` (`recordMaterialReceipt`,
+`getMaterialReceiptTotals`, `listMaterialReceiptHistoryByProject`).
+New `components/materials/receiving-panel.tsx` +
+`app/(protected)/app/project/[id]/receiving/page.tsx`. New
+`components/projects/row-readiness-panel.tsx`, wired into
+`row-command-panel.tsx`/`row-marking-workspace.tsx` (full undo/redo
+support, same pattern as every other row edit) and into
+`row-fill-marker.tsx` (a corner dot on both the editable and read-only
+drawing views). `lib/rows/actions.ts` gained `updateRowReadiness`.
+`assign-crew-form.tsx` now checks target rows' `readiness_status`
+before submitting and warns by name if any are blocked.
+
+**Two real bugs found and fixed along the way, both documented in
+ADR-033:** (1) the readiness checkboxes snapped back to their stale
+state on click — same class of bug as the layout editor's move/resize
+snap-back (ADR-031), same fix (local `useState` seeded from props,
+updated optimistically). (2) `AssignCrewForm`'s `window.confirm()` is
+called with no preceding `await`, which deadlocks the calendar test's
+own `Promise.all([waitForEvent, click()])` pattern — fixed by
+registering `page.once("dialog", ...)` before the click and awaiting
+the click alone. This is a third, distinct dialog-handling shape beyond
+the two already in `docs/ARCHITECTURE.md`'s Testing section.
+
+**Also fixed:** wired the already-written but unused
+`listMaterialReceiptHistoryByProject` into a real "History" disclosure
+per material on the Receiving tab, rather than shipping a dead export;
+added four `data-testid`s to the new Materials grid columns and fixed
+the resulting ambiguous-`<select>` regression in
+`estimating-flow.spec.ts`; deleted two stray leftover crews (created by
+earlier, failed runs of this sub-phase's own new test, before the
+dialog-deadlock fix existed) that were breaking `scheduler-flow.
+spec.ts`'s crew locator.
+
+**Verified:** `npm run lint`/`typecheck`/`build` all green. New
+`e2e/materials-lifecycle-flow.spec.ts` (create project → row → material
+→ richer identity fields → receiving check-in → shortfall → reorder
+list → flagged status → history log → row readiness defaults to
+blocked → toggled true → scheduler warns before assigning). Full suite
+green: 23 passed, 2 intentionally skipped.
+
+---
+
 ## 2026-07-06 — Batch 3 sub-phase E: Exception dashboard + emailed reports + closeout PDF
 
 **What:** A company-wide `/app/dashboard` (active projects with SPI

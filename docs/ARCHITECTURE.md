@@ -389,6 +389,78 @@ phase filter that recomputes row count/rows complete/pct client-side
 from `row_progress`, the same shape `project_progress` aggregates — no
 new query for either tab's filter.
 
+## Material receiving, reorder list, row readiness (Batch 3, Sub-phase F, 2026-07-06)
+
+`lib/materials/` — `queries.ts` (`getMaterialReceiptTotals`,
+`listMaterialReceiptHistoryByProject`) and `actions.ts`
+(`recordMaterialReceipt`). Full design reasoning in
+`docs/DECISIONS.md` ADR-033.
+
+- **Receiving tab** (`/app/project/[id]/receiving`, hidden on
+  `'estimate'`-status projects — same convention as Layout/Progress in
+  `project-tabs.tsx`) — `ReceivingPanel` renders a reorder list (a
+  straight filter/sort of the existing `material_reconciliation.
+  to_order`, no new shortage math), a per-material status breakdown
+  (count per `MaterialReceiptStatus`, a flagged banner when short/
+  damaged/wrong has ever been logged), a check-in form, and an
+  expandable "History" disclosure (`listMaterialReceiptHistoryByProject`
+  — one bulk in-clause query across every material, not one query per
+  material, same shape as `getMaterialReceiptTotals`).
+- **`material_receipts` stays an append-only event log.**
+  `recordMaterialReceipt` always inserts a row; only `status ===
+  'received'` additionally does a read-modify-write on
+  `materials.received`, the one aggregate `material_reconciliation`
+  actually depends on for its `to_order`/`assigned` math. Every other
+  status (`ordered`/`verified`/`staged`/`short`/`damaged`/`wrong`) has
+  no separate aggregate — the log is authoritative, read back via the
+  totals/history queries above. Same "log feeds one aggregate column"
+  relationship `installs` already has with reconciliation.
+- **Materials grid identity columns** — Profile, Capacity, Condition
+  (a `<select>` of `MaterialCondition`), System, added after Labor in
+  `materials-grid.tsx`, each with its own `data-testid`
+  (`material-profile-`, `material-capacity-`, `material-condition-`,
+  `material-system-`) — adding a second `<select>` to the row made a
+  pre-existing test's bare `row.locator("select")` ambiguous; fixed
+  there, not here (see Testing).
+- **Row readiness** — `rows.materials_ready`/`area_accessible`/
+  `drawing_approved` (booleans, sub-phase 0) feed `row_progress.
+  readiness_status` (view-computed precedence: `complete` if all
+  materials met → `blocked` if not materials_ready OR not
+  area_accessible → `ready` if all three manual inputs are true AND a
+  crew is assigned → else `partial`; a brand-new row defaults to
+  `blocked`, since both manual inputs default false). `updateRowReadiness`
+  (`lib/rows/actions.ts`) patches whichever subset of the three inputs
+  changed (an explicit `{materials_ready?; area_accessible?;
+  drawing_approved?}` object type — a loosely-typed `Record<string,
+  boolean>` doesn't satisfy Supabase's generated `Update` shape).
+  `RowReadinessPanel` (opened via a "Readiness" button in
+  `row-command-panel.tsx`, single-row selection only) is a **local-first
+  optimistic** component: its three checkboxes seed `useState` from
+  props and update that local state directly in `onChange`, alongside
+  calling the parent's `onChange` callback — the same fix, for the same
+  reason, as the layout editor's move/resize snap-back (ADR-031): a
+  fully server-controlled `checked={prop}` checkbox would otherwise
+  visually revert the instant React re-renders with the still-stale
+  prop, before the Server Action + `revalidatePath` round trip lands.
+  Safe here because the panel only stays mounted while row selection
+  doesn't change (picking a different row resets `activeCommand` and
+  unmounts this one). `handleReadinessChange` in
+  `row-marking-workspace.tsx` gives this full undo/redo, matching every
+  other row edit. `RowFillMarker` renders a small corner dot
+  (`READINESS_DOT_CLASS`: ready → success, partial → primary, blocked →
+  destructive, omitted for complete) on both the editable
+  (`row-stage.tsx`) and read-only (`materials-reference-stage.tsx`)
+  drawing views.
+- **Scheduler warns, doesn't block.** `AssignCrewForm.handleSubmit`
+  checks the target rows' `readiness_status` and, if any is `'blocked'`,
+  calls `window.confirm()` naming them before submitting — the same
+  posture as the calendar's double-booking warning (ADR-029). The row
+  picker itself also prefixes a blocked row's button label with "⚠ " and
+  a destructive border, so the warning isn't the first signal. This is
+  intentionally a soft warning, not a hard gate — turning "no verified
+  material, no crew dispatch" into an actual block is an explicit later
+  (Batch 4) job that builds on this UI rather than duplicating it.
+
 ## Field / crew app (Phase 6, 2026-07-03; taken to flagship 2026-07-06)
 
 `/field` (active projects + "My assignments today,"
@@ -1039,6 +1111,56 @@ short:
   immediately after upload) — the test's role-based locator had always
   been ambiguous, just reliably timing-lucky in isolation; fixed with
   an explicit `data-testid` on the fresh-upload instance.
+
+- `e2e/materials-lifecycle-flow.spec.ts` (2026-07-06) — create a
+  project, draw a row, add a material, then edit its Profile and
+  Condition fields via the new `data-testid`-scoped locators and confirm
+  each persists. Receiving: confirms the reorder list starts empty (a
+  pasted material list sets `received = total_needed` by design, so a
+  real shortfall needs a direct admin edit down, not the paste flow
+  itself), logs a `'received'` check-in for the shortfall and polls the
+  DB for `materials.received` to actually increment, logs a `'damaged'`
+  flag and confirms it renders as flagged, then expands the History
+  disclosure and confirms both entries appear newest-first. Row
+  readiness: confirms a fresh row defaults to `blocked`, checks all
+  three inputs, and polls the DB for all three columns to land. Scheduler
+  warning: builds a real schedule first (assign buttons only render on
+  days already in the built schedule), forces the row back to
+  `materials_ready: false` for a deterministic check, and confirms
+  `window.confirm()` fires with a message naming the row as blocked —
+  the row-picker button itself is matched with `getByRole("button", {
+  name: /Row 1/ })` (a regex, not exact text) since a blocked row's
+  accessible name is prefixed "⚠ Row 1".
+  - **A third distinct Playwright dialog-handling shape**, beyond the
+    two already documented for this suite: `AssignCrewForm.handleSubmit`
+    calls `window.confirm()` with **no preceding `await`** (unlike the
+    crew calendar's `assignOrMove`, which awaits `checkDoubleBooking()`
+    first). A synchronous-from-the-click dialog means `.click()` itself
+    will not resolve until the dialog is handled — so the calendar
+    test's own working pattern, `Promise.all([page.waitForEvent("dialog"),
+    click()])`, **deadlocks** here: `click()` can't resolve without
+    `dismiss()`, and `dismiss()` never runs because `Promise.all` is
+    still awaiting `click()`. Fixed by registering `page.once("dialog",
+    handler)` *before* the click, then `await`-ing the click alone (not
+    wrapped in `Promise.all`) — the listener fires independently of the
+    click's own promise and unblocks it.
+  - Regression found and fixed in `estimating-flow.spec.ts`: adding the
+    Condition column gave each materials-grid row a second `<select>`,
+    making its bare `row.locator("select")` ambiguous — fixed with the
+    existing `material-task-{id}` `data-testid` instead of a positional
+    locator.
+  - Regression found and fixed in `scheduler-flow.spec.ts`: two stray
+    crews (`[E2E] Materials lifecycle crew <timestamp>`) leaked from
+    earlier failed runs of this same new spec (each failure happened
+    before reaching its own `afterAll` cleanup, back when the dialog
+    deadlock above was still unfixed) and broke a `.locator("div",
+    {hasText: CREW_NAME}).first()` locator once more than one crew
+    existed on the page (`.first()` in document order matched an
+    unrelated outer container, not the intended crew card — the same
+    "matches every ancestor" bug class as `phases-flow.spec.ts`'s and
+    `team-settings-flow.spec.ts`'s own entries above). Fixed by deleting
+    the two stray crews via a one-off admin-client script, not by
+    changing the now-fixed test.
 
 This suite is what caught ADR-016's env var bug — self-review and
 `next build` both stayed clean through Phases 3–5 because neither

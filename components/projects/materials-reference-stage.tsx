@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { RowFillMarker } from "@/components/projects/row-fill-marker";
-import type { Tables } from "@/lib/supabase/database.types";
+import type { RowReadinessStatus, Tables } from "@/lib/supabase/database.types";
 import { cn } from "@/lib/utils";
 
 export interface ReferenceRow {
@@ -17,6 +17,7 @@ export interface ReferenceRow {
   hasMaterials: boolean;
   isComplete: boolean;
   phaseId: string | null;
+  readinessStatus: RowReadinessStatus;
 }
 
 export function MaterialsReferenceStage({
@@ -90,6 +91,7 @@ export function MaterialsReferenceStage({
               hasMaterials={row.hasMaterials}
               isComplete={row.isComplete}
               isVertical={isVertical}
+              readinessStatus={row.readinessStatus}
             />
           </button>
         );

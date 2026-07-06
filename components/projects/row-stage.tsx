@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { RowFillMarker } from "@/components/projects/row-fill-marker";
 import { ZoomControls } from "@/components/projects/zoom-controls";
 import { MAX_ZOOM, MIN_ZOOM, useZoomPan } from "@/components/projects/use-zoom-pan";
-import type { Tables } from "@/lib/supabase/database.types";
+import type { RowReadinessStatus, Tables } from "@/lib/supabase/database.types";
 import { cn, isTypingTarget } from "@/lib/utils";
 
 export interface StageRow {
@@ -19,6 +19,7 @@ export interface StageRow {
   hasMaterials: boolean;
   isComplete: boolean;
   phaseId: string | null;
+  readinessStatus: RowReadinessStatus;
 }
 
 interface Box {
@@ -791,6 +792,7 @@ export function RowStage({
                   hasMaterials={row.hasMaterials}
                   isComplete={row.isComplete}
                   isVertical={isVertical}
+                  readinessStatus={row.readinessStatus}
                 />
               </div>
               {isSingleSelected && !readOnly

@@ -40,14 +40,36 @@ export function AssignCrewForm({
 
   async function handleSubmit() {
     if (!crewId) return;
+
+    const targetRowIds =
+      scope === "project"
+        ? null
+        : scope === "rows"
+          ? [...rowIds]
+          : rows.filter((row) => row.phase_id === phaseId).map((row) => row.row_id);
+
+    // Warn, don't hard-block — same posture as the calendar's
+    // double-booking check (ADR-029): a row can be genuinely blocked for
+    // reasons the scheduler should still be able to override (e.g.
+    // sending a crew to prep the area itself), so this is a confirmation,
+    // not a refusal.
+    if (targetRowIds && targetRowIds.length > 0) {
+      const blockedLabels = rows
+        .filter(
+          (row) =>
+            targetRowIds.includes(row.row_id) && row.readiness_status === "blocked"
+        )
+        .map((row) => row.label);
+      if (blockedLabels.length > 0) {
+        const confirmed = window.confirm(
+          `${blockedLabels.join(", ")} ${blockedLabels.length === 1 ? "is" : "are"} marked blocked (materials not ready or area not accessible). Assign anyway?`
+        );
+        if (!confirmed) return;
+      }
+    }
+
     setSaving(true);
     try {
-      const targetRowIds =
-        scope === "project"
-          ? null
-          : scope === "rows"
-            ? [...rowIds]
-            : rows.filter((row) => row.phase_id === phaseId).map((row) => row.row_id);
       await createAssignment(projectId, crewId, workDate, targetRowIds);
       onDone();
     } finally {
@@ -104,13 +126,21 @@ export function AssignCrewForm({
             <button
               key={row.row_id}
               type="button"
+              title={
+                row.readiness_status === "blocked"
+                  ? "Blocked — materials not ready or area not accessible"
+                  : undefined
+              }
               onClick={() => toggleRow(row.row_id)}
               className={`rounded-md border px-1.5 py-0.5 text-xs ${
                 rowIds.has(row.row_id)
                   ? "border-primary bg-primary/20 text-foreground"
-                  : "border-border text-muted-foreground"
+                  : row.readiness_status === "blocked"
+                    ? "border-destructive/50 text-destructive"
+                    : "border-border text-muted-foreground"
               }`}
             >
+              {row.readiness_status === "blocked" ? "⚠ " : ""}
               {row.label}
             </button>
           ))}

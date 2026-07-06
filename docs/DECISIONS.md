@@ -5,6 +5,113 @@ Consequences.
 
 ---
 
+## ADR-033: Sub-phase F — material status lifecycle (receiving log + reorder list), row readiness UI, richer material identity
+
+**Decision date:** 2026-07-06
+
+**Context:** Batch 3, sub-phase F: turn sub-phase 0's schema
+(`material_receipts`, `rows.materials_ready`/`area_accessible`/
+`drawing_approved`, `row_progress.readiness_status`, richer `materials`
+identity columns) into a real UI — check materials in as they arrive,
+see a reorder list, mark a row's readiness inputs, and have the
+scheduler warn before assigning a crew to a row that isn't actually
+ready.
+
+**Choice — a new "Receiving" project tab, not a rebuilt Materials
+tab:** the Materials grid is already dense (Task/Size/Labor columns
+from sub-phase D, now Profile/Capacity/Condition/System from this
+sub-phase too) — receiving is a different mental mode (an event log:
+"what showed up today") from editing required quantities, so it gets
+its own tab (between Materials and Progress) rather than more columns
+or a modal bolted onto an already-full grid. Hidden on `'estimate'`
+status projects, same convention as Layout/Progress (a pre-sale draft
+has nothing to receive).
+
+**Choice — `material_receipts` stays an append-only event log; only
+`status='received'` syncs the `materials.received` aggregate:** a
+shipment can arrive in batches and get flagged along the way (short/
+damaged/wrong), so the log is authoritative for the full history —
+but `material_reconciliation` already depends on the fast
+`materials.received` column, so the one status that actually means
+"this qty is now on hand" (`'received'`) does a read-modify-write to
+keep that aggregate in sync, the same "log feeds an aggregate column"
+relationship `installs` already has with reconciliation. Every other
+status (`ordered`/`verified`/`staged`/`short`/`damaged`/`wrong`) has no
+separate aggregate to maintain — the log itself is the source of truth,
+surfaced as a per-status count breakdown and a flagged banner when
+short/damaged/wrong has ever been logged.
+
+**Choice — reorder list derives from `material_reconciliation.to_order`,
+no separate computation:** `to_order` (needed − received, floored at 0)
+already existed from Phase 5 — the Receiving tab just filters/sorts the
+existing view instead of re-deriving shortage math a second way.
+
+**Choice — row readiness checkboxes get their own local `useState`,
+seeded from props:** identical bug class to the layout editor's
+snap-back fix (ADR-031) — a fully server-controlled `checked={prop}`
+checkbox visually reverts the instant React re-renders with the same
+still-stale prop, before the Server Action's `revalidatePath` round
+trip lands. Fixed the same way: local state seeded from props, updated
+optimistically alongside the parent callback. Safe here for the same
+reason as the layout editor: `RowReadinessPanel` only stays mounted
+while the row selection doesn't change — selecting a different row
+resets `activeCommand` and unmounts it, so there's no window where a
+real prop update needs to override stale local state.
+
+**Choice — "warn, don't hard-block" for assigning a crew to a blocked
+row, reusing the existing `window.confirm()` posture:** consistent with
+the double-booking warning (ADR-029) — this sub-phase's job is to
+surface readiness, not to gate scheduling on it (that's an explicit
+Batch 4 sub-phase E job, "wire the receiving lifecycle into a *hard*
+gate"). `AssignCrewForm` checks the target rows' `readiness_status`
+and confirms by name before submitting; the row picker also shows a
+"⚠ " prefix on blocked rows so the warning isn't the first time a PM
+learns about it.
+
+**Consequences:** `lib/materials/{queries,actions}.ts` are new feature
+folders; no new migration (sub-phase 0 already shipped every column and
+table this sub-phase reads/writes). `MaterialsGrid` gained four columns
+(Profile, Capacity, Condition — a `<select>`, System) after Labor,
+which made a pre-existing test's bare `row.locator("select")` ambiguous
+— fixed with an explicit `data-testid` rather than a positional index
+(same lesson as ADR-030, still holding). Also wired up
+`listMaterialReceiptHistoryByProject` (a bulk, one-query-per-project
+history fetch, not one query per material) into an expandable "History"
+disclosure per material on the Receiving tab — written to back a real
+UI element rather than left as an unused export, per this repo's own
+"no unused exports" rule.
+
+**Bug found via a genuine Playwright deadlock (not this sub-phase's
+application code, but its own new test):** `AssignCrewForm.handleSubmit`
+calls `window.confirm()` synchronously, with no `await` before it —
+unlike the crew calendar's `assignOrMove`, which awaits
+`checkDoubleBooking()` first. Playwright's `.click()` does not resolve
+until a triggered native dialog is handled, so the calendar test's own
+working pattern, `Promise.all([page.waitForEvent("dialog"), click()])`,
+deadlocks for a *synchronous* dialog: `click()` can't resolve without
+`dismiss()`, and `dismiss()` never runs because `Promise.all` is still
+waiting on `click()` to resolve first. Fixed by registering
+`page.once("dialog", handler)` *before* the click and awaiting the
+click alone (not wrapped in `Promise.all`) — the listener fires and
+dismisses independently of the click's own promise. Documented in
+`docs/ARCHITECTURE.md`'s Testing section as a third distinct dialog-
+handling variant, alongside the two already documented there.
+
+**Bug found via test-pollution (not this sub-phase's application code):**
+two stray crews (`[E2E] Materials lifecycle crew <timestamp>`) were left
+behind by earlier failed runs of this sub-phase's own new test — each
+failure happened before the test reached its own `afterAll` cleanup
+(back when the dialog deadlock above was still unfixed), and those
+crews persisted permanently since nothing else ever deleted them. They
+broke `scheduler-flow.spec.ts`'s `.locator("div", {hasText:
+CREW_NAME}).first()` (`.first()` in document order matched an
+unrelated outer container once more than one crew existed on the page,
+the same "matches every ancestor" bug class documented elsewhere in
+this log) — fixed by deleting both via a one-off admin-client script,
+not by changing the now-fixed test.
+
+---
+
 ## ADR-032: Sub-phase E — exception-first dashboard, emailed reports (Resend), closeout PDF (@react-pdf/renderer)
 
 **Decision date:** 2026-07-06

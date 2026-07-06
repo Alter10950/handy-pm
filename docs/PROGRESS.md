@@ -225,6 +225,35 @@ extraction route nor the new voice-note route had an explicit
 authentication check (voice-note had *none* at all, since it never
 touches Supabase) — both now use sub-phase A's `requireOrg()` helper.
 
+**Sub-phase F — Material status lifecycle + reorder list + row
+readiness — done and verified live (2026-07-06, see ADR-033):** a new
+Receiving project tab logs receiving events per material (ordered/
+received/verified/staged/short/damaged/wrong — `material_receipts`, an
+append-only log from sub-phase 0) with a reorder list (reusing the
+existing `material_reconciliation.to_order`, no new math) and an
+expandable per-material history. Only `status='received'` also bumps
+the fast `materials.received` aggregate reconciliation already depends
+on — every other status is log-only. Row readiness (materials ready /
+area accessible / drawing approved) is now editable from the Layout
+tab's row command panel — a colored corner dot on the drawing (both
+the editable and read-only reference views) and a status badge
+(ready/partial/blocked/complete, `row_progress`'s own precedence) —
+with full undo/redo, matching every other row edit. The scheduler now
+warns (`window.confirm()`, names the row, doesn't hard-block — that's
+an explicit later job) before assigning a crew to a row still flagged
+blocked. Materials grid gained Profile/Capacity/Condition/System
+columns. Found and fixed a real bug identical in class to the layout
+editor's snap-back (ADR-031): the readiness checkboxes were fully
+server-controlled and visually reverted on click before the persist
+round-trip landed — fixed with local state seeded from props, same
+pattern. Also found a genuine Playwright deadlock while testing:
+`AssignCrewForm`'s `window.confirm()` fires with no preceding `await`,
+which hangs the calendar test's own `Promise.all([waitForEvent,
+click()])` pattern forever — fixed with a `page.once("dialog", ...)`
+listener registered before the click, awaited independently. New
+`e2e/materials-lifecycle-flow.spec.ts`. Full suite green: 23 passed, 2
+intentionally skipped.
+
 **Sub-phase E — Exception dashboard + emailed reports + closeout PDF —
 done and verified live (2026-07-06, see ADR-032):** a new
 `/app/dashboard` — active projects with SPI risk (extracted into
@@ -753,6 +782,41 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
       the new grid columns caused in `project-flow.spec.ts` (positional
       indices shifted) by adding `data-testid`s throughout instead of
       just renumbering. Full suite green: 20 passed, 2 intentionally
+      skipped.
+
+## Batch 3, Sub-phase F — Material status lifecycle, reorder list, row readiness ✅ done (2026-07-06)
+
+- [x] New Receiving project tab (hidden on `'estimate'` status, same
+      convention as Layout/Progress): per-material check-in form
+      (status/qty/note) against `material_receipts`; only `'received'`
+      also bumps the `materials.received` aggregate, every other status
+      (ordered/verified/staged/short/damaged/wrong) is log-only.
+- [x] Reorder list reuses the existing `material_reconciliation.to_order`
+      (no new shortage math) plus a per-status count breakdown and a
+      flagged banner when short/damaged/wrong has ever been logged.
+- [x] Expandable per-material "History" log (`listMaterialReceiptHistoryByProject`,
+      one bulk query, newest first).
+- [x] Row readiness (materials ready / area accessible / drawing
+      approved) editable from the Layout tab's row command panel — full
+      undo/redo, a colored corner dot on both the editable and
+      read-only drawing views, and a status badge (ready/partial/
+      blocked/complete, `row_progress`'s own precedence).
+- [x] Scheduler warns (`window.confirm()`, names the row) before
+      assigning a crew to a row still flagged blocked — warn, not
+      hard-block, consistent with the double-booking warning (ADR-029).
+- [x] Materials grid gained Profile/Capacity/Condition/System columns.
+- [x] Bug fix: readiness checkboxes snapped back to stale state on
+      click (same class as the layout editor's ADR-031 fix) — fixed
+      with local `useState` seeded from props.
+- [x] `npm run lint`/`typecheck`/`build` all pass.
+- [x] New `e2e/materials-lifecycle-flow.spec.ts` (identity fields →
+      receiving check-in → shortfall → reorder list → flagged status →
+      history log → row readiness defaults to blocked → toggled →
+      scheduler warning). Found and fixed a genuine Playwright dialog
+      deadlock (`window.confirm()` with no preceding `await` hangs the
+      calendar test's own `Promise.all` pattern) and a test-pollution
+      regression in `scheduler-flow.spec.ts` (stray leftover crews from
+      earlier failed runs). Full suite green: 23 passed, 2 intentionally
       skipped.
 
 ## Batch 3, Sub-phase E — Exception dashboard + emailed reports + closeout PDF ✅ done (2026-07-06)

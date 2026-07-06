@@ -29,7 +29,10 @@ export function ProjectTabs({
       : []),
     { href: `${base}/materials`, label: "Materials" },
     ...(status !== "estimate"
-      ? [{ href: `${base}/progress`, label: "Progress" }]
+      ? [
+          { href: `${base}/receiving`, label: "Receiving" },
+          { href: `${base}/progress`, label: "Progress" },
+        ]
       : []),
     { href: `${base}/estimate`, label: "Estimate" },
   ];

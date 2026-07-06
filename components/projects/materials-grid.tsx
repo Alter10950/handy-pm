@@ -13,7 +13,9 @@ import {
 } from "@/lib/projects/actions";
 import { upsertRowMaterialQty } from "@/lib/rows/actions";
 import { cn } from "@/lib/utils";
-import type { Tables, Views } from "@/lib/supabase/database.types";
+import type { MaterialCondition, Tables, Views } from "@/lib/supabase/database.types";
+
+const CONDITIONS: MaterialCondition[] = ["new", "used"];
 
 export interface GridRow {
   id: string;
@@ -117,6 +119,18 @@ export function MaterialsGrid({
                 className="sticky top-0 z-20 border-b border-border bg-muted p-2 text-right font-semibold text-muted-foreground"
               >
                 Labor
+              </th>
+              <th className="sticky top-0 z-20 min-w-24 border-b border-border bg-muted p-2 text-left font-semibold text-muted-foreground">
+                Profile
+              </th>
+              <th className="sticky top-0 z-20 min-w-24 border-b border-border bg-muted p-2 text-left font-semibold text-muted-foreground">
+                Capacity
+              </th>
+              <th className="sticky top-0 z-20 min-w-20 border-b border-border bg-muted p-2 text-left font-semibold text-muted-foreground">
+                Cond.
+              </th>
+              <th className="sticky top-0 z-20 min-w-28 border-b border-border bg-muted p-2 text-left font-semibold text-muted-foreground">
+                System
               </th>
               {rows.map((row) => (
                 <th
@@ -286,6 +300,78 @@ export function MaterialsGrid({
                     className="border-b border-border p-1.5 text-right tabular-nums text-muted-foreground"
                   >
                     {material.labor_units.toFixed(2)}
+                  </td>
+                  <td className="border-b border-border p-1.5">
+                    <Input
+                      data-testid={`material-profile-${material.id}`}
+                      defaultValue={material.profile ?? ""}
+                      onBlur={(event) => {
+                        const value = event.target.value.trim() || null;
+                        if (value !== material.profile) {
+                          run(() =>
+                            updateMaterial(material.id, projectId, { profile: value })
+                          );
+                        }
+                      }}
+                      disabled={isPending}
+                      className="h-8 w-full text-left text-xs"
+                    />
+                  </td>
+                  <td className="border-b border-border p-1.5">
+                    <Input
+                      data-testid={`material-capacity-${material.id}`}
+                      defaultValue={material.capacity ?? ""}
+                      onBlur={(event) => {
+                        const value = event.target.value.trim() || null;
+                        if (value !== material.capacity) {
+                          run(() =>
+                            updateMaterial(material.id, projectId, { capacity: value })
+                          );
+                        }
+                      }}
+                      disabled={isPending}
+                      className="h-8 w-full text-left text-xs"
+                    />
+                  </td>
+                  <td className="border-b border-border p-1.5">
+                    <select
+                      data-testid={`material-condition-${material.id}`}
+                      aria-label={`Condition for ${material.name}`}
+                      defaultValue={material.condition}
+                      onChange={(event) => {
+                        run(() =>
+                          updateMaterial(material.id, projectId, {
+                            condition: event.target.value as MaterialCondition,
+                          })
+                        );
+                      }}
+                      disabled={isPending}
+                      className="h-8 w-full rounded-md border border-border bg-background px-1.5 text-xs text-foreground"
+                    >
+                      {CONDITIONS.map((condition) => (
+                        <option key={condition} value={condition}>
+                          {condition}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="border-b border-border p-1.5">
+                    <Input
+                      data-testid={`material-system-${material.id}`}
+                      defaultValue={material.compatible_system ?? ""}
+                      onBlur={(event) => {
+                        const value = event.target.value.trim() || null;
+                        if (value !== material.compatible_system) {
+                          run(() =>
+                            updateMaterial(material.id, projectId, {
+                              compatible_system: value,
+                            })
+                          );
+                        }
+                      }}
+                      disabled={isPending}
+                      className="h-8 w-full text-left text-xs"
+                    />
                   </td>
                   {rows.map((row) => {
                     const key = `${row.id}:${material.id}`;

@@ -49,7 +49,9 @@ test("estimating: draft an estimate, classify materials, save a forecast, conver
       .single();
 
     const row = page.getByTestId(`material-row-${beam!.id}`);
-    await row.locator("select").selectOption("beam");
+    // Not a bare "select" tag locator — sub-phase F added a second
+    // <select> (Condition) to the same row, making that ambiguous.
+    await page.getByTestId(`material-task-${beam!.id}`).selectOption("beam");
     // Wait for this update to fully land before the size edit — both go
     // through updateMaterial's own "read current, then recompute" path
     // (lib/projects/actions.ts), so firing the size edit before the

@@ -19,6 +19,7 @@ import { BulkMaterialsPanel } from "@/components/projects/bulk-materials-panel";
 import { PhaseLegend } from "@/components/projects/phase-legend";
 import { PhasePicker } from "@/components/projects/phase-picker";
 import { RowCommandPanel } from "@/components/projects/row-command-panel";
+import { RowReadinessPanel } from "@/components/projects/row-readiness-panel";
 import {
   RowStage,
   type GeometryChange,
@@ -41,11 +42,17 @@ import {
   renameRow,
   setRowsPhase,
   updateRowGeometry,
+  updateRowReadiness,
   upsertRowMaterialQtyMany,
+  type RowReadinessInputs,
   type RowSnapshot,
 } from "@/lib/rows/actions";
 import { maxRowNumber, nextRowLabel } from "@/lib/rows/naming";
-import type { DrawingRole, Tables } from "@/lib/supabase/database.types";
+import type {
+  DrawingRole,
+  RowReadinessStatus,
+  Tables,
+} from "@/lib/supabase/database.types";
 import { cn, isTypingTarget } from "@/lib/utils";
 
 export interface WorkspacePage {
@@ -69,6 +76,10 @@ export interface ProjectRow {
   hasMaterials: boolean;
   isComplete: boolean;
   phaseId: string | null;
+  readinessStatus: RowReadinessStatus;
+  materialsReady: boolean;
+  areaAccessible: boolean;
+  drawingApproved: boolean;
 }
 
 interface GridPending {
@@ -89,7 +100,7 @@ function clampGeometry(box: { x: number; y: number; w: number; h: number }) {
   };
 }
 
-type ActiveCommand = "rename" | "materials" | "phase" | null;
+type ActiveCommand = "rename" | "materials" | "phase" | "readiness" | null;
 
 export function RowMarkingWorkspace({
   projectId,
@@ -555,6 +566,41 @@ export function RowMarkingWorkspace({
     });
   }
 
+  function handleReadinessChange(patch: RowReadinessInputs) {
+    const rowId = [...selectedRowIds][0];
+    if (!rowId) return;
+    const row = pageRows.find((r) => r.id === rowId);
+    if (!row) return;
+
+    const before: RowReadinessInputs = {};
+    const after: RowReadinessInputs = {};
+    if (patch.materialsReady !== undefined) {
+      before.materialsReady = row.materialsReady;
+      after.materialsReady = patch.materialsReady;
+    }
+    if (patch.areaAccessible !== undefined) {
+      before.areaAccessible = row.areaAccessible;
+      after.areaAccessible = patch.areaAccessible;
+    }
+    if (patch.drawingApproved !== undefined) {
+      before.drawingApproved = row.drawingApproved;
+      after.drawingApproved = patch.drawingApproved;
+    }
+
+    runAction(async () => {
+      await updateRowReadiness(rowId, projectId, after);
+      undoStack.push({
+        label: "Readiness",
+        undo: async () => {
+          await updateRowReadiness(rowId, projectId, before);
+        },
+        redo: async () => {
+          await updateRowReadiness(rowId, projectId, after);
+        },
+      });
+    });
+  }
+
   return (
     <div
       ref={fullscreenRef}
@@ -735,6 +781,9 @@ export function RowMarkingWorkspace({
           onPhaseToggle={() =>
             setActiveCommand(activeCommand === "phase" ? null : "phase")
           }
+          onReadinessToggle={() =>
+            setActiveCommand(activeCommand === "readiness" ? null : "readiness")
+          }
           onClearSelection={handleClearSelection}
         />
       ) : null}
@@ -789,6 +838,25 @@ export function RowMarkingWorkspace({
           onCancel={() => setActiveCommand(null)}
         />
       ) : null}
+
+      {activeCommand === "readiness" && isSingleSelection
+        ? (() => {
+            const rowId = [...selectedRowIds][0];
+            const row = pageRows.find((r) => r.id === rowId);
+            if (!row) return null;
+            return (
+              <RowReadinessPanel
+                materialsReady={row.materialsReady}
+                areaAccessible={row.areaAccessible}
+                drawingApproved={row.drawingApproved}
+                readinessStatus={row.readinessStatus}
+                isPending={isPending}
+                onChange={handleReadinessChange}
+                onCancel={() => setActiveCommand(null)}
+              />
+            );
+          })()
+        : null}
 
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
         <span>⚠️ Not set up (no material assigned)</span>

@@ -66,6 +66,7 @@ export function MaterialsWorkspace({
           hasMaterials: row.has_materials,
           isComplete: row.is_complete,
           phaseId: row.phase_id,
+          readinessStatus: row.readiness_status,
         })),
     [filteredRowProgress, activePage]
   );
