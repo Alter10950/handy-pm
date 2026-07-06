@@ -27,6 +27,7 @@ export function SiteHeader({
     ...BASE_NAV_LINKS,
     ...(role === "owner" || role === "pm" || role === "scheduler"
       ? [
+          { href: "/app/dashboard", label: "Dashboard" },
           { href: "/scheduler", label: "Scheduler" },
           { href: "/app/estimate", label: "Estimating" },
         ]

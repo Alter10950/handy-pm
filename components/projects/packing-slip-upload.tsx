@@ -70,6 +70,7 @@ export function PackingSlipUpload({ projectId }: { projectId: string }) {
             projectId={projectId}
             storagePath={uploaded.path}
             slipName={uploaded.name}
+            testId="extract-with-ai-fresh-upload"
           />
         ) : null}
       </div>

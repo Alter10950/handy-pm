@@ -701,6 +701,103 @@ Full design reasoning in `docs/DECISIONS.md` ADR-030.
   `ProjectTabs` hides Layout/Progress for `'estimate'`-status projects
   (no drawing, no install progress to show) but always keeps Estimate.
 
+## Exception dashboard, emailed reports, closeout PDF (Batch 3, Sub-phase E, 2026-07-06)
+
+Full design reasoning in `docs/DECISIONS.md` ADR-032.
+
+- **`/app/dashboard`** (`app/(protected)/app/dashboard/page.tsx`, owner/
+  pm/scheduler-gated, new nav link first among the office-role links) —
+  a NEW page, not a rewrite of the plain `/app` project list (~20
+  existing E2E specs navigate to `/app` expecting exactly that list).
+  `lib/dashboard/queries.ts`: `listActiveProjectsForDashboard` (SPI per
+  project via `lib/scheduler/spi.ts`, deliberately N+1 across the
+  existing per-project `listTargets`/`getDailyActuals` rather than a
+  hand-rolled batched query — reusing the exact functions the Scheduler
+  page already trusts, so the two can never quietly disagree), plus
+  crew-today via the existing `listOrgAssignmentsInRange` and the
+  latest `project_estimates` row per project for forecast finish;
+  `listShortagesAcrossProjects` (`material_reconciliation.to_order > 0`
+  across every active project); `listUnresolvedBlockersAcrossProjects`
+  (`blockers.resolved_at is null`, oldest first); `getCrewPerformanceSummary`
+  (a samples-weighted blend across `getCrewRatesLookup`'s per-task
+  rates — reuses sub-phase D's estimation brain directly, no new
+  learning); `getTodayActivitySummary` (derived entirely from
+  `installs`/`blockers`/`day_logs` — no new audit-log table).
+- **`lib/scheduler/spi.ts`** — `computeProjectSpi` is
+  `scheduler-workspace.tsx`'s own former inline `useMemo` formula,
+  extracted verbatim (not re-derived) so the dashboard's SPI is
+  guaranteed identical to the per-project Scheduler page's, not a
+  second implementation. `classifySpi`/`RISK_TIER_CLASS`/
+  `RISK_TIER_LABEL` formalize the existing success/primary/destructive
+  three-tier convention (green ≥1.0, primary ≥0.8, destructive below —
+  ADR-022) already used by the SPI badge and `week-view.tsx`'s per-day
+  status; `scheduler-workspace.tsx` now calls these too instead of its
+  own inline color logic.
+- **`resolveBlocker`** (`lib/dashboard/actions.ts`, owner/pm, matches
+  `blockers_update` RLS) — the first application code ever to touch
+  `blockers.resolved_at`, which has existed in the schema since Batch 2
+  with nothing reading or writing it. Without this, every blocker ever
+  reported would show as "needing escalation" on the dashboard forever.
+- **Crew performance** reuses sub-phase D's `getCrewRatesLookup`/
+  `getCompanyRatesByTaskKey` directly (a samples-weighted blend across
+  a crew's task_keys) rather than deriving a second per-crew
+  productivity figure from `targets` — a more direct signal, and zero
+  new computation.
+- **Reports** (`lib/reports/`) — `data.ts`'s `buildProjectReportData`
+  and `send.ts` use the **service-role admin client**, not the per-
+  request cookie-scoped one: this module has two callers with very
+  different auth contexts (a Vercel Cron request, with no user session
+  and no `auth.uid()` at all — RLS would silently return nothing, not
+  error; and the dashboard's manual "email now" button, gated by
+  `requireRole` before ever reaching this code) — admin uniformly means
+  one code path is provably correct for both. `render.ts` builds
+  table-based HTML (no flexbox/grid — most email clients strip modern
+  CSS) with a hot-linked signed drawing URL (not a base64 inline or
+  attachment). `send.ts#sendReports(period, projectId?)` is the one
+  function both the cron routes and `lib/reports/actions.ts#sendReportNow`
+  (the manual button's Server Action) call — one email per active
+  project (not a single company-wide digest), sent to every org owner/
+  pm (`auth.admin.getUserById`, same admin-client email-lookup pattern
+  as `lib/team/queries.ts`). Returns a result object instead of
+  throwing on missing config, so both a cron run and a button click get
+  a clean "not configured" signal rather than a 500.
+- **`process.env.RESEND_API_KEY`** gates the whole feature (server-only,
+  read inside `sendReports`); **`process.env.RESEND_FROM_EMAIL`**
+  overrides the default sandbox sender (`Handy PM <onboarding@resend.dev>`).
+  Live-verified against the real key already in `.env.local`: the
+  integration correctly reaches Resend, and hit its own sandbox
+  restriction — a sandbox/unverified-domain Resend account can only
+  send to the account's own verified address, not arbitrary recipients
+  (confirmed via a direct API call, not assumed). `EmailReportButton`'s
+  message logic distinguishes "no active projects" from "every send
+  failed" (`result.projectsAttempted` vs. `result.projectsSent`) and
+  surfaces the real Resend error in the latter case — the original,
+  simpler version would have shown a misleading "no active projects to
+  report on" for this exact, likely-common case. See NEEDS-YOU for the
+  domain-verification step this depends on for real delivery.
+- **Vercel Cron** (`vercel.json`, `app/api/cron/reports/{daily,weekly}/route.ts`,
+  schedules `0 23 * * *` / `0 23 * * 5`) — this deployment has no
+  in-app scheduler of its own; Vercel Cron is the standard mechanism
+  for a scheduled Route Handler on Vercel. Vercel automatically sends
+  `Authorization: Bearer ${CRON_SECRET}` when that env var is set on
+  the project — the route's own check is a plain string compare, not a
+  custom auth scheme, and no-ops (allows the request through) when
+  `CRON_SECRET` is unset, so the route works before that env var exists.
+- **Closeout PDF** (`lib/pdf/closeout-pdf.tsx` + `app/api/projects/[id]/closeout-pdf/route.tsx`,
+  owner/pm) — `@react-pdf/renderer`, not a headless browser: Puppeteer/
+  Playwright-driven HTML-to-PDF needs a full Chromium binary, awkward
+  and heavy in a Vercel serverless function; `@react-pdf/renderer` is
+  pure JS, composes the document from its own primitives (`Document`/
+  `Page`/`View`/`Text`/`Image`), and `renderToBuffer` runs directly in
+  a Route Handler. Contents: org letterhead (name/address/logo, all
+  from `organizations` — no phone/email columns exist yet),
+  as-built drawing (the current marking drawing's signed URL),
+  material reconciliation table, full blocker log (resolved and open),
+  day-logs table, and a blank sign-off block (customer + org rep — no
+  e-signature system exists, so this is a literal printed line).
+  Downloadable from the project Overview tab (a plain link to the
+  Route Handler, `owner`/`pm` only — matches the route's own gate).
+
 ## Packing-slip AI extraction (Sub-phase F, 2026-07-03)
 
 `app/api/packing-slips/extract/route.ts` is the app's first Route
@@ -920,6 +1017,28 @@ short:
   outside the actual (smaller, letterboxed) stage rectangle and hit
   nothing — fixed by computing it relative to the drawing image's own
   bounding box instead.
+- `e2e/dashboard-flow.spec.ts` (2026-07-06) — creates a project with a
+  genuine shortage via a direct admin insert (`total_needed=100,
+  received=20`), not the "Paste from packing slip" UI flow — that
+  action sets `received = total_needed` by design (it assumes the
+  pasted list IS what shipped), which would make `to_order` 0 and never
+  produce a shortage to test against. Confirms the shortage and an open
+  blocker both render on the dashboard, resolves the blocker via the
+  UI and confirms both the list update and `blockers.resolved_at`
+  landing in the DB, clicks "email now" and confirms a real
+  Resend-backed result renders (not a stub — this environment's real
+  `RESEND_API_KEY` is exercised), and downloads the closeout PDF via
+  `page.request` (shares the page's own authenticated cookies
+  automatically, unlike the standalone `request` fixture, which starts
+  a separate cookie-less context) confirming real, non-empty bytes
+  starting with the `%PDF-` header. Found and fixed a real, pre-existing,
+  intermittent flake in `packing-slip-extract-flow.spec.ts` while
+  running the full suite alongside this new spec: `PackingSlipExtractDialog`
+  legitimately renders twice for the same slip (the fresh-upload
+  confirmation, and the persistent uploaded-slips list which re-fetches
+  immediately after upload) — the test's role-based locator had always
+  been ambiguous, just reliably timing-lucky in isolation; fixed with
+  an explicit `data-testid` on the fresh-upload instance.
 
 This suite is what caught ADR-016's env var bug — self-review and
 `next build` both stayed clean through Phases 3–5 because neither

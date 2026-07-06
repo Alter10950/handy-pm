@@ -5,6 +5,113 @@ Consequences.
 
 ---
 
+## ADR-032: Sub-phase E — exception-first dashboard, emailed reports (Resend), closeout PDF (@react-pdf/renderer)
+
+**Decision date:** 2026-07-06
+
+**Context:** Batch 3, sub-phase E: a company-wide office dashboard
+(active projects with SPI risk, cross-project material shortages,
+blockers needing escalation, crew over/under-performance, "what
+changed today"), auto daily/weekly emailed project reports plus a
+manual "email now," and a per-project closeout PDF.
+
+**Choice — a new `/app/dashboard` page, not a rewrite of `/app`:** the
+existing `/app` is already the plain Projects list, and a large fleet
+of existing E2E specs (`project-flow`, `row-workspace`, etc.) navigate
+there expecting exactly that. Adding the dashboard as its own page
+(with its own nav link, first among the office-role links) delivers
+everything asked for with zero risk to the ~20 existing specs that
+assume `/app` is the project list.
+
+**Choice — SPI logic extracted into `lib/scheduler/spi.ts`, not
+duplicated a third time:** `computeProjectSpi` is the *exact* formula
+`scheduler-workspace.tsx` already had inline (`useMemo`) — pulled out
+verbatim so the dashboard can compute identical SPI for every active
+project without a second implementation to drift out of sync with the
+first. `classifySpi`/`RISK_TIER_CLASS`/`RISK_TIER_LABEL` formalize the
+three-tier success/primary/destructive convention already established
+by the SPI badge and week-view's per-day status (green ≥1.0, primary
+≥0.8, destructive below — ADR-022) — confirmed via research that this
+codebase's risk convention is genuinely success/primary/destructive,
+not success/*warning*/destructive (the `warning` token exists but is
+used exactly once, for an unrelated qty-mismatch flag).
+
+**Choice — "crew over/under-performance" reads the estimation brain's
+`crew_rates`, not a second targets-derived SPI:** sub-phase D's
+`getCrewRatesLookup`/`getCompanyRatesByTaskKey` already blend a crew's
+learned efficiency vs. standard pace — reusing it needed zero new
+computation and is a more direct signal than re-deriving a per-crew
+figure from `targets` (itself already an even-split approximation,
+ADR-022).
+
+**Choice — the service-role admin client for all report-data gathering,
+not the per-request cookie-scoped client:** the daily/weekly send has
+two callers with very different auth contexts — a Vercel Cron request
+(no user session, no `auth.uid()` at all; RLS would silently return
+nothing) and the dashboard's manual "email now" button (a real session,
+gated by `requireRole` before ever reaching this code). Using the
+admin client uniformly in `lib/reports/data.ts`/`send.ts` means one
+code path is correct for both, rather than a client-scoping branch only
+one of them would ever actually exercise.
+
+**Choice — Vercel Cron + a `CRON_SECRET` bearer check, not an in-app
+scheduler:** this deployment has no background-job runtime of its own.
+Vercel Cron (a `vercel.json` `crons` entry calling a Route Handler on a
+schedule) is the standard mechanism for a Vercel-hosted Next.js app;
+Vercel automatically sends `Authorization: Bearer ${CRON_SECRET}` when
+that env var is set, so the route's own check is a plain string
+compare, not a custom scheme. The check no-ops when `CRON_SECRET` is
+unset, so the route works before that env var exists (documented as a
+NEEDS-YOU item, not a blocker).
+
+**Choice — one report email per active project, not one company-wide
+digest:** the spec's own language ("marked-drawing image, %, today's
+installs, blockers, on-track/at-risk") is inherently per-project data;
+recipients are every org owner/pm (there's no customer-contact concept
+yet — that's explicitly a later batch's job) — matches how a PM
+tracking several jobs would expect updates, one per job.
+
+**Choice — `@react-pdf/renderer` for the closeout PDF, not a headless
+browser:** Puppeteer/Playwright-driven HTML-to-PDF needs a full
+Chromium binary, which is heavy and awkward in a Vercel serverless
+function (cold starts, `@sparticuz/chromium`-style workarounds).
+`@react-pdf/renderer` is pure JS, renders via its own PDF primitives
+(`Document`/`Page`/`View`/`Text`/`Image`), and its `renderToBuffer`
+runs directly in a Route Handler with no extra runtime dependency.
+
+**Choice — `resolveBlocker` + a "Mark resolved" button, not part of the
+original ask but required to make the ask work:** `blockers.resolved_at`
+has existed in the schema since Batch 2 but no application code ever
+read or wrote it — every blocker ever reported would otherwise show as
+"needing escalation" forever, since nothing could ever clear one. A
+narrow owner/pm action (matching `blockers_update` RLS exactly) was the
+minimum needed for the escalation list to mean anything over time.
+
+**Consequences:** `lib/dashboard/` and `lib/reports/` are both new
+feature folders reading from tables that already existed (`blockers`,
+`material_reconciliation`, `crew_rates`, `project_estimates`) — no
+schema migration needed for this sub-phase. Live-verified the actual
+Resend integration against the real API key already in `.env.local`:
+confirmed it correctly reaches Resend (not a stub), and that Resend's
+sandbox mode rejects sending to any address but the account's own
+verified email until a domain is verified — the dashboard's "email
+now" button was adjusted to surface that real error explicitly (`Could
+not send: ...`) instead of a misleading "no active projects" message
+that the original, less-informative version would have shown for
+exactly this case. See the NEEDS-YOU list for the domain-verification
+step this surfaces.
+
+**Bug found via dogfooding (unrelated to this sub-phase's own code):**
+`e2e/packing-slip-extract-flow.spec.ts` intermittently failed under
+full-suite load (passed reliably alone) — `PackingSlipExtractDialog`
+legitimately renders twice for the same slip (once in the fresh-upload
+confirmation, once in the persistent uploaded-slips list that
+re-fetches immediately after upload), and the test's role-based
+locator had always been ambiguous, just usually resolved by timing
+that happened to favor the first match. Fixed with an explicit
+`data-testid` on the fresh-upload instance rather than continuing to
+rely on timing.
+
 ## ADR-031: Layout editor interaction rework — modeless pointer model, pan priority, local-first move/resize
 
 **Decision date:** 2026-07-06

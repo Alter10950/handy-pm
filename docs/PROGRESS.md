@@ -225,6 +225,28 @@ extraction route nor the new voice-note route had an explicit
 authentication check (voice-note had *none* at all, since it never
 touches Supabase) — both now use sub-phase A's `requireOrg()` helper.
 
+**Sub-phase E — Exception dashboard + emailed reports + closeout PDF —
+done and verified live (2026-07-06, see ADR-032):** a new
+`/app/dashboard` — active projects with SPI risk (extracted into
+shared `lib/scheduler/spi.ts`, no longer duplicated), cross-project
+material shortages, blockers needing escalation (with a new "Mark
+resolved" action — `blockers.resolved_at` had sat unused in the schema
+since Batch 2), crew over/under-performance vs. standard pace (reusing
+sub-phase D's `crew_rates`, no new computation), and "what changed
+today." Auto daily/weekly emailed per-project reports via Resend
+(Vercel Cron + `CRON_SECRET`) plus a manual "email now" — live-verified
+against the real Resend API key: the integration works correctly, and
+hit Resend's own sandbox restriction (can only send to the account's
+verified email until a domain is verified), which prompted fixing the
+button's message to surface that real error instead of a misleading
+"no active projects." A per-project closeout PDF
+(`@react-pdf/renderer` — no headless browser needed) with the as-built
+drawing, reconciliation, blocker log, day-logs, and a sign-off block.
+New `e2e/dashboard-flow.spec.ts`. Also fixed a real, pre-existing,
+intermittent E2E flake in `packing-slip-extract-flow.spec.ts` found
+along the way (an always-ambiguous locator that had only ever been
+timing-lucky). Full suite green: 22 passed, 2 intentionally skipped.
+
 **Sub-phase D — Estimation brain — done and verified live (2026-07-06,
 see ADR-030):** materials now carry a `task_key` and size-aware
 `labor_units` (auto-recomputed from `labor_standards` on every add/edit/
@@ -732,6 +754,30 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
       indices shifted) by adding `data-testid`s throughout instead of
       just renumbering. Full suite green: 20 passed, 2 intentionally
       skipped.
+
+## Batch 3, Sub-phase E — Exception dashboard + emailed reports + closeout PDF ✅ done (2026-07-06)
+
+- [x] `/app/dashboard` (owner/pm/scheduler): active projects with SPI
+      risk, cross-project material shortages, blockers needing
+      escalation (with a new "Mark resolved" action), crew over/under-
+      performance vs. standard pace, "what changed today."
+- [x] SPI logic extracted to shared `lib/scheduler/spi.ts`
+      (`computeProjectSpi`/`classifySpi`) — `scheduler-workspace.tsx`
+      refactored to use it instead of its own inline copy.
+- [x] Auto daily/weekly emailed per-project reports (Resend, Vercel
+      Cron + `CRON_SECRET`) with a marked-drawing image, %, period
+      installs, blockers, on-track/at-risk — plus a manual "email now."
+      Live-verified against the real Resend API key.
+- [x] Per-project closeout PDF (`@react-pdf/renderer`): as-built
+      drawing, material reconciliation, blocker log, day-logs, sign-off
+      block. Downloadable from the project Overview tab (owner/pm).
+- [x] `npm run lint`/`typecheck`/`build` all pass.
+- [x] New `e2e/dashboard-flow.spec.ts` (real shortage + open blocker →
+      dashboard shows both → resolve blocker → email report now → real
+      Resend result → closeout PDF downloads as real, non-empty,
+      valid-header PDF bytes). Fixed a real, pre-existing, intermittent
+      flake in `packing-slip-extract-flow.spec.ts` found along the way.
+      Full suite green: 22 passed, 2 intentionally skipped.
 
 ## Phase 8 — Customer portal (not started)
 

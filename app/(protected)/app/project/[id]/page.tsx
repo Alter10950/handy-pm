@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import {
@@ -8,6 +9,7 @@ import {
   listDrawings,
   listMaterials,
 } from "@/lib/projects/queries";
+import { createClient } from "@/lib/supabase/server";
 
 function formatDate(value: string | null): string {
   if (!value) return "—";
@@ -45,6 +47,15 @@ export default async function ProjectOverviewPage({
   ]);
   if (!project) notFound();
 
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const { data: profile } = user
+    ? await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle()
+    : { data: null };
+  const canDownloadCloseout = profile?.role === "owner" || profile?.role === "pm";
+
   const thumbnail = drawings[0];
   const thumbnailUrl = thumbnail
     ? await getSignedDrawingUrl(thumbnail.storage_path)
@@ -54,9 +65,19 @@ export default async function ProjectOverviewPage({
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
       <div className="flex flex-col gap-4 lg:col-span-2">
         <div className="rounded-lg border border-border bg-card p-5">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Project details
-          </h2>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              Project details
+            </h2>
+            {canDownloadCloseout ? (
+              <Link
+                href={`/api/projects/${id}/closeout-pdf`}
+                className="text-xs font-medium text-primary hover:underline"
+              >
+                Download closeout PDF
+              </Link>
+            ) : null}
+          </div>
           <dl className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <dt className="text-xs text-muted-foreground">Site address</dt>

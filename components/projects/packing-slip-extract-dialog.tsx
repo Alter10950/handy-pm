@@ -36,10 +36,17 @@ export function PackingSlipExtractDialog({
   projectId,
   storagePath,
   slipName,
+  testId,
 }: {
   projectId: string;
   storagePath: string;
   slipName: string;
+  // This component renders twice for the same slip right after a fresh
+  // upload (once in the upload confirmation, once in the persistent
+  // "uploaded packing slips" list that immediately re-fetches to include
+  // it) — both share the same accessible name, so a test targeting "the
+  // one that just appeared" needs an explicit hook to disambiguate.
+  testId?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<Status>("idle");
@@ -121,6 +128,7 @@ export function PackingSlipExtractDialog({
         type="button"
         variant="outline"
         size="sm"
+        data-testid={testId}
         disabled={status === "extracting"}
         onClick={() => void startExtraction()}
       >

@@ -4,6 +4,74 @@ Engineering journal. Newest entries at top.
 
 ---
 
+## 2026-07-06 — Batch 3 sub-phase E: Exception dashboard + emailed reports + closeout PDF
+
+**What:** A company-wide `/app/dashboard` (active projects with SPI
+risk, cross-project material shortages, blockers needing escalation,
+crew over/under-performance vs. standard pace, "what changed today"),
+auto daily/weekly emailed per-project reports via Resend (plus a
+manual "email now") with a marked-drawing image/%/today's installs/
+blockers/on-track-at-risk, and a per-project closeout PDF (as-built
+drawing, reconciliation, blocker log, day-logs, sign-off block). Full
+reasoning in `docs/DECISIONS.md` ADR-032; summary here.
+
+**Build:** No schema migration needed — every table this sub-phase
+reads (`blockers`, `material_reconciliation`, `crew_rates`,
+`project_estimates`) already existed. New `lib/scheduler/spi.ts`
+extracts `computeProjectSpi`/`classifySpi` from what was inline in
+`scheduler-workspace.tsx`'s own `useMemo` — reused by both, refactored
+in place rather than duplicated a third time. New `lib/dashboard/`
+(cross-project queries + `resolveBlocker` action) and `lib/reports/`
+(`data.ts` gathers per-project report data via the service-role admin
+client — needed since a Vercel Cron request has no user session for
+RLS to scope against; `render.ts` builds the email HTML; `send.ts` is
+the one function both the cron routes and the manual button call).
+New `app/api/cron/reports/{daily,weekly}/route.ts` + `vercel.json`
+(Vercel Cron, `CRON_SECRET` bearer check, no-ops until that env var is
+set). New `lib/pdf/closeout-pdf.tsx` (`@react-pdf/renderer` — pure JS,
+no headless browser needed in a serverless function) +
+`app/api/projects/[id]/closeout-pdf/route.tsx`. Installed `resend` and
+`@react-pdf/renderer`.
+
+**Live-verified the real Resend integration**, not just compiled it:
+called the actual API with the real key already in `.env.local` —
+confirmed the request reaches Resend correctly, and hit its sandbox
+restriction (can only send to the account's own verified email until a
+domain is verified) sending to the seeded test org's
+`qa+owner@handyequip.test`. Fixed the "email now" button's message
+logic, which had been conflating "no active projects" with "every send
+failed" — it now surfaces the real Resend error in the latter case.
+See NEEDS-YOU for the domain-verification step this depends on.
+
+**Also fixed, required to make "blockers needing escalation" mean
+anything:** `blockers.resolved_at` has existed since Batch 2 but no
+application code ever read or wrote it. Added `resolveBlocker` (owner/
+pm, matches `blockers_update` RLS) + a "Mark resolved" button — without
+it, every blocker ever reported would show as needing escalation
+forever.
+
+**Bug found via dogfooding, pre-existing, unrelated to this
+sub-phase's own code:** `e2e/packing-slip-extract-flow.spec.ts` failed
+intermittently under full-suite load (reliable alone). Its "Extract
+with AI" locator was ambiguous the whole time — the same slip's button
+legitimately renders twice (fresh-upload confirmation + the persistent
+uploaded-slips list, which re-fetches immediately) — it had just always
+been timing-lucky in isolation. Fixed with an explicit `data-testid` on
+the fresh-upload instance.
+
+**Verification:** `npm run lint`/`typecheck`/`build` all pass. New
+`e2e/dashboard-flow.spec.ts` — creates a project with a real shortage
+(`total_needed=100, received=20` inserted directly, not via the
+"paste from packing slip" flow, which sets `received = total_needed`
+by design and would never produce a shortage) and an open blocker,
+confirms both render on the dashboard, resolves the blocker via the
+UI and confirms it disappears + `resolved_at` is set in the DB, clicks
+"email now" and confirms a real Resend-backed result renders, and
+downloads the closeout PDF via `page.request` (shares the
+authenticated page's cookies automatically, unlike the standalone
+`request` fixture) confirming real, non-empty, `%PDF-`-prefixed bytes.
+Full suite green: 22 passed, 2 intentionally skipped.
+
 ## 2026-07-06 — Layout editor interaction rework: modeless model, pan priority, snap-back fix
 
 **What:** A user-requested interaction/UX-only rework of the row-marking

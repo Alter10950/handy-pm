@@ -113,7 +113,7 @@ test("packing slip AI extraction: clear error when not configured", async ({
     { timeout: 30_000 }
   );
 
-  await page.getByRole("button", { name: /Extract with AI/ }).click();
+  await page.getByTestId("extract-with-ai-fresh-upload").click();
   await expect(
     page.getByText(/ANTHROPIC_API_KEY is not configured/)
   ).toBeVisible({ timeout: 15_000 });
@@ -141,7 +141,7 @@ test("packing slip AI extraction: extracts line items, keeps distinct sizes, ski
     { timeout: 30_000 }
   );
 
-  await page.getByRole("button", { name: /Extract with AI/ }).click();
+  await page.getByTestId("extract-with-ai-fresh-upload").click();
 
   const table = page.getByTestId("extract-review-table");
   await expect(table.locator("tbody tr")).toHaveCount(4, {

@@ -10,11 +10,8 @@ import { WeekView } from "@/components/scheduler/week-view";
 import { Input } from "@/components/ui/input";
 import { generateTargets, upsertPlannedDays } from "@/lib/scheduler/actions";
 import type { PhaseTimelineEntry } from "@/lib/scheduler/queries";
+import { RISK_TIER_CLASS, classifySpi, computeProjectSpi } from "@/lib/scheduler/spi";
 import type { Tables, Views } from "@/lib/supabase/database.types";
-
-function todayIso() {
-  return new Date().toISOString().slice(0, 10);
-}
 
 export function SchedulerWorkspace({
   project,
@@ -60,19 +57,10 @@ export function SchedulerWorkspace({
     return map;
   }, [targets]);
 
-  const spi = useMemo(() => {
-    const today = todayIso();
-    let planned = 0;
-    for (const [date, qty] of targetsByDate) {
-      if (date <= today) planned += qty;
-    }
-    let actual = 0;
-    for (const [date, qty] of Object.entries(dailyActuals)) {
-      if (date <= today) actual += qty;
-    }
-    if (planned === 0) return null;
-    return actual / planned;
-  }, [targetsByDate, dailyActuals]);
+  const spi = useMemo(
+    () => computeProjectSpi(targets, dailyActuals),
+    [targets, dailyActuals]
+  );
 
   const totalRemaining = remaining.reduce((sum, m) => sum + m.remaining, 0);
 
@@ -114,13 +102,7 @@ export function SchedulerWorkspace({
         </div>
         {spi !== null ? (
           <div
-            className={`rounded-full px-3 py-1 text-sm font-medium ${
-              spi >= 1
-                ? "bg-success/20 text-success"
-                : spi >= 0.8
-                  ? "bg-primary/20 text-primary"
-                  : "bg-destructive/20 text-destructive"
-            }`}
+            className={`rounded-full px-3 py-1 text-sm font-medium ${RISK_TIER_CLASS[classifySpi(spi)]}`}
           >
             SPI {spi.toFixed(2)}
           </div>
