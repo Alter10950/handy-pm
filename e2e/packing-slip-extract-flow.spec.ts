@@ -107,7 +107,12 @@ test("packing slip AI extraction: clear error when not configured", async ({
   );
 
   projectId = await createProjectOnMaterialsTab(page);
-  await page.locator('input[type="file"]').setInputFiles(FIXTURE_DRAWING);
+  // Not a bare input[type="file"] locator — the Overview page's own
+  // lifecycle checklist has a hidden photo-attach file input that can
+  // still be in the DOM mid-navigation, making that ambiguous/racy.
+  await page
+    .getByTestId("packing-slip-upload-input")
+    .setInputFiles(FIXTURE_DRAWING);
   await expect(page.getByTestId("packing-slip-upload-message")).toHaveText(
     /^Uploaded /,
     { timeout: 30_000 }
@@ -131,7 +136,8 @@ test("packing slip AI extraction: extracts line items, keeps distinct sizes, ski
   projectId = await createProjectOnMaterialsTab(page);
 
   const slipImage = await buildPackingSlipImage(page);
-  await page.locator('input[type="file"]').setInputFiles({
+  // Not a bare input[type="file"] locator — see the other test above.
+  await page.getByTestId("packing-slip-upload-input").setInputFiles({
     name: "packing-slip.png",
     mimeType: "image/png",
     buffer: slipImage,

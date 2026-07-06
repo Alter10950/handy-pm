@@ -1071,6 +1071,7 @@ export type Database = {
           logo_path: string | null
           name: string
           num_crews: number
+          stalled_after_days: number
         }
         Insert: {
           address?: string | null
@@ -1080,6 +1081,7 @@ export type Database = {
           logo_path?: string | null
           name: string
           num_crews?: number
+          stalled_after_days?: number
         }
         Update: {
           address?: string | null
@@ -1089,6 +1091,7 @@ export type Database = {
           logo_path?: string | null
           name?: string
           num_crews?: number
+          stalled_after_days?: number
         }
         Relationships: []
       }
@@ -1397,6 +1400,7 @@ export type Database = {
           label: string
           note: string | null
           photo_path: string | null
+          position: number
           project_stage_id: string
           signoff_user_id: string | null
           template_item_id: string | null
@@ -1411,6 +1415,7 @@ export type Database = {
           label: string
           note?: string | null
           photo_path?: string | null
+          position?: number
           project_stage_id: string
           signoff_user_id?: string | null
           template_item_id?: string | null
@@ -1425,6 +1430,7 @@ export type Database = {
           label?: string
           note?: string | null
           photo_path?: string | null
+          position?: number
           project_stage_id?: string
           signoff_user_id?: string | null
           template_item_id?: string | null

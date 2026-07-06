@@ -5,6 +5,123 @@ Consequences.
 
 ---
 
+## ADR-038: Batch 4, Sub-phase A — stage-gate lifecycle engine, What's Next, notifications, gate nags, template management
+
+**Decision date:** 2026-07-06
+
+**Context:** Sub-phase A is "the spine" of Batch 4 — the actual
+stage-gate lifecycle UI/logic on top of Sub-phase 0's schema, plus a
+dashboard-level aggregation of what needs attention across every active
+project, a nagging mechanism (in-app + email), the STALLED flag, and
+owner-only template management. Built and verified live in this same
+session as Sub-phase 0, not a separate pass.
+
+**Choice — add `project_gate_items.position`, a column Sub-phase 0's own
+migration didn't include:** building the checklist UI surfaced a real
+bug — `getProjectLifecycle` ordered items by `created_at`, but
+`ensureProjectStages` bulk-inserts a whole stage's items in one
+statement, so Postgres gives them identical or near-identical timestamps
+with no reliable tiebreaker. The result: a project's checklist order
+wasn't guaranteed to match the template's authored order at all, and
+wasn't even stable across reloads — exactly the kind of "PM can't trust
+the app to be consistent" gap this whole batch exists to close. Fixed
+with a small follow-up migration
+(`20260707130500_project_gate_item_position.sql`) rather than amending
+Sub-phase 0's own migration file (already applied live) — same
+already-established precedent as `stalled_project_setting.sql`/
+`day_log_photos.sql`. `ensureProjectStages` now carries each item's
+`position` across from its template origin; `addGateItem`/
+`addTemplateItem` append after the current max.
+
+**Choice — `notifyUsers` (`lib/notifications/create.ts`) takes an
+already-scoped Supabase client as a parameter, not a fixed one:** it's
+called from genuinely different contexts — the gate-nags cron (no user
+session, must use the admin client) and potentially future Server
+Actions with a real session later. Taking the client as a parameter
+keeps the function itself dumb about which context it's in, rather than
+hardcoding the admin client and quietly overprivileging every future
+call site. `notifications_insert`'s own RLS (`org_id = current_org_id()`
+only, unlike the strictly-own-row select/update/delete policies) already
+allows a cookie-scoped session to notify a different org member, so a
+future non-cron call site wouldn't even need the admin client.
+
+**Choice — gate nags ride the existing daily reports cron rather than
+getting their own route:** Vercel's Hobby plan caps a project at 2 cron
+jobs total, and both slots were already spent
+(`/api/cron/reports/daily`, `/api/cron/reports/weekly`) before this
+sub-phase. A standalone `/api/cron/gate-nags` route was written, tested,
+and then deleted once this constraint was confirmed — `app/api/cron/reports/daily/route.ts`
+now calls `sendReports("daily")` and `sendGateNags()` together via
+`Promise.all` and returns both results. This still delivers a genuinely
+daily check; it just doesn't get its own schedule. If gate nags ever
+need a different cadence than the daily report, that would require a
+paid Vercel plan, not a workaround.
+
+**Choice — one combined digest email per recipient, not one per
+project:** `lib/reports/send.ts`'s own convention is one email per
+project (to every recipient). Gate nags deliberately diverge: a PM with
+several projects flagged the same day should get a single "N projects
+need attention" summary, not N separate emails — matching the brief's
+own word "digest" (singular), and avoiding the alert fatigue a
+per-project flood would create for exactly the kind of daily-use feature
+this needs to stay trusted.
+
+**Choice — gate nags only fire on OVERDUE items and the STALLED flag,
+not every open item:** `computeNextActions`'s "top 3 open items of the
+active stage" is deliberately excluded from the nag/notification path —
+surfacing routine, non-overdue checklist items in a daily push would
+create noise on every single active project every single day, training
+users to ignore the channel. Nags are reserved for genuine exceptions
+(a due date was missed; a project has gone quiet) — the same
+exception-first posture as the rest of the dashboard
+(`listShortagesAcrossProjects`, `listUnresolvedBlockersAcrossProjects`).
+The Overview page's own What's Next panel remains the place to see
+routine open items.
+
+**Choice — template management edits the shared org template only,
+stages are structural and fixed, items are the only editable content:**
+matches "Template management (owner)" from the brief precisely.
+`gate_template_stages.stage_key` is CHECK-constrained to the 8 fixed
+keys the whole lifecycle engine is built around (`STAGE_ORDER`); adding
+or removing a *stage* would require touching the stepper, the RLS
+scheduler carve-out (scoped specifically to `stage_key = 'schedule'`),
+and `advanceToNextStage`'s traversal — out of proportion for what the
+brief actually asks for. Items are ordinary editable content within that
+fixed structure. Removing a template item is safe for already-copied
+projects specifically because `project_gate_items.template_item_id` is
+`ON DELETE SET NULL` (Sub-phase 0's own schema choice) — an
+already-bootstrapped project's row survives untouched, only losing a
+display hint it looked up through that now-gone reference.
+
+**Consequences:** New migration
+(`20260707130500_project_gate_item_position.sql`, `position int not
+null default 0` on `project_gate_items`). New modules: `lib/gates/nags.ts`,
+`lib/notifications/{shared,queries,actions,create}.ts`,
+`components/notifications/notification-bell.tsx`,
+`components/gates/template-editor.tsx`,
+`components/dashboard/lifecycle-attention-list.tsx`. `lib/gates/queries.ts`
+gained `listOrgWideNextActions` (batch-fetch, same convention as
+`lib/dashboard/queries.ts`) and a shared `attachTemplateHints` helper
+factored out of `getProjectLifecycle`. `app/(protected)/layout.tsx` now
+fetches the signed-in user's notifications alongside its existing role
+lookup, wrapped in `.catch(() => [])` so a not-yet-org-assigned user
+doesn't lose the header. `app/api/cron/reports/daily/route.ts` now
+returns `{ reports, gateNags }` instead of just the reports result — any
+external monitoring of that route's response shape should account for
+this. Found and fixed one real UX bug (`LifecyclePanel` not
+auto-following the newly-active stage after a completion/override) and
+one real, previously-latent regression in an unrelated pre-existing test
+(`project-flow.spec.ts`'s Progress-tab check, ambiguous against both
+this sub-phase's own row-readiness badges and a same-text/same-class
+element on the Materials tab that can transiently coexist during a fast
+tab switch — same race-condition class as two earlier sub-phases' own
+findings). Full E2E suite green: 29 passed, 2 intentionally skipped, new
+`e2e/gate-template-and-nags-flow.spec.ts` covering template CRUD +
+role-read-only + the cron's actual notification/digest behavior end to
+end (not mocked).
+
+---
+
 ## ADR-037: Batch 4, Sub-phase 0 — PM Operating Layer schema (stage-gate lifecycle, scope, handoff, change orders, comms, autopsy)
 
 **Decision date:** 2026-07-06

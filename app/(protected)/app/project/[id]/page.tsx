@@ -2,6 +2,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { LifecyclePanel } from "@/components/gates/lifecycle-panel";
+import { WhatsNextPanel } from "@/components/gates/whats-next-panel";
+import { ensureProjectStages } from "@/lib/gates/actions";
+import { computeNextActions, getProjectLifecycle } from "@/lib/gates/queries";
 import {
   getProject,
   getProjectProgress,
@@ -52,9 +56,20 @@ export default async function ProjectOverviewPage({
     data: { user },
   } = await supabase.auth.getUser();
   const { data: profile } = user
-    ? await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle()
+    ? await supabase.from("profiles").select("org_id, role").eq("id", user.id).maybeSingle()
     : { data: null };
   const canDownloadCloseout = profile?.role === "owner" || profile?.role === "pm";
+  const canManageGates = profile?.role === "owner" || profile?.role === "pm";
+  const canWriteGates = canManageGates || profile?.role === "scheduler";
+
+  // A pre-sale draft (status='estimate') has no execution lifecycle yet —
+  // the 8 stages are about running a real job, not pricing one.
+  let lifecycle: Awaited<ReturnType<typeof getProjectLifecycle>> = [];
+  if (project.status !== "estimate" && profile?.org_id) {
+    await ensureProjectStages(id, profile.org_id);
+    lifecycle = await getProjectLifecycle(id);
+  }
+  const nextActions = computeNextActions(lifecycle);
 
   const thumbnail = drawings[0];
   const thumbnailUrl = thumbnail
@@ -62,7 +77,22 @@ export default async function ProjectOverviewPage({
     : null;
 
   return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+    <div className="flex flex-col gap-4">
+      {lifecycle.length > 0 ? (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <div className="lg:col-span-2">
+            <LifecyclePanel
+              projectId={id}
+              stages={lifecycle}
+              canWrite={canWriteGates}
+              canManage={canManageGates}
+            />
+          </div>
+          <WhatsNextPanel actions={nextActions} />
+        </div>
+      ) : null}
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
       <div className="flex flex-col gap-4 lg:col-span-2">
         <div className="rounded-lg border border-border bg-card p-5">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -128,6 +158,7 @@ export default async function ProjectOverviewPage({
             </p>
           )}
         </div>
+      </div>
       </div>
     </div>
   );

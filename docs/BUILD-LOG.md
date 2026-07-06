@@ -4,6 +4,89 @@ Engineering journal. Newest entries at top.
 
 ---
 
+## 2026-07-06 — Batch 4 Sub-phase A: stage-gate lifecycle engine, What's Next, notifications, gate nags, template management
+
+**What:** The spine of Batch 4 — the actual application layer on top of
+Sub-phase 0's schema. Full reasoning in `docs/DECISIONS.md` ADR-038;
+summary here.
+
+**Build:** `lib/gates/{shared,queries,actions}.ts` — `ensureProjectStages`
+(idempotent template→project copy), `toggleGateItem`/`signOffGateItem`/
+`addGateItem`/`removeGateItem`/`completeStage`/`overrideStage`, and
+`computeNextActions` (top-3-open-plus-overdue, pure). UI:
+`components/gates/lifecycle-panel.tsx` (8-stage stepper + expanded
+checklist, photo attach, sign-off, override-with-reason) and
+`whats-next-panel.tsx`, wired into the Overview page. Owner-only
+template management on `/app/settings`
+(`components/gates/template-editor.tsx` + new `updateTemplateItem`/
+`addTemplateItem`/`removeTemplateItem` actions) — edits the org's shared
+template only, never an already-bootstrapped project's own copy.
+Dashboard-level aggregation (`listOrgWideNextActions`, batch-fetched
+company-wide, same convention as `lib/dashboard/queries.ts`) surfaces a
+new "Needs attention" section for any project that's stalled or has an
+overdue item — exceptions only, not a redundant full project list.
+First application code against the `notifications` table
+(`lib/notifications/{shared,queries,actions,create}.ts`) — a bell in
+`SiteHeader` with unread count + dropdown + mark-read. Gate nags
+(`lib/gates/nags.ts#sendGateNags`) check every active project daily for
+overdue items and the STALLED flag, always create in-app notifications,
+and email each affected recipient one combined digest (gated on
+`RESEND_API_KEY`).
+
+**Two real bugs found and fixed along the way:**
+
+- **Checklist item order wasn't deterministic.** `project_gate_items`
+  had no ordering column; ordering by `created_at` failed because
+  `ensureProjectStages` bulk-inserts a whole stage in one statement, so
+  every row gets the same timestamp with no tiebreaker. Fixed with a
+  follow-up migration adding `position`, carried over from each item's
+  template origin at copy time. Caught by the E2E suite, not by
+  inspection — `e2e/lifecycle-flow.spec.ts` expected a specific item in
+  the What's Next panel's top 3 and it wasn't there, in a different spot
+  each run.
+- **A dozen pre-existing E2E specs broke** the moment the Overview
+  page started rendering a hidden file input (the "Attach photo"
+  control on the Handoff stage's "Site survey" item). Every one of them
+  followed the pattern `click "Layout" link → immediately grab a bare
+  input[type="file"] locator` with no wait for navigation — previously
+  safe because only the destination page ever had a file input; now a
+  race against this new one on the page being navigated *away from*.
+  Fixed all twelve to use the `drawing-upload-input`/
+  `packing-slip-upload-input` testids already established for exactly
+  this ambiguity in an earlier sub-phase, rather than patching the
+  race with waits.
+
+**Also found, unrelated to this sub-phase's own code:** a genuinely
+latent, 100%-reproducible-once-isolated regression in
+`e2e/project-flow.spec.ts`'s Progress-tab check — `getByText("0%")`
+matched the 3 rows' own readiness badges (Batch 3) plus, during a fast
+tab switch, the Materials tab's `ReconciliationCard`, which happens to
+render byte-identical text/classes and can transiently coexist mid-navigation.
+Same race-condition shape as the zoom-fit bug (Sub-phase G) and the
+file-input bug above. Fixed with a scoping `data-testid` on the specific
+stat, not a wait-and-hope.
+
+**Constraint discovered mid-build:** gate nags were originally a
+standalone `/api/cron/gate-nags` route — written, tested, then deleted
+once it became clear Vercel's Hobby plan caps a project at 2 cron jobs,
+and both were already spent. Folded into the existing daily reports
+cron instead (`Promise.all([sendReports("daily"), sendGateNags()])`),
+which still delivers a genuinely daily check without a paid plan.
+
+**Verified:** `npm run lint`/`typecheck`/`build` all green. New
+`e2e/gate-template-and-nags-flow.spec.ts` — owner adds/edits/removes a
+template item (a new project immediately copies the edit), a temp PM
+user confirms read-only rendering, and a second test seeds a genuinely
+overdue item + stale `last_activity_at`, calls the real cron route
+(not mocked), and confirms both notification kinds land, the bell shows
+and marks them read, and the dashboard's Needs attention section lists
+the project. Full suite green: 29 passed, 2 intentionally skipped.
+Confirmed no leftover test data in the shared org-wide gate template
+after the run (a real risk this sub-phase's own tests had to guard
+against, since the default template isn't project-scoped).
+
+---
+
 ## 2026-07-06 — Batch 4 kickoff + Sub-phase 0: PM Operating Layer schema
 
 **What:** Batch 4 begins — the "PM Operating Layer," designed against

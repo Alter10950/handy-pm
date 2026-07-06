@@ -31,7 +31,10 @@ test("direct-manipulation canvas: zoom accuracy, select/copy/move/resize/rename/
     projectId = match![1];
 
     await page.getByRole("link", { name: "Layout" }).click();
-    await page.locator('input[type="file"]').setInputFiles(FIXTURE_PATH);
+    // Not a bare input[type="file"] locator — the Overview page's own
+    // lifecycle checklist has a hidden photo-attach file input that can
+    // still be in the DOM mid-navigation, making that ambiguous/racy.
+    await page.getByTestId("drawing-upload-input").setInputFiles(FIXTURE_PATH);
     await expect(page.getByText(/uploaded\.$/)).toBeVisible({
       timeout: 30_000,
     });

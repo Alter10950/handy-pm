@@ -3,6 +3,11 @@ import { redirect } from "next/navigation";
 
 import { OrgLogoUpload } from "@/components/org/org-logo-upload";
 import { OrgSettingsForm } from "@/components/org/org-settings-form";
+import { TemplateEditor } from "@/components/gates/template-editor";
+import {
+  getDefaultGateTemplateId,
+  getTemplateStagesWithItems,
+} from "@/lib/gates/queries";
 import { getOrgSettings, getSignedOrgLogoUrl } from "@/lib/org/queries";
 import { createClient } from "@/lib/supabase/server";
 
@@ -36,6 +41,11 @@ export default async function OrgSettingsPage() {
     ? await getSignedOrgLogoUrl(org.logo_path)
     : null;
 
+  const templateId = await getDefaultGateTemplateId(profile.org_id);
+  const templateStages = templateId
+    ? await getTemplateStagesWithItems(templateId)
+    : [];
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -59,6 +69,28 @@ export default async function OrgSettingsPage() {
           initialAddress={org.address ?? ""}
           initialWorkingDays={org.default_working_days}
         />
+      </div>
+
+      <div className="flex flex-col gap-3">
+        <h2 className="text-lg font-semibold text-foreground">
+          Project checklist template
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          The 8 stages every project moves through — Handoff, Scope,
+          Schedule, Materials, Mobilize, Execute, Punch, Closeout — are
+          fixed, but the checklist items inside each one are yours to
+          tune.
+        </p>
+        {templateStages.length > 0 ? (
+          <TemplateEditor
+            stages={templateStages}
+            canManage={profile.role === "owner"}
+          />
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            No default template found for this organization yet.
+          </p>
+        )}
       </div>
     </div>
   );

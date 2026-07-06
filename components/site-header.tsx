@@ -3,8 +3,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { NotificationBell } from "@/components/notifications/notification-bell";
 import { Button } from "@/components/ui/button";
 import { signOut } from "@/lib/auth/actions";
+import type { NotificationRow } from "@/lib/notifications/shared";
 import { cn } from "@/lib/utils";
 import type { ProfileRole } from "@/lib/supabase/database.types";
 
@@ -16,9 +18,11 @@ const BASE_NAV_LINKS = [
 export function SiteHeader({
   userEmail,
   role,
+  notifications,
 }: {
   userEmail: string;
   role: ProfileRole | null;
+  notifications: NotificationRow[];
 }) {
   const pathname = usePathname();
   // Scheduler is an office tool — matches the page-level redirect guard on
@@ -72,6 +76,7 @@ export function SiteHeader({
         </nav>
 
         <div className="flex items-center gap-3">
+          <NotificationBell notifications={notifications} />
           <span className="hidden max-w-40 truncate text-sm text-muted-foreground sm:inline">
             {userEmail}
           </span>

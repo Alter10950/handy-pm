@@ -1117,6 +1117,163 @@ via `fetch()` — no `@anthropic-ai/sdk` dependency for one call site.
   flag. See ADR-025 for the extraction reasoning, ADR-030 for the
   labor-unit side.
 
+## Stage-gate lifecycle engine, What's Next, notifications, gate nags, template management (Batch 4, Sub-phase A, 2026-07-06)
+
+Builds the application layer on top of Sub-phase 0's schema — "the spine"
+of Batch 4, built first and most carefully per the batch's own framing.
+
+- **Client/server split (`lib/gates/`):** `shared.ts` is pure — types,
+  `STAGE_ORDER`/`STAGE_LABEL`, `computeNextActions`, `isProjectStalled` —
+  zero server-only imports, safe for a Client Component to import
+  directly. `queries.ts` is server-only (imports `lib/supabase/server.ts`
+  → `next/headers`) and re-exports `shared.ts` (`export * from
+  "@/lib/gates/shared"`) so server call sites get everything from one
+  import. This split exists because a Client Component importing
+  *anything* — even just a type — from a module that also exports
+  server-only code drags the whole module (and `next/headers`) into the
+  client bundle and fails the build; `components/gates/lifecycle-panel.tsx`
+  hit this for real and was the reason the split was introduced.
+- **`ensureProjectStages(projectId, orgId)`** (`lib/gates/actions.ts`) —
+  idempotent, admin-client bootstrap: copies the org's default template's
+  stages/items into `project_stages`/`project_gate_items` the first time a
+  project needs them (first stage `active`, rest `locked`), carrying each
+  item's template `position` across so display order is stable (see
+  below). Called from the Overview page, not `createProject`, to avoid a
+  circular import between `lib/gates/actions.ts` and
+  `lib/projects/actions.ts` (the latter's `touchProjectActivity` is called
+  by the former). Safe for brand-new projects and any pre-Batch-4 project
+  visited for the first time since — calling it twice is a no-op.
+- **Item ordering — `project_gate_items.position`:** added in a follow-up
+  migration (`20260707130500_project_gate_item_position.sql`) after a real
+  bug: the table originally had no ordering column, and `getProjectLifecycle`
+  ordered by `created_at` — but `ensureProjectStages` bulk-inserts a whole
+  stage's items in one statement, so every row got the same (or
+  near-identical) timestamp, and Postgres had no reliable tiebreaker,
+  producing a genuinely non-deterministic checklist order. Fixed by
+  copying each item's `position` from its template origin at bootstrap
+  time, and having `addGateItem`/`addTemplateItem` append after the
+  current max position. `getProjectLifecycle` and the new
+  `listOrgWideNextActions` both `.order("position")` now.
+- **Gate actions** (`toggleGateItem`, `signOffGateItem`, `addGateItem`,
+  `removeGateItem`, `completeStage`, `overrideStage`) — `GATE_MANAGERS`
+  (owner/pm) vs `GATE_WRITERS` (+scheduler) mirrors the RLS write
+  policies' own role split exactly; the coarser app-level check lets a
+  scheduler's non-schedule-stage attempt fall through to a specific,
+  friendly rejection from a `.maybeSingle()` check (an update matching
+  zero rows means RLS silently blocked it) rather than a generic denial
+  before RLS gets a say. `completeStage` blocks while any item is
+  incomplete; `overrideStage` requires a non-empty reason — both then
+  call a shared `advanceToNextStage` (unlocks the next stage, syncs
+  `projects.stage_key`).
+- **"What's Next" (`computeNextActions`, pure)** — top 3 open items of
+  the active stage, plus anything overdue anywhere in the project
+  (de-duplicated), each item flagged `isOverdue`. Rendered per-project on
+  the Overview page (`components/gates/whats-next-panel.tsx`) and
+  aggregated company-wide on the dashboard (below).
+- **`listOrgWideNextActions()` (`lib/gates/queries.ts`)** — the
+  dashboard-level fan-out. Mirrors `lib/dashboard/queries.ts`'s own
+  batch-fetch-then-group-in-memory convention (see that file's header
+  comment) rather than calling `getProjectLifecycle` once per active
+  project, which would repeat its N+1 shape company-wide. Only returns
+  projects that need attention (something overdue, or genuinely stalled)
+  — the same "exceptions only" convention as
+  `listShortagesAcrossProjects`/`listUnresolvedBlockersAcrossProjects`,
+  not a redundant full project list (the dashboard's main list already
+  shows every active project). Rendered by
+  `components/dashboard/lifecycle-attention-list.tsx` in a new "Needs
+  attention" dashboard section.
+- **STALLED flag** — `isProjectStalled(lastActivityAt, stalledAfterDays)`
+  compares `projects.last_activity_at` against the org's own
+  `organizations.stalled_after_days` (added in a small follow-up
+  migration, default 3, mirroring the `day_log_photos.sql` precedent of a
+  standalone migration for one setting Sub-phase 0 didn't include).
+  `touchProjectActivity` (`lib/projects/actions.ts`, added ahead of this
+  sub-phase) is called from other actions' own success paths
+  (installs, blockers, day-log closes, gate-item toggles) to keep
+  `last_activity_at` current — it logs rather than throws on failure,
+  since it's a best-effort side signal, not the caller's primary write.
+- **Template management (`/app/settings`, owner-only write, pm read)** —
+  `components/gates/template-editor.tsx` renders all 8 stage cards (fixed
+  set — only a stage's *items* are editable content, not the stages
+  themselves); an owner can add/edit-label/toggle-photo-required/set a
+  sign-off role/remove an item, a pm sees the same content with no
+  controls. Edits only ever touch the org's shared `gate_template_items`
+  — never retroactively change an already-bootstrapped project's own
+  copy, since `ensureProjectStages` copies a snapshot at creation time.
+  Removing a template item is safe even though projects already copied
+  it: `project_gate_items.template_item_id` is `ON DELETE SET NULL`, so
+  an existing project's own row survives untouched and just loses its
+  `requiresPhoto`/`requiresSignoffRole` display hint (looked up through
+  that reference for display only — never for enforcement, which is
+  server-side and doesn't depend on the template surviving).
+- **Notifications (`lib/notifications/`)** — first application code
+  against the `notifications` table (schema-only since Batch 3). Same
+  `shared.ts`/`queries.ts` client-boundary split as `lib/gates/`, plus
+  `actions.ts` (`markNotificationRead`/`markAllNotificationsRead`, "use
+  server", client-callable) and `create.ts` (`notifyUsers`, a plain
+  server-only helper — deliberately *not* a "use server" export, since
+  it's called from other server code, not directly from a client — takes
+  an already-scoped Supabase client as a parameter so callers choose
+  cookie-scoped vs. admin). `notifications_insert`'s RLS only requires
+  `org_id = current_org_id()` (not `user_id = auth.uid()` — that's the
+  select/update/delete policies), so one teammate's session can create a
+  notification addressed to a different teammate in the same org; the
+  cron route (below) has no session at all and uses the admin client,
+  which bypasses RLS entirely. `components/notifications/notification-bell.tsx`
+  is a bell + unread-count badge + dropdown in `SiteHeader`, fed by
+  `(protected)/layout.tsx` fetching `listMyNotifications()` alongside its
+  existing `role` lookup — wrapped in `.catch(() => [])` so a user not yet
+  assigned an org (a pre-existing edge case handled per-action elsewhere,
+  not at the layout level) doesn't lose the whole header over a
+  non-critical overlay feature. The bell's own read/unread display uses a
+  pure additive local-state overlay (not a copy of the `notifications`
+  prop) specifically to avoid needing to keep client state in sync with
+  server-refreshed props — clicking an item marks it read optimistically,
+  then calls `router.refresh()` to reconcile against the DB.
+- **Gate nags (`lib/gates/nags.ts`, `sendGateNags`)** — checks every
+  active project for overdue gate items and the STALLED flag, always
+  creates in-app notifications (free, no external service — recipients
+  are the project's `pm_user_id` if set, else every owner/pm in the org,
+  the same fallback `lib/reports/send.ts` uses, since `pm_user_id` stays
+  optional until Sub-phase B), and additionally emails each affected
+  recipient ONE combined digest (gated on `RESEND_API_KEY`, same
+  "configured" result-object convention as `sendReports` — a cron run or
+  button click gets a clear signal, not a 500) rather than one email per
+  project, since a PM with several flagged projects should get a single
+  daily summary, not a flood. **Rides the existing daily reports cron
+  rather than getting its own route:** Vercel's Hobby plan caps a project
+  at 2 cron jobs, and both are already spent
+  (`/api/cron/reports/daily`, `/api/cron/reports/weekly`) — so
+  `app/api/cron/reports/daily/route.ts` now calls `sendReports("daily")`
+  and `sendGateNags()` together and returns both results. No
+  `lib/email/` shared helper exists in this codebase (confirmed by
+  research before building this) — `sendGateNags` copies
+  `lib/reports/send.ts`'s inline Resend-client pattern rather than
+  inventing a new abstraction one call site doesn't justify.
+- **Real bug found and fixed while building this:** `LifecyclePanel`
+  didn't auto-follow the newly-active stage after a stage completed or
+  was overridden (`expandedKey` was only ever initialized once from the
+  active stage at mount). Fixed with the established "previous prop in
+  state" pattern (track `priorActiveKey`, update both together when they
+  diverge, conditionally during render — not in a `useEffect`, per this
+  codebase's `react-hooks/set-state-in-effect` rule).
+- **Real regression found and fixed, unrelated to this sub-phase's own
+  code:** `e2e/project-flow.spec.ts`'s Progress-tab check
+  (`getByText("0%")`) started intermittently — then, once isolated,
+  *reliably* — matching 4 elements instead of 1: the 3 row buttons'
+  own "N% ... Blocked — materials" readiness badges (Batch 3, Sub-phase
+  F), plus (during the brief window where a fast client-side tab switch
+  hasn't yet unmounted the previous tab) the Materials tab's
+  `ReconciliationCard`, which happens to render the identical
+  `{pct}% complete` text and Tailwind classes. Same class of bug as the
+  zoom-fit race (Sub-phase G) and the hidden-photo-input race
+  (Sub-phase A's own Overview-page checklist input breaking 12 other
+  specs' bare `input[type="file"]` locators, fixed the same day) — a
+  fast navigation transiently coexisting with the previous page's
+  content. Fixed with a `data-testid="overall-complete-stat"` scoping
+  the assertion to content that can only exist on the destination page,
+  the same fix shape used for the other two races.
+
 ## Testing
 
 `npm run test:e2e` (`npm run seed && playwright test`) runs a Playwright
@@ -1527,7 +1684,7 @@ transitively via `project_id` → `projects.org_id` or `crew_id` →
 
 | Table                                    | Scoped via                    | Purpose                                                                                                                                                                                                                                     |
 | ---------------------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `organizations`                          | —                             | Tenant boundary. One per Handy Equip-style deployment (see auth bootstrap below); multi-org support exists in the schema but isn't exercised yet. `address`/`logo_path`/`default_working_days` added 2026-07-06 (Org Settings) — was read-only for every role until then. |
+| `organizations`                          | —                             | Tenant boundary. One per Handy Equip-style deployment (see auth bootstrap below); multi-org support exists in the schema but isn't exercised yet. `address`/`logo_path`/`default_working_days` added 2026-07-06 (Org Settings) — was read-only for every role until then. `num_crews` added Batch 4 Sub-phase 0 (hard capacity constraint, enforced starting Sub-phase G). `stalled_after_days` (int, default 3) added in a Batch 4 Sub-phase A follow-up migration — feeds `isProjectStalled`. |
 | `profiles`                               | `org_id` (nullable)           | One row per `auth.users`, `role` ∈ `owner`/`pm`/`scheduler`/`crew`. `crew_id` (nullable, 2026-07-06) — a user's home crew, assigned from `/app/team`.                                                                                        |
 | `projects`                               | `org_id`                      | A racking-install job. `status` ∈ `estimate`/`active`/`on_hold`/`complete` (`estimate` added 2026-07-06 for pre-sale drafts on the company estimating screen — see ADR-030). `planned_days` (Scheduler target math) and `mark_drawing_id` (the one markable page — see below) added 2026-07-03.                                                         |
 | `crews` / `crew_members`                 | `org_id` / via `crews`        | Install crews and their members (Scheduler sub-phase).                                                                                                                                                                                      |
@@ -1546,11 +1703,11 @@ transitively via `project_id` → `projects.org_id` or `crew_id` →
 | `drawing_versions`                       | `project_id`                  | Upload history for a page (2026-07-06) — `drawings` stays the current pointer per page (rows.drawing_id keeps referencing it; same `id` across re-uploads), this is the parallel version/approval history. `approved_for_install` gates whether a version is considered safe to mark/install against. |
 | `labor_standards`                        | `org_id`                       | Size-normalized labor baseline (2026-07-06) — `base_labor_units` (hours/unit at a standard pace) per `task_key`, seeded with reasonable defaults per org, editable from `/app/estimate`. Feeds `materials.labor_units` computation directly and `crew_rates`' standard-pace fallback (1.0) indirectly — see ADR-030. |
 | `project_estimates`                      | `project_id`                  | Append-only estimate log (2026-07-06), like `installs` — recomputing inserts a new row rather than overwriting, so an estimate's history over a project's life isn't lost. Latest row = current estimate.                                   |
-| `notifications`                          | `org_id` (+ `user_id`)         | Per-user in-app inbox (2026-07-06) — `select`/`update`/`delete` are strictly own-row (`user_id = auth.uid()`), unlike every other table here which is org-wide-readable; `insert` is org-scoped only, since a Server Action running as the caller creates notifications addressed to *other* org members. |
+| `notifications`                          | `org_id` (+ `user_id`)         | Per-user in-app inbox (schema 2026-07-06, consumed by Batch 4 Sub-phase A) — `select`/`update`/`delete` are strictly own-row (`user_id = auth.uid()`), unlike every other table here which is org-wide-readable; `insert` is org-scoped only, since a Server Action running as the caller creates notifications addressed to *other* org members. `kind` (free-form text) is a self-imposed convention — see `lib/notifications/shared.ts`'s `NotificationKind` union, currently `gate_item_overdue`/`project_stalled`. |
 | `share_tokens`                           | `project_id`                  | Customer portal tokens (project_id/token/scope/expires_at existed since Phase 2; `revoked_at` added Batch 3 Sub-phase H). Not publicly RLS-readable — see below.                                                                                                                                                                    |
 | `approved_photos`                        | `project_id`                  | Customer-visible photo curation (2026-07-06) — keyed by the photo's own `storage_path` (`unique(project_id, storage_path)`), sourced from either `day_logs.photo_paths` or `blockers.photo_path`. Nothing is customer-visible until explicitly approved here; see Customer portal section below. |
 | `gate_templates` / `gate_template_stages` / `gate_template_items` | `org_id` / via `gate_templates` / via `gate_template_stages` | Batch 4 (2026-07-06) — a reusable, org-editable 8-stage checklist definition (`handoff`/`scope`/`schedule`/`materials`/`mobilize`/`execute`/`punch`/`closeout`). Exactly one `is_default` template per org (partial unique index, same convention as "exactly one marking page"). Copied per-project at creation (sub-phase A) so later per-project edits never mutate the template. Seeded with a verbatim 29-item starter checklist — see ADR-037. |
-| `project_stages` / `project_gate_items`  | `project_id` / via `project_stages` | Batch 4 (2026-07-06) — the actual per-project copy of the above. `project_stages.status` ∈ `locked`/`active`/`complete`/`overridden` (one enum, not separate booleans) + `overridden_by`/`override_reason` when a gate is overridden. `project_gate_items.done`/`done_by`/`done_at` + optional `photo_path`/`signoff_user_id`/`due_date`. The stage-gate lifecycle UI itself (the stepper, "what's next," nags) is sub-phase A scope — this migration only lays down the schema and seeds the template it copies from. |
+| `project_stages` / `project_gate_items`  | `project_id` / via `project_stages` | Batch 4 (2026-07-06) — the actual per-project copy of the above. `project_stages.status` ∈ `locked`/`active`/`complete`/`overridden` (one enum, not separate booleans) + `overridden_by`/`override_reason` when a gate is overridden. `project_gate_items.done`/`done_by`/`done_at` + optional `photo_path`/`signoff_user_id`/`due_date`, plus `position` (int, added in a Sub-phase A follow-up migration — see that section for why: no ordering column originally existed, and ordering by `created_at` wasn't reliable for bulk-inserted rows). The stage-gate lifecycle UI (stepper, What's Next, template management, gate nags) is Sub-phase A — built and live; see that section. |
 | `scope_items`                            | `project_id` (+ optional `row_id`/`phase_id`) | Batch 4 (2026-07-06) — work beyond install (`work_type` ∈ `install`/`teardown`/`remove_levels`/`add_levels`/`relocate`/`repair`/`other`) — the category of work an earlier real project ("iBuy") lost two weeks to leaving unscoped. `source` ∈ `handoff`/`estimate`/`change_order` tracks where an item came from; `change_order_id` links one added via a CO. |
 | `handoff_surveys`                        | `project_id` (unique)          | Batch 4 (2026-07-06) — the sales→ops handoff: site conditions, `constraints` (jsonb: live_warehouse/access_notes/forklift_onsite/working_hours/floor_condition/permits_needed), `photo_paths` (same array convention as `day_logs`), and dual estimator+PM sign-off columns/timestamps. One row per project. |
 | `change_orders`                          | `project_id`                  | Batch 4 (2026-07-06) — numbered per project (`unique(project_id, number)`), `reason`/`status` enums, `labor_units`/`added_days`/`price`, customer-approval tracking (`customer_approved_via`/`_at`/`_approver_name`). |

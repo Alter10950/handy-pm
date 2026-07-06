@@ -191,6 +191,42 @@ template the first time they're needed. Purely additive: full E2E suite
 green with zero changes needed anywhere else — 26 passed, 2 intentionally
 skipped.
 
+**Sub-phase A — stage-gate lifecycle engine, What's Next, notifications,
+gate nags, template management — done and verified live (2026-07-06, see
+ADR-038):** the actual application layer on Sub-phase 0's schema — an
+8-stage stepper per project (`LifecyclePanel`), the active stage's
+checklist expanded (check items, attach required photos, collect
+sign-offs, add per-project items), Complete-stage blocked while items
+are open (Override with a required reason as the accountable escape
+hatch). "What's Next" (top 3 open items + anything overdue) renders per
+project and, new, aggregates company-wide on the dashboard as a "Needs
+attention" section — exceptions only (stalled or overdue), not a
+redundant full project list. The STALLED flag
+(`organizations.stalled_after_days`, default 3) is now live and
+surfaced. Owner-only template management on `/app/settings` — edit,
+add, or remove a stage's checklist items; a pm sees the same content
+read-only; edits never retroactively touch an already-bootstrapped
+project's own copy. First application code against the `notifications`
+table (schema-only since Batch 3): a bell in the site header with
+unread count, dropdown, and mark-read. A new gate-nags mechanism checks
+every active project daily for overdue items and the STALLED flag,
+always creates in-app notifications, and emails each affected recipient
+one combined digest (gated on `RESEND_API_KEY`) — riding the existing
+daily reports cron rather than a new route, since Vercel's Hobby plan
+caps a project at 2 cron jobs and both were already spent. Found and
+fixed a real ordering bug (`project_gate_items` had no stable position
+column, so checklist order wasn't deterministic — fixed with a
+follow-up migration), a real UX bug (the lifecycle panel didn't
+auto-follow the newly-active stage after a completion/override), a
+dozen pre-existing E2E specs broken by a new hidden file input on the
+Overview page racing their bare `input[type="file"]` locators, and one
+unrelated, previously-latent regression in `project-flow.spec.ts`'s
+Progress-tab check (a same-text/same-class element from the Materials
+tab transiently coexisting during a fast tab switch — the same race
+shape as an earlier sub-phase's own zoom-fit finding). Full suite green:
+29 passed, 2 intentionally skipped, confirmed zero leftover test data in
+the shared org-wide gate template afterward.
+
 **Batch 3 — ✅ COMPLETE (2026-07-06):** a large flagship push — full user
 management/org settings, Field and Scheduler taken to "flagship," a
 rules-based estimation engine, an exception-first dashboard + emailed
@@ -842,6 +878,70 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
 - [x] `npm run lint`/`typecheck`/`build` all pass. Full E2E suite
       green: 26 passed, 2 intentionally skipped — purely additive,
       zero changes needed anywhere else in the app.
+
+## Batch 4, Sub-phase A — Stage-gate lifecycle engine, What's Next, notifications, gate nags, template management ✅ done (2026-07-06)
+
+- [x] `ensureProjectStages` — idempotent, admin-client bootstrap of a
+      project's `project_stages`/`project_gate_items` from the org's
+      default template; called from the Overview page (avoids a
+      circular import with `lib/projects/actions.ts`).
+- [x] `project_gate_items.position` (new follow-up migration) — fixes a
+      real bug where checklist order wasn't deterministic (bulk-inserted
+      rows had no reliable `created_at` tiebreaker).
+- [x] Gate actions: `toggleGateItem`/`signOffGateItem`/`addGateItem`/
+      `removeGateItem`/`completeStage`/`overrideStage` — Complete blocked
+      while items are open; Override requires a non-empty reason;
+      completing/overriding unlocks the next stage and syncs
+      `projects.stage_key`.
+- [x] `LifecyclePanel` (8-stage stepper + expanded checklist: check
+      items, attach required photos, sign off, add per-project items,
+      Complete/Override) and `WhatsNextPanel` (top-3-open-plus-overdue),
+      wired into the Overview page.
+- [x] `listOrgWideNextActions` — dashboard-level aggregation
+      (batch-fetched company-wide, same convention as
+      `lib/dashboard/queries.ts`), rendered as a new "Needs attention"
+      dashboard section — only stalled/overdue projects, not a
+      redundant full list.
+- [x] STALLED flag (`organizations.stalled_after_days`, default 3, new
+      follow-up migration) — `isProjectStalled` now live and surfaced
+      on the dashboard.
+- [x] Owner-only template management on `/app/settings`
+      (`TemplateEditor`) — add/edit-label/toggle-photo/set-signoff-role/
+      remove a stage's checklist items; pm sees the same content
+      read-only; never retroactively touches an already-bootstrapped
+      project's own copy (`ON DELETE SET NULL` makes removal safe).
+- [x] `lib/notifications/` — first application code against the
+      `notifications` table (schema-only since Batch 3):
+      `listMyNotifications`/`getUnreadNotificationCount`,
+      `markNotificationRead`/`markAllNotificationsRead`, and a
+      `notifyUsers` helper taking an already-scoped client (admin for
+      the cron, cookie-scoped for future session-based call sites). A
+      bell in `SiteHeader` (unread badge + dropdown + mark-read), fed by
+      `(protected)/layout.tsx`.
+- [x] `sendGateNags` — checks every active project daily for overdue
+      items + the STALLED flag; always creates in-app notifications;
+      emails each affected recipient one combined digest (gated on
+      `RESEND_API_KEY`). Rides the existing daily reports cron
+      (`Promise.all([sendReports("daily"), sendGateNags()])`) rather
+      than a new route — Vercel's Hobby plan caps a project at 2 cron
+      jobs and both were already spent.
+- [x] Found and fixed: a real UX bug (`LifecyclePanel` not
+      auto-following the newly-active stage after completion/override —
+      "previous prop in state" pattern); a dozen pre-existing E2E specs
+      broken by a new hidden file input on the Overview page racing
+      their bare `input[type="file"]` locators (fixed to use the
+      already-established `drawing-upload-input`/
+      `packing-slip-upload-input` testids); one unrelated,
+      previously-latent regression in `project-flow.spec.ts`'s
+      Progress-tab check (same race-condition shape as an earlier
+      sub-phase's zoom-fit finding — a same-text/same-class element
+      from a different tab transiently coexisting mid-navigation).
+- [x] `npm run lint`/`typecheck`/`build` all pass. New
+      `e2e/gate-template-and-nags-flow.spec.ts` — template CRUD +
+      role-read-only + the real cron route's actual notification/digest
+      behavior end to end. Full suite green: 29 passed, 2 intentionally
+      skipped; confirmed zero leftover test data in the shared org-wide
+      gate template afterward.
 
 ## Batch 3, Sub-phase 0 — Schema for estimating/readiness/versioning ✅ done (2026-07-06)
 

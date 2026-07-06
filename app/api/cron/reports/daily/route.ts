@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { sendGateNags } from "@/lib/gates/nags";
 import { sendReports } from "@/lib/reports/send";
 
 // Vercel Cron automatically sends `Authorization: Bearer ${CRON_SECRET}`
@@ -14,10 +15,17 @@ function isAuthorized(request: NextRequest): boolean {
   return request.headers.get("authorization") === `Bearer ${secret}`;
 }
 
+// Gate nags ride this same once-daily cron rather than getting their own
+// — Vercel's Hobby plan caps a project at 2 cron jobs total, and both
+// slots are already spent on this route plus the weekly report (see
+// ADR-038). Piggybacking here still delivers a genuinely daily check.
 export async function GET(request: NextRequest) {
   if (!isAuthorized(request)) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
-  const result = await sendReports("daily");
-  return NextResponse.json(result);
+  const [reports, gateNags] = await Promise.all([
+    sendReports("daily"),
+    sendGateNags(),
+  ]);
+  return NextResponse.json({ reports, gateNags });
 }

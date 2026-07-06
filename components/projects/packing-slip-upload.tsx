@@ -49,6 +49,7 @@ export function PackingSlipUpload({ projectId }: { projectId: string }) {
       <input
         ref={inputRef}
         type="file"
+        data-testid="packing-slip-upload-input"
         className="hidden"
         onChange={(event) => {
           const file = event.target.files?.[0];

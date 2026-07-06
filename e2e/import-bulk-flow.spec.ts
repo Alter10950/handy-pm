@@ -51,8 +51,11 @@ test("import/bulk: CSV materials + row-assignment import, bulk select/condition/
     projectId = /\/app\/project\/([^/]+)$/.exec(page.url())![1];
 
     await page.getByRole("link", { name: "Layout" }).click();
+    // Not a bare input[type="file"] locator — the Overview page's own
+    // lifecycle checklist has a hidden photo-attach file input that can
+    // still be in the DOM mid-navigation, making that ambiguous/racy.
     await page
-      .locator('input[type="file"]')
+      .getByTestId("drawing-upload-input")
       .setInputFiles("e2e/fixtures/test-drawing.svg");
     await expect(page.getByText(/uploaded\.$/)).toBeVisible({ timeout: 30_000 });
 

@@ -19,7 +19,10 @@ export default async function ProjectProgressPage({
     <div className="flex flex-col gap-4">
       <h2 className="text-lg font-semibold text-foreground">Progress</h2>
 
-      <div className="rounded-lg border border-border bg-card p-5">
+      <div
+        data-testid="overall-complete-stat"
+        className="rounded-lg border border-border bg-card p-5"
+      >
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium text-muted-foreground">
             Overall complete

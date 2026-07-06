@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { touchProjectActivity } from "@/lib/projects/actions";
 import { createClient } from "@/lib/supabase/server";
 import type { BlockerCode } from "@/lib/supabase/database.types";
 
@@ -35,6 +36,7 @@ export async function logInstallDelta(
     device_id: deviceId,
   });
   if (error && error.code !== "23505") throw error;
+  await touchProjectActivity(projectId);
   revalidateField(projectId);
 }
 
@@ -56,6 +58,7 @@ export async function createBlocker(
     photo_path: photoPath,
   });
   if (error) throw error;
+  await touchProjectActivity(projectId);
   revalidateField(projectId);
 }
 
@@ -134,6 +137,7 @@ export async function closeDay(
   await upsertDayLog(projectId, crewId, {
     departedAt: new Date().toISOString(),
   });
+  await touchProjectActivity(projectId);
 }
 
 // End-of-day documentation photos — distinct from blockers.photo_path

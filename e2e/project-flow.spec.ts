@@ -38,7 +38,10 @@ test("create project, mark rows, assign materials, verify reconciliation", async
 
   await test.step("upload drawing", async () => {
     await page.getByRole("link", { name: "Layout" }).click();
-    await page.locator('input[type="file"]').setInputFiles(FIXTURE_PATH);
+    // Not a bare input[type="file"] locator — the Overview page's own
+    // lifecycle checklist has a hidden photo-attach file input that can
+    // still be in the DOM mid-navigation, making that ambiguous/racy.
+    await page.getByTestId("drawing-upload-input").setInputFiles(FIXTURE_PATH);
     await expect(page.getByText(/uploaded\.$/)).toBeVisible({
       timeout: 30_000,
     });
@@ -175,6 +178,12 @@ test("create project, mark rows, assign materials, verify reconciliation", async
   await test.step("verify progress tab", async () => {
     await page.getByRole("link", { name: "Progress" }).click();
     await expect(page.getByText("3", { exact: true }).first()).toBeVisible(); // row count
-    await expect(page.getByText("0%")).toBeVisible(); // nothing installed yet
+    // Scoped to the overall-complete stat's own testid — a bare
+    // getByText("0%") is ambiguous against both this page's own per-row
+    // "Row N 0% Blocked — materials" buttons AND (during a fast
+    // client-side tab switch) the Materials tab's ReconciliationCard,
+    // which renders the identical "0% complete" text/classes and can
+    // still be transiently mounted when this assertion runs.
+    await expect(page.getByTestId("overall-complete-stat").getByText("0%")).toBeVisible(); // nothing installed yet
   });
 });

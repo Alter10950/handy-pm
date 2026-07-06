@@ -14,6 +14,21 @@ import type { MaterialCondition } from "@/lib/supabase/database.types";
 // and packing_slips_write RLS — all owner/pm only.
 const PROJECT_EDITORS = ["owner", "pm"] as const;
 
+// Bumps last_activity_at — feeds the dashboard's STALLED flag (Batch 4,
+// sub-phase A). Deliberately logs rather than throws on failure: this is
+// a best-effort side signal called from several other actions'
+// (installs, blockers, day-log closes, gate-item toggles) own success
+// path, and its failure shouldn't masquerade as the calling action's own
+// failure when the actual primary write already succeeded.
+export async function touchProjectActivity(projectId: string): Promise<void> {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("projects")
+    .update({ last_activity_at: new Date().toISOString() })
+    .eq("id", projectId);
+  if (error) console.error("touchProjectActivity failed", error);
+}
+
 export async function createProject(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   const siteAddress = String(formData.get("site_address") ?? "").trim();
