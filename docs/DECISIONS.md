@@ -5,6 +5,110 @@ Consequences.
 
 ---
 
+## ADR-026: Batch 3 schema — receipts as an event log, drawing_versions parallel to drawings, row readiness precedence, types genuinely regenerated
+
+**Decision date:** 2026-07-06
+
+**Context:** Batch 3, sub-phase 0: schema for richer material identity +
+a receiving lifecycle, row readiness, drawing versioning, the estimation
+brain (labor standards + project estimates), and in-app notifications.
+The user supplied a `SUPABASE_ACCESS_TOKEN` up front specifically so this
+migration (and every later one) could be applied directly rather than
+asked for by hand each time.
+
+**Choice — `material_receipts` is an append-only event log, not a status
+column + history table:** the spec offered either shape ("your call").
+A shipment commonly arrives in batches (backorders, split deliveries),
+and the lifecycle statuses (`ordered`/`received`/`verified`/`staged`/
+`short`/`damaged`/`wrong`) aren't mutually-exclusive buckets that must
+sum to the ordered total — "80 received in total" and "75 verified in
+total" are both independently true facts about the same material at
+once. An event log where each row is one fact ("N units reached status
+X, at time T") models this more faithfully than a single mutable
+row, and matches this codebase's existing `installs`-is-append-only
+philosophy. `materials.received` stays the fast-read aggregate
+`material_reconciliation` already depends on — a receiving check-in
+action (sub-phase F) will keep it in sync when a `'received'` event is
+logged, the same "log feeds an aggregate column" relationship `installs`
+has with `material_reconciliation` itself.
+
+**Choice — `drawing_versions` is a parallel history table, not a rework
+of `drawings`:** `rows.drawing_id` FKs to a specific `drawings` row, and
+existing rows must keep working. Re-uploading a page inserts a new
+`drawing_versions` row (`unique(project_id, page_index, version)`),
+marks the prior version `superseded_at`, and updates the *existing*
+`drawings` row's `storage_path`/`width`/`height` in place — same `id`,
+so no FK ever breaks. `drawings` stays "the current pointer per page";
+`drawing_versions` is the append-only history + approval trail
+alongside it. Existing drawings were backfilled as version 1,
+pre-approved, so the versioning UI (sub-phase G) starts from a coherent
+history instead of every current project showing no history at all.
+
+**Choice — row readiness precedence: physical prerequisites gate
+`'blocked'`, administrative ones gate `'ready'` vs `'partial'`:**
+`row_progress.readiness_status` is computed as `'complete'` (pct
+already 100 — readiness stops mattering once done) → `'blocked'` (not
+`materials_ready` or not `area_accessible` — the two things that make
+work *physically* impossible to start) → `'ready'` (every prerequisite
+met, including `drawing_approved` and derived `crew_assigned`) →
+else `'partial'`. `crew_assigned` is deliberately not a stored column
+(the spec marks it "(derived)") — it's `true` when an `assignments` row
+with `work_date >= current_date` covers the row directly or via a
+whole-project assignment; phase-scoped assignments already resolve to
+individual per-row rows at assignment time (ADR-022), so both
+assignment shapes reduce to that one check.
+
+**Choice — `labor_standards`/`project_estimates` lay down the schema
+now; the conversion/learning logic is sub-phase D's job:**
+`materials.labor_units` and `crew_rates` already existed (Batch 2,
+explicitly "feeds Scheduler productivity/target math in a later
+sub-phase" — this is that later sub-phase). `labor_standards` seeds
+reasonable default hours-per-unit for common racking tasks (upright/
+beam/wire_deck/anchor/row_spacer/end_barrier/post_protector/general) per
+org — estimates, not measured figures, same posture as ADR-022's SPI
+thresholds; nothing downstream hardcodes these values, only the
+task_key buckets as the recognized conversion categories.
+`project_estimates` is append-only like `installs`/`material_receipts` —
+recomputing inserts a new row so an estimate's history over a project's
+life is never lost.
+
+**Choice — types are now genuinely regenerated, not hand-written:**
+with a working `SUPABASE_ACCESS_TOKEN`, `supabase gen types typescript`
+finally ran for real (previously blocked — see ADR-010). Diffing against
+it surfaced two categories of intentional deviation this codebase
+already had before, now reapplied fresh: literal union types for
+CHECK-constrained columns (the generator only ever emits plain `string`
+for these — added `MaterialCondition`/`MaterialReceiptStatus`/
+`RowReadinessStatus` alongside the existing four), and the generator's
+newer output no longer emits a separate `Views<T>` helper (views are now
+folded into `Tables<T>`'s own union) — added back a small `Views<T>`
+compatibility alias rather than rewriting every `Views<"...">` call site
+across the codebase to `Tables<"...">`. Separately, the generator marks
+*every* view column nullable (it can't prove non-nullability through
+arbitrary view SQL) — re-applied the same "intentional, valid
+improvement" judgment ADR-010 already established for CHECK constraints
+to nullability: columns the view's own SQL genuinely guarantees
+non-null (`coalesce()`'d aggregates, or straight from a `not null` base
+column) are typed non-null, exactly matching the original hand-written
+file's choices. Skipping this step would have meant threading
+null-checks through a dozen unrelated files for a distinction the real
+data never actually exhibits.
+
+**Consequences:** the migration applied cleanly on the first push, and
+the fresh regeneration confirmed the hand-written Batch 1/2 types had
+been an exact match all along (only the two documented, deliberate
+deviation categories differ). Running the full E2E suite afterward
+surfaced one genuine pre-existing test bug, unrelated to this migration:
+`scheduler-flow.spec.ts` asserted on a page-wide `getByText(/^0 \/
+\d+$/)`, which throws a strict-mode violation whenever a remaining-qty ÷
+scheduled-days split happens to give *every* scheduled day the identical
+target number (increasingly likely the longer a test's date-relative
+schedule runs, since which calendar days fall on weekends shifts the
+day count run to run). Fixed by adding a `data-testid` to each day's
+container in `WeekView` and scoping the assertion to today's specific
+day — a latent, date-sensitive fragility that had simply not been
+triggered by the specific dates in play on earlier runs.
+
 ## ADR-025: Packing-slip AI extraction — plain `fetch()` to the Anthropic Messages API, tool-use for structured output, code+size folded into `name`
 
 **Decision date:** 2026-07-03

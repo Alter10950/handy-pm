@@ -591,6 +591,18 @@ order:
    `installs.idempotency_key`/`device_id`; `rows.phase_id`;
    `drawings.role` + `projects.mark_drawing_id` (one marking page per
    project); `daily-photos` bucket; `row_progress.phase_id`.
+7. `add_row_progress_ordering.sql` — `row_progress` gains `rows.created_at`
+   (deterministic paint/click order for overlapping rows).
+8. `batch3_estimating_readiness_versions.sql` (2026-07-06) — richer
+   `materials` identity (`profile`/`capacity`/`condition`/
+   `compatible_system`); `material_receipts` (append-only receiving log);
+   `rows` readiness inputs (`materials_ready`/`area_accessible`/
+   `drawing_approved`) plus a derived `crew_assigned` and computed
+   `readiness_status` on `row_progress`; `drawing_versions` (upload
+   history + approval-for-install, parallel to the existing `drawings`
+   current-pointer table); `labor_standards` (org-scoped, seeded
+   defaults) and `project_estimates` (append-only) for the estimation
+   engine; `notifications` (per-user in-app inbox).
 
 ### Tables
 
@@ -606,8 +618,9 @@ transitively via `project_id` → `projects.org_id` or `crew_id` →
 | `crews` / `crew_members`                 | `org_id` / via `crews`        | Install crews and their members (Scheduler sub-phase).                                                                                                                                                                                      |
 | `drawings`                               | `project_id`                  | One row per rendered page (`page_index` 0-based) of an uploaded layout PDF/image. `storage_path` points into the private `drawings` bucket. `role` ∈ `reference`/`marking` — see below.                                                     |
 | `packing_slips`                          | `project_id`                  | Uploaded packing-slip files; `parsed` reserved for future OCR/extraction.                                                                                                                                                                   |
-| `materials`                              | `project_id`                  | The job's material catalog — `total_needed` (job total) and `received` (from packing slips) live here; per-row requirements live in `row_materials`. `size` (free-form, e.g. `36SQ10`) and `labor_units` (Scheduler math) added 2026-07-03. |
-| `rows`                                   | `project_id` (+ `drawing_id`) | A marked rack section on a drawing page. `x/y/w/h` are **normalized 0..1** fractions of the drawing's rendered size, so marks stay correct at any zoom/display size. `phase_id` (nullable) added 2026-07-03.                                |
+| `materials`                              | `project_id`                  | The job's material catalog — `total_needed` (job total) and `received` (from packing slips) live here; per-row requirements live in `row_materials`. `size`/`labor_units` (2026-07-03) and `profile`/`capacity`/`condition`/`compatible_system` (2026-07-06, richer identity for the estimating/receiving work) added since. |
+| `material_receipts`                      | via `materials`                | Append-only receiving event log (2026-07-06) — `status` ∈ `ordered`/`received`/`verified`/`staged`/`short`/`damaged`/`wrong`, each row a fact ("N units reached this status"), not a single mutable state. `materials.received` stays the fast-read aggregate; a receiving check-in (sub-phase F) keeps both in sync. |
+| `rows`                                   | `project_id` (+ `drawing_id`) | A marked rack section on a drawing page. `x/y/w/h` are **normalized 0..1** fractions of the drawing's rendered size, so marks stay correct at any zoom/display size. `phase_id` (nullable, 2026-07-03); `materials_ready`/`area_accessible`/`drawing_approved` readiness inputs (2026-07-06) — `crew_assigned` is deliberately NOT a column here, it's derived in `row_progress` from `assignments`.                                |
 | `row_materials`                          | via `rows`                    | Required qty of a material for a specific row. `unique(row_id, material_id)`.                                                                                                                                                               |
 | `installs`                               | via `rows`                    | Append-only log of installed qty per row/material/date. `qty` may be negative (a correction entry) — never edit history in place. `idempotency_key` (unique, nullable) + `device_id` added 2026-07-03 for the field app's offline queue.    |
 | `phases`                                 | `project_id`                  | A named, colored grouping of rows — `color` renders on the drawing, `sort_order` controls legend/list order.                                                                                                                                |
@@ -615,6 +628,10 @@ transitively via `project_id` → `projects.org_id` or `crew_id` →
 | `day_logs`                               | `project_id`                  | One row per crew/project/day (`unique(project_id, crew_id, work_date)`), filled in progressively and updated (not re-inserted) as the day closes out.                                                                                       |
 | `assignments` / `targets` / `crew_rates` | `project_id` / `crew_id`      | Scheduling. Created in Phase 2 so FKs were clean from day one; built out by the Scheduler sub-phase.                                                                                                                                        |
 | `project_schedule`                       | `project_id`                  | Presence of a row = a scheduled working day (`unique(project_id, work_date)`) — a date range can be picked and specific days skipped without a separate flag.                                                                               |
+| `drawing_versions`                       | `project_id`                  | Upload history for a page (2026-07-06) — `drawings` stays the current pointer per page (rows.drawing_id keeps referencing it; same `id` across re-uploads), this is the parallel version/approval history. `approved_for_install` gates whether a version is considered safe to mark/install against. |
+| `labor_standards`                        | `org_id`                       | Size-normalized labor baseline (2026-07-06) — `base_labor_units` (hours/unit at a standard pace) per `task_key`, seeded with reasonable defaults per org. Feeds the estimation engine (sub-phase D); `crew_rates` (existing) then scales per-crew relative to this baseline. |
+| `project_estimates`                      | `project_id`                  | Append-only estimate log (2026-07-06), like `installs` — recomputing inserts a new row rather than overwriting, so an estimate's history over a project's life isn't lost. Latest row = current estimate.                                   |
+| `notifications`                          | `org_id` (+ `user_id`)         | Per-user in-app inbox (2026-07-06) — `select`/`update`/`delete` are strictly own-row (`user_id = auth.uid()`), unlike every other table here which is org-wide-readable; `insert` is org-scoped only, since a Server Action running as the caller creates notifications addressed to *other* org members. |
 | `share_tokens`                           | `project_id`                  | Customer portal tokens (Phase 8). Not publicly RLS-readable — see below.                                                                                                                                                                    |
 
 **Exactly one marking page per project:** `drawings.role` defaults to
@@ -629,6 +646,16 @@ only succeeds when the calling user's own RLS already permits those
 writes (it does not bypass RLS the way the org/role helpers deliberately
 do). See ADR-019 for the backfill logic that assigned existing projects a
 marking page when this migration ran.
+
+**Drawing version history (2026-07-06):** `drawing_versions` tracks every
+upload for a page as its own row (`unique(project_id, page_index,
+version)`), independent of `drawings` — re-uploading a page is meant to
+insert a new version, mark the prior one `superseded_at`, and update the
+existing `drawings` row's `storage_path` in place (same `id`, so
+`rows.drawing_id` FKs never break). Existing drawings were backfilled as
+version 1, pre-approved. The versioning UI itself (upload-as-new-version,
+approve, supersede warnings) is sub-phase G scope — this migration only
+lays down the schema.
 
 ### Auth bootstrap
 
@@ -661,6 +688,17 @@ see ADR-008 update below). Role model:
   - Cannot create/edit/delete projects, materials, rows, phases, or the
     project schedule.
 
+**New tables (2026-07-06):** `material_receipts` and `drawing_versions`
+mirror the access shape of the tables they extend (`materials`/`drawings`
+— owner/pm write, org reads). `labor_standards` and `project_estimates`
+follow `crew_rates`/`targets`'s existing owner/pm/scheduler-write shape
+(estimating is scheduling-adjacent). `notifications` is the one table
+that's **not** org-wide readable — `select`/`update`/`delete` require
+`user_id = auth.uid()` (a personal inbox, not a shared feed); `insert`
+only requires `org_id = current_org_id()`, since a Server Action running
+as the calling user needs to create notifications addressed to someone
+else in the org.
+
 `share_tokens` is deliberately **not** readable via any anon RLS policy —
 the Phase 8 customer portal will read it through a server Route Handler
 using `lib/supabase/admin.ts` (service role, bypasses RLS), never directly
@@ -683,6 +721,20 @@ per row/material (matching the reference prototype's `zonePct`/
 `zoneComplete` logic), so logging more than required never shows over
 100%.
 
+**Row readiness (2026-07-06):** `row_progress` gains `materials_ready`/
+`area_accessible`/`drawing_approved` (straight from `rows`), a derived
+`crew_assigned` (`true` when an `assignments` row with `work_date >=
+current_date` covers this row directly or via a whole-project
+assignment — phase-scoped assignments already resolve to individual
+per-row rows at assignment time, see ADR-022, so both assignment shapes
+reduce to this one check), and a computed `readiness_status`:
+`'complete'` if already fully installed (readiness stops mattering once
+done); else `'blocked'` if materials aren't ready or the area isn't
+accessible (the two *physical* prerequisites); else `'ready'` if every
+prerequisite — physical and administrative (drawing approval, crew
+assigned) — is met; else `'partial'`. Scheduler/dashboard work (later
+sub-phases) reads this directly rather than recomputing it.
+
 ### Storage
 
 Three private buckets: `drawings` and `packing-slips`, path convention
@@ -700,13 +752,25 @@ never public bucket URLs.
 
 ### Types
 
-`lib/supabase/database.types.ts` is hand-written to match the migrations
-exactly (no Docker/linked project available when Phase 2 was authored — see
-`docs/DECISIONS.md`). All four client factories
+`lib/supabase/database.types.ts` was hand-written to match the migrations
+exactly through Batch 2 (no linked project/Docker available at the time —
+see ADR-010). As of 2026-07-06, the project is linked and a
+`SUPABASE_ACCESS_TOKEN` is available, so this is now genuinely
+**generated** via `npx supabase gen types typescript --project-id <ref>`,
+then hand-adjusted in two ways every regeneration needs to reapply: (1)
+CHECK-constrained columns get this codebase's own literal union types
+(`ProfileRole`, `DrawingRole`, `BlockerCode`, `MaterialCondition`,
+`MaterialReceiptStatus`, `RowReadinessStatus`) in place of the
+generator's plain `string` — Postgres CHECK constraints don't reach the
+generated types at all, so this is an intentional improvement, not a
+discrepancy (ADR-010); (2) the three views' `Row` types get their
+genuinely-guaranteed-non-null columns un-nullabled — the generator
+conservatively marks every view column nullable since it can't prove
+otherwise from arbitrary view SQL, but e.g. `row_progress.pct` is wrapped
+in `coalesce(...)` and can never actually be null. The file's own header
+comment documents both adjustments. All four client factories
 (`lib/supabase/{client,server,admin,proxy}.ts`) are generic over
-`Database`. Once the project is linked, regenerate for real with
-`npx supabase gen types typescript --project-id <ref> > lib/supabase/database.types.ts`
-and diff — it should be a near-exact match.
+`Database`.
 
 ## PWA
 

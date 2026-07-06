@@ -142,6 +142,40 @@ two `36SQ10` beam lines kept distinct at 144"/96", freight correctly
 skipped). Validation against the user's actual real-world packing slip
 is deferred by their own choice, not blocked on anything.
 
+**Batch 2 — complete (2026-07-06).** All six sub-phases (0, A, B, C, D,
+E, F) plus the mid-batch Layout rework are built, verified live, and
+documented. Full E2E suite green at close: 10 passed, 1 skipped
+(intentionally — the packing-slip no-key test, inactive now that a key
+is configured).
+
+**Batch 3 (in progress, 2026-07-06):** a large flagship push — full user
+management/org settings, Field and Scheduler taken to "flagship," a
+rules-based estimation engine, an exception-first dashboard + emailed
+reports + closeout PDFs, material status/supply-chain tracking, CSV/XLSX
+import + drawing versioning, a scoped customer portal, and a final
+polish/QA/deploy pass. The user supplied `SUPABASE_ACCESS_TOKEN`,
+`ANTHROPIC_API_KEY`, and `RESEND_API_KEY` up front so the whole batch can
+run without stopping for credentials again.
+
+**Sub-phase 0 — schema — done and verified live (2026-07-06, see
+ADR-026):** richer `materials` identity (`profile`/`capacity`/
+`condition`/`compatible_system`); `material_receipts` (append-only
+receiving log); `rows` readiness inputs feeding a new computed
+`readiness_status` (ready/partial/blocked/complete) on `row_progress`;
+`drawing_versions` (upload history + approval, parallel to `drawings`);
+`labor_standards` + `project_estimates` (the estimation engine's
+foundation — `materials.labor_units`/`crew_rates` already existed from
+Batch 2, seeded exactly for this); `notifications` (per-user inbox).
+Applied cleanly on the first push. **Types are now genuinely
+regenerated** via `supabase gen types` for the first time (previously
+hand-written — see ADR-010) — confirmed an exact match against the old
+hand-written file, modulo two deliberate, now-reapplied deviations
+(literal union types for CHECK columns; non-null typing for view columns
+the SQL genuinely guarantees non-null). Full E2E suite green afterward,
+10 passed / 1 skipped — one real, pre-existing test bug found and fixed
+along the way (`scheduler-flow.spec.ts`'s date-sensitive strict-mode
+violation, unrelated to this migration; see ADR-026).
+
 This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
 
 2. DB schema/RLS/storage/types
@@ -432,6 +466,32 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
       spacers/barriers/protectors, two anchor types) is deferred by the
       user's own choice, not blocked on anything — can be revisited
       anytime by pointing the route at that file.
+
+## Batch 3, Sub-phase 0 — Schema for estimating/readiness/versioning ✅ done (2026-07-06)
+
+- [x] `materials`: `profile`/`capacity`/`condition`/`compatible_system`.
+- [x] `material_receipts` — append-only receiving event log
+      (ordered/received/verified/staged/short/damaged/wrong), plus the
+      `org_id_of_material` RLS helper.
+- [x] `rows`: `materials_ready`/`area_accessible`/`drawing_approved`;
+      `row_progress` gains derived `crew_assigned` and computed
+      `readiness_status` (ready/partial/blocked/complete).
+- [x] `drawing_versions` — upload history + approval-for-install,
+      parallel to `drawings`; existing drawings backfilled as version 1.
+- [x] `labor_standards` (seeded defaults per org) + `project_estimates`
+      (append-only) — the estimation engine's schema foundation.
+- [x] `notifications` — per-user in-app inbox.
+- [x] RLS on every new table, same `current_org_id()`/
+      `current_user_role()`/`org_id_of_*()` pattern as always.
+- [x] **Applied to the live Supabase project** — clean first push, no
+      repair/retry needed this time.
+- [x] **Types genuinely regenerated** via `supabase gen types` (first
+      time ever — previously hand-written, see ADR-010) — confirmed an
+      exact match modulo two deliberate, documented deviations.
+- [x] `npm run lint`/`typecheck`/`build` all pass; full `npm run
+      test:e2e` green (10 passed, 1 intentionally skipped) after fixing
+      one real, pre-existing, date-sensitive test bug in
+      `scheduler-flow.spec.ts` (unrelated to this migration).
 
 ## Phase 8 — Customer portal (not started)
 

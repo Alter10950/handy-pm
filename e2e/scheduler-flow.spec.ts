@@ -8,6 +8,9 @@ import { createAdminClient } from "./helpers/supabase-admin";
 const FIXTURE_PATH = path.join(__dirname, "fixtures/test-drawing.svg");
 const PROJECT_NAME = `[E2E] Scheduler flow ${Date.now()}`;
 const CREW_NAME = `[E2E] Scheduler crew ${Date.now()}`;
+// Matches WeekView's own `new Date().toISOString().slice(0, 10)` exactly,
+// so this resolves to the same data-testid it renders for today's day.
+const todayIso = () => new Date().toISOString().slice(0, 10);
 
 let projectId: string | null = null;
 let crewId: string | null = null;
@@ -145,10 +148,14 @@ test("scheduler: create crew, build schedule, generate targets, assign crew to a
     // The week view's own re-render (via router.refresh()) isn't awaited by
     // the button handler, so it can lag a beat behind the toast — confirm
     // today's row actually shows a target, not just that the action's own
-    // "done" message appeared.
-    await expect(page.getByText(/^0 \/ \d+$/)).toBeVisible({
-      timeout: 10_000,
-    });
+    // "done" message appeared. Scoped to today's specific day container
+    // (data-testid, not a generic text pattern): an even remaining-qty ÷
+    // scheduled-days split can legitimately give every day the identical
+    // "0 / N" text, which throws a strict-mode violation on a page-wide
+    // text locator instead of just picking one.
+    await expect(
+      page.getByTestId(`schedule-day-${todayIso()}`).getByText(/^0 \/ \d+$/)
+    ).toBeVisible({ timeout: 10_000 });
 
     await expect
       .poll(async () => {

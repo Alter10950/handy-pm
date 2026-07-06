@@ -4,6 +4,60 @@ Engineering journal. Newest entries at top.
 
 ---
 
+## 2026-07-06 — Batch 3 sub-phase 0: schema for estimating, readiness, versioning
+
+**What:** Batch 3 kicked off — a large flagship push across user
+management, Field, Scheduler, an estimation engine, an exception-first
+dashboard + reporting, material status/supply-chain, import tooling +
+drawing versioning, a customer portal, and a final polish/deploy pass.
+Sub-phase 0 is the schema all of it builds on. Full reasoning in
+`docs/DECISIONS.md` ADR-026; summary here.
+
+**Build:** One migration,
+`20260706093725_batch3_estimating_readiness_versions.sql`: `materials`
+gains `profile`/`capacity`/`condition`/`compatible_system`;
+`material_receipts` (append-only receiving event log, `org_id_of_material`
+added as its RLS helper); `rows` gains `materials_ready`/
+`area_accessible`/`drawing_approved`; `drawing_versions` (upload history +
+approval, parallel to `drawings`, backfilled from existing drawings as
+version 1); `labor_standards` (org-scoped, seeded with reasonable default
+hours-per-unit for upright/beam/wire_deck/anchor/row_spacer/
+end_barrier/post_protector/general) and `project_estimates` (append-only)
+for the estimation engine; `notifications` (per-user inbox, the one new
+table that's *not* org-wide readable). `row_progress` gains a derived
+`crew_assigned` and a computed `readiness_status`
+(complete/blocked/ready/partial — see ADR-026 for the exact precedence).
+RLS on every new table follows the existing `current_org_id()`/
+`current_user_role()`/`org_id_of_*()` pattern exactly.
+
+**Applied and types genuinely regenerated for the first time:** pushed
+cleanly on the first try (`supabase db push`, no errors). With a working
+`SUPABASE_ACCESS_TOKEN` now available, `lib/supabase/database.types.ts`
+was regenerated for real via `supabase gen types` instead of hand-written
+— confirmed the Batch 1/2 hand-written version had been an exact match
+all along, modulo two deliberate, documented deviations (literal union
+types for CHECK columns; non-null view columns the SQL genuinely
+guarantees) that were reapplied to the fresh output. This retires the
+long-standing "hand-written, remember to regenerate" caveat from
+`docs/ARCHITECTURE.md` entirely.
+
+**Verification:** `npm run lint`, `npm run typecheck`, `npm run build`
+all pass. Full `npm run test:e2e` surfaced one real, pre-existing test
+bug unrelated to this migration: `scheduler-flow.spec.ts`'s
+`getByText(/^0 \/ \d+$/)` threw a strict-mode violation because the
+test's date-relative schedule happened to give every scheduled day the
+identical target number this run (a latent, date-sensitivity issue —
+which specific calendar days a "starting today" range covers shifts the
+scheduled-day count, and therefore the per-day split, run to run). Fixed
+by adding a `data-testid` to each day's container in `WeekView` and
+scoping the assertion to today's specific day. Also fixed, while
+live-validating packing-slip extraction moments earlier (see below): a
+`data-testid="reconciliation-table"` on `ReconciliationCard`, for the
+same reason — a page-wide locator had been quietly depending on which
+`<table>` happened to render first. Full suite green afterward: 10
+passed, 1 skipped (the no-key packing-slip path, correctly inactive now
+that a key is configured).
+
 ## 2026-07-06 — Live-validated packing-slip extraction; received Batch 3 credentials
 
 **What:** The user provided `ANTHROPIC_API_KEY`, `SUPABASE_ACCESS_TOKEN`,

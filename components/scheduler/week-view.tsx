@@ -126,6 +126,7 @@ export function WeekView({
           return (
             <div
               key={date}
+              data-testid={`schedule-day-${date}`}
               className={`flex flex-col gap-2 rounded-lg border p-3 ${
                 isScheduled
                   ? "border-border bg-card"
