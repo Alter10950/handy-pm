@@ -63,6 +63,7 @@ export function MaterialStepper({
           type="button"
           variant="outline"
           size="icon-sm"
+          aria-label="Decrease quantity"
           onClick={() => setQty((q) => Math.max(1, q - 1))}
         >
           −
@@ -74,6 +75,7 @@ export function MaterialStepper({
           type="button"
           variant="outline"
           size="icon-sm"
+          aria-label="Increase quantity"
           onClick={() => setQty((q) => q + 1)}
         >
           +

@@ -1,3 +1,5 @@
+import { memo } from "react";
+
 import { cn } from "@/lib/utils";
 import type { RowReadinessStatus } from "@/lib/supabase/database.types";
 
@@ -20,8 +22,12 @@ const READINESS_TITLE: Record<Exclude<RowReadinessStatus, "complete">, string> =
 // Shared visual content for a marked row: the proportional fill bar,
 // centered label + %, and the hazard indicator for rows with no material
 // assigned. Used by both RowStage (editable) and MaterialsReferenceStage
-// (read-only) so the two views always render a row identically.
-export function RowFillMarker({
+// (read-only) so the two views always render a row identically. Memoized
+// — every prop is a primitive, so a shallow-equality skip is always safe,
+// and a large drawing (100+ rows) re-renders only the row actually
+// changing (drag/resize/readiness) instead of every row on each pointer-
+// move tick.
+export const RowFillMarker = memo(function RowFillMarker({
   label,
   pct,
   hasMaterials,
@@ -68,4 +74,4 @@ export function RowFillMarker({
       ) : null}
     </>
   );
-}
+});

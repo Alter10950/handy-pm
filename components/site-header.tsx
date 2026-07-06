@@ -50,7 +50,7 @@ export function SiteHeader({
           Handy<span className="text-primary">PM</span>
         </Link>
 
-        <nav className="flex flex-wrap items-center gap-1">
+        <nav aria-label="Main" className="flex flex-wrap items-center gap-1">
           {navLinks.map((link) => {
             const isActive =
               pathname === link.href || pathname.startsWith(`${link.href}/`);

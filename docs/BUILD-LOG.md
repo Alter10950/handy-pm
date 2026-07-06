@@ -4,6 +4,82 @@ Engineering journal. Newest entries at top.
 
 ---
 
+## 2026-07-06 — Batch 3 sub-phase I: Polish/QA/perf pass + production deploy (Batch 3 complete)
+
+**What:** The final Batch 3 sub-phase — loading/empty/error states,
+mobile pass, accessibility basics, performance at scale, and getting
+production genuinely fully configured and redeployed. Full reasoning
+in `docs/DECISIONS.md` ADR-036; summary here.
+
+**Audit first:** dispatched a research agent to map the whole app for
+missing `loading.tsx` files, error-boundary gaps, accessibility misses,
+and performance risk points, every finding with an exact file:line
+reference. Then fixed what was concrete and proportionate:
+
+- **Error boundaries:** new root `app/error.tsx` — Next excludes a
+  segment's own `layout.tsx` from that segment's `error.tsx`, so a
+  failure in `app/(protected)/layout.tsx` itself was never actually
+  caught, and `/portal/[token]` (public, outside `(protected)`
+  entirely) had no error boundary anywhere. Shows a generic message,
+  not `error.message` — unlike `(protected)/error.tsx`, this can fire
+  before we know who's asking.
+- **Accessibility:** `aria-label` added to 5 icon/glyph-only buttons
+  (materials-grid delete, packing-slip-extract remove, field material-
+  stepper's +/− buttons) and to `site-header.tsx`'s main `<nav>`.
+- **Performance:** `listActiveProjectsForDashboard` was deliberately
+  N+1 (per-project targets/actuals/estimate fetches, ~4 round trips ×
+  active-project-count) to guarantee identical SPI numbers to the
+  per-project Scheduler page — rewrote it to batch-fetch everything via
+  `.in(...)` and group in memory, then call the exact same, unchanged
+  `computeProjectSpi` per project — zero drift risk, far fewer round
+  trips. `RowFillMarker` (renders every row on the marking canvas)
+  wrapped in `React.memo` — every prop is a primitive, so this is a
+  free, safe win for large drawings.
+- **Loading states:** new shared `components/loading-panel.tsx` +
+  `loading.tsx` for the 5 heaviest routes (scheduler/[projectId],
+  materials, field/[projectId], dashboard, mark).
+
+**Real mobile-layout bug found and fixed via a live 390px-viewport
+pass** (screenshotted every major screen, not simulated): `app/
+(protected)/layout.tsx`'s `<main>` had no `min-w-0`, so a flex item
+containing the materials grid's wide table refused to shrink below the
+table's intrinsic width — the *entire page* went wider than the
+viewport on any project with materials, not just the grid itself. One
+root-level fix instead of patching every wide-content page individually.
+Also fixed: a long packing-slip filename with no `break-all` causing
+the same class of overflow, and a non-wrapping control row on the Team
+page.
+
+**Vercel production, brought fully in line:** confirmed via `vercel env
+ls production` that only the three original Phase-1 env vars were
+live — `RESEND_API_KEY`, `CRON_SECRET`, `ANTHROPIC_API_KEY` (all added
+locally during Batch 3) had never been pushed, silently degrading
+emailed reports, the cron routes, and every AI feature in production.
+Pushed all three directly via the Vercel CLI (piped from `.env.local`,
+never printed), then ran `vercel deploy --prod` — env var changes don't
+retroactively apply to an already-built deployment. Verified live:
+`/login` 200, `/manifest.webmanifest` 200, `/sw.js` 200, and the cron
+route's bearer check now correctly 401s an unauthenticated request
+(previously a no-op before `CRON_SECRET` existed).
+
+**Bug found via the full E2E suite (test-only):** the new
+`aria-label`s on `material-stepper.tsx`'s quantity buttons changed
+their accessible name from the bare "+"/"−" glyph to "Increase/Decrease
+quantity" — correct, but broke `field-flow.spec.ts`'s locator, which
+had been matching the glyph itself. Fixed the test to match the real,
+new accessible name.
+
+**Verified:** `npm run lint`/`typecheck`/`build` all green. Full E2E
+suite green: 26 passed, 2 intentionally skipped — including
+`dashboard-flow.spec.ts`, confirming the batched dashboard rewrite
+produces identical results to the original N+1 version.
+
+**Batch 3 is now complete** — sub-phases 0 through I all done and
+verified live. See the closing Batch 3 report for the full NEEDS-YOU
+list and the iBuy self-review.
+
+---
+
 ## 2026-07-06 — Batch 3 sub-phase H: Customer portal
 
 **What:** A public, unauthenticated, read-only customer status page at

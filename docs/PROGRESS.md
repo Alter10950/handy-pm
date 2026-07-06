@@ -148,14 +148,16 @@ documented. Full E2E suite green at close: 10 passed, 1 skipped
 (intentionally — the packing-slip no-key test, inactive now that a key
 is configured).
 
-**Batch 3 (in progress, 2026-07-06):** a large flagship push — full user
+**Batch 3 — ✅ COMPLETE (2026-07-06):** a large flagship push — full user
 management/org settings, Field and Scheduler taken to "flagship," a
 rules-based estimation engine, an exception-first dashboard + emailed
 reports + closeout PDFs, material status/supply-chain tracking, CSV/XLSX
 import + drawing versioning, a scoped customer portal, and a final
 polish/QA/deploy pass. The user supplied `SUPABASE_ACCESS_TOKEN`,
-`ANTHROPIC_API_KEY`, and `RESEND_API_KEY` up front so the whole batch can
-run without stopping for credentials again.
+`ANTHROPIC_API_KEY`, and `RESEND_API_KEY` up front so the whole batch could
+run without stopping for credentials again. All ten sub-phases (0, A-I)
+done and verified live; see the closing report in `docs/BUILD-LOG.md`'s
+Sub-phase I entry for the full NEEDS-YOU list and the iBuy self-review.
 
 **Sub-phase 0 — schema — done and verified live (2026-07-06, see
 ADR-026):** richer `materials` identity (`profile`/`capacity`/
@@ -253,6 +255,44 @@ throwaway shortage material, generates a link, approves the photo,
 loads the real public page and confirms the shortage material name
 never appears anywhere on it, then revokes the link and confirms the
 friendly invalid-link fallback). Full suite green: 26 passed, 2
+intentionally skipped.
+
+**Sub-phase I — Polish/QA/perf pass + production deploy — done and
+verified live (2026-07-06, see ADR-036), Batch 3 now complete:** a
+research agent audited the whole app for missing loading states,
+error-boundary gaps, accessibility misses, and performance risk points
+at 20+ projects, every finding with an exact file:line reference. Fixed
+what was concrete and proportionate: a new root `app/error.tsx` closing
+two real gaps (Next excludes a segment's own `layout.tsx` from that
+segment's `error.tsx`, so `(protected)/layout.tsx`'s own auth/profile
+lookup was never actually caught; `/portal/[token]`, fully public, had
+no error boundary anywhere at all) — shows a generic message, not the
+real error, since this can fire before we even know who's asking.
+`aria-label`s added to 5 icon/glyph-only buttons. The dashboard's
+self-documented N+1 (deliberate since sub-phase E, to guarantee
+identical SPI numbers to the per-project Scheduler page) rewritten to
+batch-fetch everything and group in memory, then call the exact same
+unchanged SPI function per project — same numbers, far fewer round
+trips. `RowFillMarker` (renders every row on the marking canvas)
+memoized — a free win for large drawings, every prop already a
+primitive. Five new `loading.tsx` files for the heaviest routes. A real
+mobile-layout bug found via a genuine 390px-viewport pass (screenshotted
+every major screen, not simulated): the protected layout's `<main>` had
+no `min-w-0`, so a flex item containing the materials grid's wide table
+refused to shrink, pushing the *entire page* wider than the viewport on
+any project with materials — one root-level fix instead of patching
+every wide-content page. Also fixed a long packing-slip filename with
+no `break-all` causing the same class of overflow, and a non-wrapping
+control row on the Team page. **Vercel production brought fully in
+line**: `RESEND_API_KEY`/`CRON_SECRET`/`ANTHROPIC_API_KEY` had been
+added locally during Batch 3 but never pushed — confirmed via `vercel
+env ls production`, pushed all three via the CLI, then redeployed
+(env var changes don't retroactively apply to an already-built
+deployment) — live-verified `/login`/`/manifest.webmanifest`/`/sw.js`
+all 200 and the cron route's bearer check now correctly 401s an
+unauthenticated request. Found and fixed a real regression the new
+aria-labels caused in `field-flow.spec.ts` (a locator matching the old
+"+" glyph, now "Increase quantity"). Full suite green: 26 passed, 2
 intentionally skipped.
 
 **Sub-phase G — CSV/XLSX import + row-range duplication + materials
@@ -878,6 +918,49 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
       been silently matching the wrong element (CSS `capitalize`
       doesn't change the actual DOM text). Full suite green: 26
       passed, 2 intentionally skipped.
+
+## Batch 3, Sub-phase I — Polish/QA/perf pass + production deploy ✅ done (2026-07-06) — BATCH 3 COMPLETE
+
+- [x] Read-only audit (research agent) of loading states, error
+      boundaries, accessibility, and performance at scale across the
+      whole app — every finding with an exact file:line reference.
+- [x] New root `app/error.tsx` — closes two real gaps: `(protected)/
+      layout.tsx`'s own auth/profile lookup was never caught by the
+      existing themed boundary (Next excludes a segment's own
+      layout.tsx from that segment's error.tsx), and `/portal/[token]`
+      (public, outside `(protected)`) had no error boundary at all.
+- [x] `aria-label` added to 5 icon/glyph-only buttons (materials-grid
+      delete, packing-slip-extract remove, field material-stepper
+      +/−) + `site-header.tsx`'s main `<nav>`.
+- [x] Dashboard's self-documented N+1 (`listActiveProjectsForDashboard`)
+      rewritten to batch-fetch via `.in(...)` + group in memory, then
+      call the same unchanged `computeProjectSpi` per project — same
+      numbers, far fewer round trips at 20+ active projects.
+- [x] `RowFillMarker` (every row on the marking canvas) wrapped in
+      `React.memo` — every prop already a primitive, a free win at
+      scale on large drawings.
+- [x] New shared `components/loading-panel.tsx` + `loading.tsx` for the
+      5 heaviest routes (scheduler/[projectId], materials,
+      field/[projectId], dashboard, mark).
+- [x] Real mobile-layout bug found via a genuine 390px-viewport pass
+      (screenshotted every major screen) and fixed: `(protected)/
+      layout.tsx`'s `<main>` had no `min-w-0`, so a flex item
+      containing a wide table refused to shrink, pushing the entire
+      page wider than the viewport — one root-level fix. Also fixed a
+      long packing-slip filename missing `break-all`, and a
+      non-wrapping control row on the Team page.
+- [x] Vercel production env vars confirmed and completed:
+      `RESEND_API_KEY`/`CRON_SECRET`/`ANTHROPIC_API_KEY` had been added
+      locally during Batch 3 but never pushed to Production — pushed
+      via the CLI and redeployed. Live-verified `/login`,
+      `/manifest.webmanifest`, `/sw.js` all 200, and the cron route's
+      bearer check now correctly 401s an unauthenticated request.
+- [x] `npm run lint`/`typecheck`/`build` all pass.
+- [x] Full E2E suite green: 26 passed, 2 intentionally skipped —
+      including `dashboard-flow.spec.ts`, confirming the batched
+      dashboard rewrite produces identical results. Found and fixed a
+      real regression the new aria-labels caused in
+      `field-flow.spec.ts` (locator matching the old "+" glyph).
 
 ## Batch 3, Sub-phase G — CSV/XLSX import, row-range duplication, materials bulk ops, drawing versioning ✅ done (2026-07-06)
 

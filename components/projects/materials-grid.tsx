@@ -465,6 +465,7 @@ export function MaterialsGrid({
                       type="button"
                       variant="outline"
                       size="sm"
+                      aria-label={`Delete ${material.name}`}
                       disabled={isPending}
                       onClick={() =>
                         run(() => deleteMaterial(material.id, projectId))

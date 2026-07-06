@@ -605,6 +605,62 @@ Full design reasoning in `docs/DECISIONS.md` ADR-035.
   thumbnail) since these are already-signed, already-sized URLs from
   Supabase Storage, not a `next/image`-optimizable path.
 
+## Cross-cutting polish (Batch 3, Sub-phase I, 2026-07-06)
+
+Full design reasoning in `docs/DECISIONS.md` ADR-036.
+
+- **`app/error.tsx`** — a root-level error boundary alongside the
+  existing `app/(protected)/error.tsx`. Next.js excludes a route
+  segment's own `layout.tsx` from that segment's `error.tsx` boundary,
+  so a failure in `app/(protected)/layout.tsx` itself (the auth/profile
+  lookup that runs on every protected request) was never actually
+  caught by the themed one; `/portal/[token]` sits outside
+  `(protected)` entirely and had no boundary anywhere. This one file
+  closes both gaps. Shows a generic "please try again" message, not
+  `error.message` — unlike the protected boundary (always an
+  already-authenticated org member), this can fire before we know who's
+  asking, including on the public customer portal.
+- **`components/loading-panel.tsx`** — one shared spinner+label
+  component, reused by five new `loading.tsx` files
+  (`scheduler/[projectId]`, project `materials`, `field/[projectId]`,
+  `app/dashboard`, project `mark`) — the routes with the heaviest
+  parallel-query counts before first paint. A plain spinner, not a
+  bespoke per-route skeleton — matching skeletons to each page's exact
+  shape is ongoing design work disproportionate to "stop showing a
+  blank screen."
+- **`lib/dashboard/queries.ts#listActiveProjectsForDashboard`** —
+  rewritten from N+1 (per-project `listTargets`/`getDailyActuals`/
+  latest-estimate fetches, ~4 round trips × active-project-count) to a
+  small constant number of batched `.in(projectIds)` queries, grouped
+  by `project_id` in memory into the exact shapes
+  (`Tables<"targets">[]`, `Map<string, number>`) the pre-existing,
+  **unchanged** `computeProjectSpi` already expects — same computation
+  called once per project from already-fetched data, so the numbers
+  can't drift from what a per-project Scheduler page would show, just
+  far fewer round trips. The Scheduler calendar's smaller, same-shaped
+  N+1 (`getProjectDailyLaborLoad` per project in one week's
+  assignments) was deliberately left as-is — bounded by a week's actual
+  schedule, not total company project count, so it doesn't share the
+  unbounded-at-scale risk.
+- **`components/projects/row-fill-marker.tsx`** wrapped in
+  `React.memo` — every prop is a primitive (string/number/boolean), so
+  a shallow-equality skip is always safe; on a 100+-row drawing, this
+  is the difference between one row re-rendering on a drag/resize tick
+  and all of them re-rendering.
+- **Mobile layout fix, root cause not per-page patches**:
+  `app/(protected)/layout.tsx`'s `<main>` had no `min-w-0` — a flex
+  item containing a wide table (the materials grid) refused to shrink
+  below the table's intrinsic content width, pushing the *entire page*
+  wider than the viewport, not just the grid. One `min-w-0` on `<main>`
+  fixes this for every current and future wide-content page at once.
+  Found via a real 390px-viewport Playwright pass (screenshots +
+  `document.documentElement.scrollWidth` checks across every major
+  screen), not simulated/assumed. Also fixed in the same pass: a long
+  packing-slip filename with no `break-all` (one unbroken string with
+  no natural wrap point forces its container wider) and a non-wrapping
+  control row on the Team page (`components/team/team-member-row.tsx`
+  — added `flex-wrap`).
+
 ## Field / crew app (Phase 6, 2026-07-03; taken to flagship 2026-07-06)
 
 `/field` (active projects + "My assignments today,"
@@ -1389,6 +1445,17 @@ short:
     check the actual lowercase DOM text, scoped to the specific token's
     own row (`page.locator("li").filter({hasText: "/portal/"})`) rather
     than an unscoped page-wide match.
+- Regression found and fixed in `field-flow.spec.ts` (2026-07-06, Sub-
+  phase I's accessibility pass): adding `aria-label="Increase quantity"`
+  to `material-stepper.tsx`'s "+" button changed its accessible name
+  from the bare glyph to that label — correct (a lone "+" isn't a
+  meaningful name for a screen reader), but broke a
+  `getByRole("button", { name: "+", exact: true })` locator that had
+  been matching the glyph as the button's only-ever accessible name.
+  Fixed the test to match the new, real accessible name rather than
+  reverting the accessibility fix — a reminder that adding an
+  `aria-label` to a previously unlabeled element is a real, potentially
+  test-visible change to that element's identity, not a no-op.
 
 This suite is what caught ADR-016's env var bug — self-review and
 `next build` both stayed clean through Phases 3–5 because neither

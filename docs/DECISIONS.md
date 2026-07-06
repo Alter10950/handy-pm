@@ -5,6 +5,115 @@ Consequences.
 
 ---
 
+## ADR-036: Sub-phase I — polish/QA/perf pass, Vercel production env vars, final Batch 3 deploy
+
+**Decision date:** 2026-07-06
+
+**Context:** Batch 3's final sub-phase: loading/empty/error states, a
+mobile pass, accessibility basics, performance at 20+ projects, and a
+final production deploy with every env var actually live on Vercel —
+not just in `.env.local`.
+
+**Choice — audit first (a read-only research pass), then fix only what's
+concrete and proportionate, not a rewrite:** dispatched a research
+agent to map missing loading states, error-boundary gaps, accessibility
+misses, and performance risk points across the whole app, all with
+exact file:line references. Of its findings, fixed: two structural
+error-boundary gaps (see below), five icon/glyph-only buttons missing
+`aria-label`, the dashboard's self-documented N+1 query, a memoization
+win on the highest-traffic canvas component, and five `loading.tsx`
+files for the heaviest routes. Deliberately did NOT attempt: rewriting
+~120 raw `throw error` call sites across `lib/` to catch and rewrap
+every message (systemic, consistent throughout the codebase, not a
+regression — genuinely disproportionate scope for a polish pass), or
+adding pagination to the plain Projects list (flagged by the audit
+itself as unlikely to be the actual bottleneck at 20-50 projects).
+
+**Choice — a root `app/error.tsx`, not modifying `(protected)/error.tsx`:**
+Next.js excludes a route segment's own `layout.tsx` from that segment's
+`error.tsx` boundary, so a failure in `app/(protected)/layout.tsx`
+itself (the auth/profile lookup running on every protected request)
+was never actually caught by the existing themed boundary — and
+`/portal/[token]`, a fully public route outside `(protected)`
+entirely, had no error boundary anywhere in its tree at all. A single
+root-level `error.tsx` closes both gaps at once. It deliberately shows
+a generic "please try again" message, not `error.message` the way
+`(protected)/error.tsx` does — that existing file only ever fires for
+an already-authenticated, already-vetted org member, where showing the
+real message is a reasonable debuggability tradeoff; this new one can
+fire before we even know who's asking, including on the fully public
+customer portal, so a raw driver/Postgres message is never appropriate
+here.
+
+**Choice — batch the dashboard's per-project queries in memory, not by
+changing what `computeProjectSpi` does:** `listActiveProjectsForDashboard`
+was deliberately N+1 since sub-phase E specifically to reuse the exact
+per-project scheduler functions and guarantee identical SPI numbers to
+the per-project Scheduler page — a real correctness tradeoff, not an
+oversight, but the audit correctly flagged ~4 round trips per active
+project as a genuine risk at 20+. Fixed by fetching targets/rows/
+installs/estimates for every active project in one `.in(...)` query
+each, grouping the results by `project_id` in memory into the exact
+same shapes (`Tables<"targets">[]`, `Map<string, number>`) the
+pre-existing, unchanged `computeProjectSpi` already expects, then
+calling that same function once per project from the already-fetched
+data. Same computation, zero drift risk, a small constant number of
+round trips instead of ~4N. Left the Scheduler calendar's smaller,
+structurally-identical N+1 (`getProjectDailyLaborLoad` per project
+appearing in one week's assignments) as-is — naturally bounded by a
+week's actual schedule, not by total company project count, so it
+doesn't have the same unbounded-at-scale shape.
+
+**Choice — plain spinner `loading.tsx` files, not bespoke per-route
+skeletons:** a hand-built skeleton matching each route's exact layout
+is real, additional design work each time a page's shape changes,
+disproportionate to what "stop showing a blank screen" needs. One
+shared `LoadingPanel` (spinner + label) reused across the five heaviest
+routes (`scheduler/[projectId]`, materials, `field/[projectId]`,
+dashboard, mark) beats no loading state at all without taking on that
+maintenance cost.
+
+**Consequences:** Fixed a real mobile-layout bug found via a live
+390px-viewport pass (not simulated): `app/(protected)/layout.tsx`'s
+`<main>` had no `min-w-0`, so a flex item containing a wide table
+refused to shrink below the table's intrinsic width, forcing the
+*entire page* wider than the viewport on any project with a materials
+grid — one root-level fix, not a per-page patch. Also found and fixed:
+a long packing-slip filename with no `break-all` forcing the same kind
+of page-wide overflow, and a non-wrapping control row on the Team page
+overflowing on narrow screens.
+
+**Vercel production:** confirmed only the three original Phase-1 env
+vars were live on Production — `RESEND_API_KEY`, `CRON_SECRET`, and
+`ANTHROPIC_API_KEY` (all added to `.env.local` during Batch 3, never
+pushed) were missing entirely, silently degrading every feature that
+depends on them in production (emailed reports, the cron routes, AI
+packing-slip/voice-note/estimate-explain). Pushed all three via
+`vercel env add <name> production`, piping each value directly from
+`.env.local` so it never appeared in this session's own output, then
+triggered a fresh `vercel deploy --prod` so the running deployment
+actually picks them up (env var changes don't retroactively apply to
+an already-built deployment). Verified live: `CRON_SECRET`'s bearer
+check now correctly rejects an unauthenticated request with 401
+(previously a no-op pass-through, since the check only activates once
+the env var exists). `RESEND_FROM_EMAIL` deliberately left unset —
+`lib/reports/send.ts` already falls back to Resend's own
+sandbox-safe default address, so setting it would be redundant until
+the user verifies a real sending domain (an existing, standing
+NEEDS-YOU item, not new).
+
+**Bug found via the new E2E full-suite run (test-only):** the
+`material-stepper.tsx` quantity buttons' new `aria-label`s changed
+their accessible name from the raw "+"/"−" glyphs to "Increase/Decrease
+quantity" — correct and intentional (a bare "+" is not a meaningful
+name for a screen reader), but it broke `field-flow.spec.ts`'s
+`getByRole("button", { name: "+", exact: true })` locator, which had
+been matching the glyph as the button's only-ever accessible name.
+Fixed the test to match the new, real accessible name rather than
+reverting the accessibility fix.
+
+---
+
 ## ADR-035: Sub-phase H — customer portal (`/portal/[token]`), share-link + photo-approval office UI
 
 **Decision date:** 2026-07-06

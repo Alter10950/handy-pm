@@ -242,6 +242,7 @@ export function PackingSlipExtractDialog({
                               type="button"
                               variant="outline"
                               size="sm"
+                              aria-label={`Remove line ${row.description || row.code || index + 1}`}
                               className="text-destructive"
                               onClick={() => removeRow(index)}
                             >

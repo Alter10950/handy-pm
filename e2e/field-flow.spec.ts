@@ -117,7 +117,9 @@ test("field: pick project, select crew, log materials, report a blocker, offline
     await page.getByText("Row 1", { exact: true }).click();
     await expect(page.getByText("0 / 50")).toBeVisible();
 
-    await page.getByRole("button", { name: "+", exact: true }).click(); // qty 1 -> 2
+    // Accessible name is "Increase quantity" (an aria-label added in the
+    // Sub-phase I accessibility pass), not the raw "+" glyph it displays.
+    await page.getByRole("button", { name: "Increase quantity" }).click(); // qty 1 -> 2
     await page.getByRole("button", { name: "Log +2" }).click();
     await expect(page.getByText("Logged")).toBeVisible({ timeout: 10_000 });
 

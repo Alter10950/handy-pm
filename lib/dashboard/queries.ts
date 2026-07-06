@@ -1,13 +1,9 @@
 import { todayIso } from "@/lib/dates";
 import { getCrewRatesLookup } from "@/lib/estimating/queries";
-import {
-  getDailyActuals,
-  listOrgAssignmentsInRange,
-  listTargets,
-} from "@/lib/scheduler/queries";
+import { listOrgAssignmentsInRange } from "@/lib/scheduler/queries";
 import { classifySpi, computeProjectSpi, type RiskTier } from "@/lib/scheduler/spi";
 import { createClient } from "@/lib/supabase/server";
-import type { BlockerCode } from "@/lib/supabase/database.types";
+import type { BlockerCode, Tables } from "@/lib/supabase/database.types";
 
 export interface DashboardProject {
   projectId: string;
@@ -21,13 +17,16 @@ export interface DashboardProject {
 }
 
 // The office dashboard's main list — every active project with enough
-// signal to triage at a glance. Deliberately N+1 (one targets/actuals
-// fetch per project via the existing per-project functions, rather than
-// hand-rolling a batched cross-project query) — a company's count of
-// simultaneously active projects is small, and reusing the exact
-// functions the per-project Scheduler page already relies on keeps this
-// dashboard's SPI numbers guaranteed identical, not a second
-// implementation that could quietly drift from the first.
+// signal to triage at a glance. Was deliberately N+1 (one targets/actuals
+// fetch per project via the existing per-project scheduler functions) to
+// guarantee this dashboard's SPI numbers stayed identical to the
+// per-project Scheduler page rather than risk a second computation
+// quietly drifting from the first — correct, but ~4 round trips per
+// active project, real at 20+. Fixed by batch-fetching targets/rows/
+// installs/estimates for every project in one query each (`.in(...)`),
+// grouping in memory, then calling the SAME `computeProjectSpi` per
+// project from that already-fetched data — identical computation, zero
+// drift risk, just far fewer round trips.
 export async function listActiveProjectsForDashboard(): Promise<
   DashboardProject[]
 > {
@@ -40,35 +39,66 @@ export async function listActiveProjectsForDashboard(): Promise<
   if (error) throw error;
   if (projects.length === 0) return [];
 
+  const projectIds = projects.map((p) => p.project_id);
   const today = todayIso();
-  const [spiEntries, assignmentsToday, estimateEntries] = await Promise.all([
-    Promise.all(
-      projects.map(async (p) => {
-        const [targets, actuals] = await Promise.all([
-          listTargets(p.project_id),
-          getDailyActuals(p.project_id),
-        ]);
-        return [p.project_id, computeProjectSpi(targets, actuals)] as const;
-      })
-    ),
-    listOrgAssignmentsInRange(today, today),
-    Promise.all(
-      projects.map(async (p) => {
-        const { data, error: estimateError } = await supabase
-          .from("project_estimates")
-          .select("forecast_finish")
-          .eq("project_id", p.project_id)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        if (estimateError) throw estimateError;
-        return [p.project_id, data?.forecast_finish ?? null] as const;
-      })
-    ),
-  ]);
 
-  const spiByProject = new Map(spiEntries);
-  const forecastByProject = new Map(estimateEntries);
+  const [
+    { data: allTargets, error: targetsError },
+    { data: allRows, error: rowsError },
+    assignmentsToday,
+    { data: allEstimates, error: estimatesError },
+  ] = await Promise.all([
+    supabase.from("targets").select("*").in("project_id", projectIds),
+    supabase.from("rows").select("id, project_id").in("project_id", projectIds),
+    listOrgAssignmentsInRange(today, today),
+    supabase
+      .from("project_estimates")
+      .select("project_id, forecast_finish, created_at")
+      .in("project_id", projectIds)
+      .order("created_at", { ascending: false }),
+  ]);
+  if (targetsError) throw targetsError;
+  if (rowsError) throw rowsError;
+  if (estimatesError) throw estimatesError;
+
+  const rowIds = allRows.map((r) => r.id);
+  const { data: allInstalls, error: installsError } =
+    rowIds.length > 0
+      ? await supabase
+          .from("installs")
+          .select("row_id, installed_on, qty")
+          .in("row_id", rowIds)
+      : { data: [] as { row_id: string; installed_on: string; qty: number }[], error: null };
+  if (installsError) throw installsError;
+
+  const targetsByProject = new Map<string, Tables<"targets">[]>();
+  for (const target of allTargets) {
+    const list = targetsByProject.get(target.project_id) ?? [];
+    list.push(target);
+    targetsByProject.set(target.project_id, list);
+  }
+
+  const projectIdByRow = new Map(allRows.map((r) => [r.id, r.project_id]));
+  const actualsByProject = new Map<string, Map<string, number>>();
+  for (const install of allInstalls) {
+    const projectId = projectIdByRow.get(install.row_id);
+    if (!projectId) continue;
+    const dateMap = actualsByProject.get(projectId) ?? new Map<string, number>();
+    dateMap.set(
+      install.installed_on,
+      (dateMap.get(install.installed_on) ?? 0) + install.qty
+    );
+    actualsByProject.set(projectId, dateMap);
+  }
+
+  // Ordered newest-first, so the first row seen per project is its latest.
+  const forecastByProject = new Map<string, string | null>();
+  for (const estimate of allEstimates) {
+    if (!forecastByProject.has(estimate.project_id)) {
+      forecastByProject.set(estimate.project_id, estimate.forecast_finish);
+    }
+  }
+
   const crewNamesByProject = new Map<string, Set<string>>();
   for (const a of assignmentsToday) {
     const set = crewNamesByProject.get(a.projectId) ?? new Set<string>();
@@ -77,7 +107,10 @@ export async function listActiveProjectsForDashboard(): Promise<
   }
 
   return projects.map((p) => {
-    const spi = spiByProject.get(p.project_id) ?? null;
+    const spi = computeProjectSpi(
+      targetsByProject.get(p.project_id) ?? [],
+      actualsByProject.get(p.project_id) ?? new Map()
+    );
     return {
       projectId: p.project_id,
       name: p.name,

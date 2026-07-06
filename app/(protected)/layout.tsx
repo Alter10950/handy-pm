@@ -33,7 +33,7 @@ export default async function ProtectedLayout({
         userEmail={user.email ?? "Signed in"}
         role={profile?.role ?? null}
       />
-      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">
+      <main className="mx-auto w-full min-w-0 max-w-5xl flex-1 px-4 py-8">
         {children}
       </main>
     </div>
