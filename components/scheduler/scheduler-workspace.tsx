@@ -3,10 +3,13 @@
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
+import { CrewPerformancePanel } from "@/components/scheduler/crew-performance-panel";
+import { ProjectTimeline } from "@/components/scheduler/project-timeline";
 import { ScheduleBuilder } from "@/components/scheduler/schedule-builder";
 import { WeekView } from "@/components/scheduler/week-view";
 import { Input } from "@/components/ui/input";
 import { generateTargets, upsertPlannedDays } from "@/lib/scheduler/actions";
+import type { PhaseTimelineEntry } from "@/lib/scheduler/queries";
 import type { Tables, Views } from "@/lib/supabase/database.types";
 
 function todayIso() {
@@ -25,6 +28,8 @@ export function SchedulerWorkspace({
   targets,
   remaining,
   dailyActuals,
+  crewDailyActuals,
+  phaseTimelines,
 }: {
   project: Tables<"projects">;
   progress: Views<"project_progress"> | null;
@@ -37,6 +42,8 @@ export function SchedulerWorkspace({
   targets: Tables<"targets">[];
   remaining: { materialId: string; name: string; remaining: number }[];
   dailyActuals: Record<string, number>;
+  crewDailyActuals: Record<string, Record<string, number>>;
+  phaseTimelines: PhaseTimelineEntry[];
 }) {
   const router = useRouter();
   const [plannedDays, setPlannedDays] = useState(
@@ -167,6 +174,19 @@ export function SchedulerWorkspace({
         scheduledDates={schedule.map((entry) => entry.work_date)}
         targetsByDate={targetsByDate}
         dailyActuals={dailyActuals}
+      />
+
+      <ProjectTimeline
+        phases={phases}
+        timelines={phaseTimelines}
+        crews={crews}
+      />
+
+      <CrewPerformancePanel
+        crews={crews}
+        assignments={assignments}
+        targetsByDate={targetsByDate}
+        crewDailyActuals={crewDailyActuals}
       />
     </div>
   );

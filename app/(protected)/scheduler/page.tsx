@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { CrewManager } from "@/components/scheduler/crew-manager";
@@ -47,6 +48,15 @@ export default async function SchedulerPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-lg font-semibold text-foreground">Scheduler</h1>
+        <Link
+          href="/scheduler/calendar"
+          className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground"
+        >
+          📅 Crew Calendar
+        </Link>
+      </div>
       <div>
         <h2 className="mb-3 text-lg font-semibold text-foreground">Crews</h2>
         <CrewManager crews={crews} members={members} />

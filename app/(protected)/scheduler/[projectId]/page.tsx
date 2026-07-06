@@ -5,7 +5,9 @@ import { listCrewMembers, listCrews } from "@/lib/crews/queries";
 import { listPhases } from "@/lib/phases/queries";
 import { getProject, listRowProgress } from "@/lib/projects/queries";
 import {
+  getCrewDailyActuals,
   getDailyActuals,
+  getPhaseTimelines,
   getProjectWithSchedule,
   listAssignments,
   listProjectSchedule,
@@ -54,6 +56,8 @@ export default async function SchedulerProjectPage({
     targets,
     remaining,
     dailyActuals,
+    crewDailyActuals,
+    phaseTimelines,
   ] = await Promise.all([
     getProjectWithSchedule(projectId),
     listRowProgress(projectId),
@@ -64,6 +68,8 @@ export default async function SchedulerProjectPage({
     listTargets(projectId),
     listRemainingByMaterial(projectId),
     getDailyActuals(projectId),
+    getCrewDailyActuals(projectId),
+    getPhaseTimelines(projectId),
   ]);
   const members = await listCrewMembers(crews.map((crew) => crew.id));
 
@@ -80,6 +86,13 @@ export default async function SchedulerProjectPage({
       targets={targets}
       remaining={remaining}
       dailyActuals={Object.fromEntries(dailyActuals)}
+      crewDailyActuals={Object.fromEntries(
+        [...crewDailyActuals.entries()].map(([crewId, perDate]) => [
+          crewId,
+          Object.fromEntries(perDate),
+        ])
+      )}
+      phaseTimelines={phaseTimelines}
     />
   );
 }

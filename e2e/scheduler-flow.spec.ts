@@ -200,4 +200,53 @@ test("scheduler: create crew, build schedule, generate targets, assign crew to a
       })
       .toBe(0);
   });
+
+  await test.step("Gantt timeline and per-crew SPI render once there's a phase-tagged, assigned, installed-against row", async () => {
+    // Phase assignment UI is phases-flow.spec.ts's own concern — this
+    // just needs a phase-tagged row with an assignment + an install to
+    // prove the Timeline (date range inferred from assignments to that
+    // phase's rows) and per-crew SPI (actual vs. this day's attributed
+    // target) both render for real data, not just "no crash."
+    const { data: phase, error: phaseError } = await admin
+      .from("phases")
+      .insert({ project_id: projectId!, name: "E2E Phase", color: "#f2c00e" })
+      .select("id")
+      .single();
+    if (phaseError) throw phaseError;
+
+    const { data: row1 } = await admin
+      .from("rows")
+      .select("id")
+      .eq("project_id", projectId!)
+      .eq("label", "Row 1")
+      .single();
+    await admin.from("rows").update({ phase_id: phase!.id }).eq("id", row1!.id);
+
+    const { data: material } = await admin
+      .from("materials")
+      .select("id")
+      .eq("project_id", projectId!)
+      .single();
+
+    await admin.from("assignments").insert({
+      project_id: projectId!,
+      crew_id: crewId!,
+      row_id: null,
+      work_date: todayIso(),
+    });
+    await admin.from("installs").insert({
+      row_id: row1!.id,
+      material_id: material!.id,
+      qty: 5,
+      crew_id: crewId!,
+      installed_on: todayIso(),
+    });
+
+    await page.reload();
+    await expect(page.getByText("Timeline")).toBeVisible();
+    await expect(page.getByText("E2E Phase")).toBeVisible();
+    const performancePanel = page.getByTestId("crew-performance-panel");
+    await expect(performancePanel).toBeVisible();
+    await expect(performancePanel.getByText(CREW_NAME)).toBeVisible();
+  });
 });

@@ -84,6 +84,68 @@ export async function deleteAssignment(
   revalidateScheduler(projectId);
 }
 
+// Drag-and-drop move on the cross-project calendar — scoped to
+// whole-project assignments (row_id null) only; a rows/phase-scoped
+// assignment is really N underlying rows (one per row_id, see
+// createAssignment) and moving those as a batch via a single drag
+// isn't what the calendar's simple crew-x-day grid models. Finer-grained
+// reassignment stays in the per-project AssignCrewForm dialog.
+export async function moveAssignment(
+  assignmentId: string,
+  newCrewId: string,
+  newWorkDate: string
+): Promise<void> {
+  await requireRole(SCHEDULERS);
+  const supabase = await createClient();
+  const { data: existing, error: findError } = await supabase
+    .from("assignments")
+    .select("project_id")
+    .eq("id", assignmentId)
+    .single();
+  if (findError) throw findError;
+
+  const { error } = await supabase
+    .from("assignments")
+    .update({ crew_id: newCrewId, work_date: newWorkDate })
+    .eq("id", assignmentId);
+  if (error) throw error;
+  revalidateScheduler(existing.project_id);
+}
+
+export interface DoubleBookingHit {
+  projectId: string;
+  projectName: string;
+}
+
+// Read-only pre-flight check before creating/moving an assignment — a
+// plain read (assignments_select has no role restriction), not gated
+// like the writes above. Excludes the assignment being moved itself, so
+// dropping a chip back on its own cell doesn't warn against itself.
+export async function checkDoubleBooking(
+  crewId: string,
+  workDate: string,
+  excludeAssignmentId?: string
+): Promise<DoubleBookingHit[]> {
+  const supabase = await createClient();
+  let query = supabase
+    .from("assignments")
+    .select("id, project_id")
+    .eq("crew_id", crewId)
+    .eq("work_date", workDate);
+  if (excludeAssignmentId) query = query.neq("id", excludeAssignmentId);
+  const { data, error } = await query;
+  if (error) throw error;
+  if (data.length === 0) return [];
+
+  const projectIds = [...new Set(data.map((a) => a.project_id))];
+  const { data: projects, error: projectsError } = await supabase
+    .from("projects")
+    .select("id, name")
+    .in("id", projectIds);
+  if (projectsError) throw projectsError;
+  return projects.map((p) => ({ projectId: p.id, projectName: p.name }));
+}
+
 // targets has no unique constraint on (project_id, crew_id, work_date,
 // material_id) — find-or-update-or-insert by hand, same reasoning as
 // day_logs' upsert (and crew_id is nullable here too).

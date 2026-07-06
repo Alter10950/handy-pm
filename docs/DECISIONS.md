@@ -5,6 +5,88 @@ Consequences.
 
 ---
 
+## ADR-029: Sub-phase C — cross-project crew calendar (native HTML5 DnD), interim labor-unit capacity, phase-inferred Gantt
+
+**Decision date:** 2026-07-06
+
+**Context:** Batch 3, sub-phase C: a crew calendar across all projects
+(not just the existing per-project week view), drag-and-drop assignment
+with double-booking warnings, a capacity view (planned load vs.
+available labor-hours), per-crew SPI alongside the existing per-project
+figure, and a Gantt-style project timeline. Several of these explicitly
+depend on "the estimator" (learned per-crew labor rates), which is
+sub-phase D — the next sub-phase, not this one.
+
+**Choice — native HTML5 drag-and-drop, no new dependency:** dragging a
+project chip onto a crew's day cell (create), or an existing
+whole-project assignment chip onto a different cell (move), is a
+standard `draggable` + `dragstart`/`dragover`/`drop` interaction — a
+generic DnD library would be solving a problem the platform already
+handles natively. This is a different call than `row-stage.tsx`'s
+hand-rolled *pointer* events (justified there by needing precise
+zoom-aware geometry math no library would get right); a calendar cell
+grid has no such requirement. Scoped to whole-project assignments
+(`row_id: null`) only — a rows/phase-scoped assignment is really N
+underlying `assignments` rows (one per row, see `createAssignment`), and
+moving that batch atomically via one drag isn't what the calendar's
+simple crew-×-day grid models; finer-grained reassignment stays in the
+per-project `AssignCrewForm` dialog. Verified with Playwright's
+`locator.dragTo()`, which correctly drives real `dragstart`/`dragover`/
+`drop` events against this implementation in Chromium — confirmed
+empirically, not assumed.
+
+**Choice — double-booking is a warning (native `confirm()`), not a hard
+block:** a crew genuinely can split a day across two projects in rare
+cases; the common case is a mistake, so `checkDoubleBooking` runs before
+every create/move and a plain `window.confirm()` names the conflicting
+project(s) before proceeding. No custom modal — a native confirm is
+enough for a "did you mean to do this" gate, and one fewer component to
+maintain.
+
+**Choice — capacity uses `materials.labor_units` directly (1:1 with
+hours) as an explicit placeholder, not a blocking dependency on
+sub-phase D:** "planned load" per crew-day = a project's remaining labor
+units (`assigned − installed` per material, weighted by
+`labor_units` — mirroring `listRemainingByMaterial`'s existing
+"remaining" definition, just labor-weighted) spread evenly across its
+remaining scheduled days (same "no rule specified, split evenly"
+reasoning `generateTargets` already uses for material qty, ADR-022),
+then split further across however many crews share that project on that
+day. "Capacity" = `crew.size × 8` hours. `labor_units` defaults to `1`
+— read as "one standard hour" — so units and hours are numerically
+equal until sub-phase D replaces this flat assumption with real,
+learned `crew_rates.units_per_hour`. This is the ordering dependency the
+batch's own sub-phase sequence implied (D explicitly "feeds the
+scheduler's targets") — built now with an honest, clearly-documented
+placeholder rather than blocked on work two sub-phases don't share an
+owner for.
+
+**Choice — per-crew SPI uses the identical even-split attribution as
+capacity, applied to `targets` instead of labor units:** `targets`
+stays project-wide (ADR-022 — never split per crew at generation time),
+so a crew's "planned" for SPI purposes is that day's project target
+divided by however many crews were assigned that day; "actual" is their
+own `installs.crew_id`-scoped total (already tracked, no schema change).
+Same approximation, same justification, applied to a different number.
+
+**Choice — the Gantt timeline infers each phase's date range from
+assignments, not a stored start/end:** phases have no date columns of
+their own (`phases` is just name/color/sort_order). `getPhaseTimelines`
+walks `assignments` joined through `rows.phase_id` (a whole-project
+assignment counts toward every phase that has any row) and takes the
+min/max `work_date` per phase. A phase with no assignments yet simply
+has no bar — an honest "nothing scheduled for this yet," not a
+zero-width placeholder bar.
+
+**Consequences:** the cross-project calendar, capacity view, and Gantt
+timeline are all built against data that already exists — no schema
+change needed for sub-phase C itself. The capacity/SPI numbers are
+real and useful (a "planned vs. actual" signal exists today), but
+explicitly approximate — sub-phase D's per-crew learned rates will
+replace the flat `labor_units`-as-hours assumption with something more
+accurate, and that upgrade should require no changes to the calendar or
+Gantt UI, only to what feeds their existing props.
+
 ## ADR-028: Sub-phase B — Field to flagship: assignments-today, day-summary confirmation, voice-to-note via browser STT + Claude cleanup
 
 **Decision date:** 2026-07-06

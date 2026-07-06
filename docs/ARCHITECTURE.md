@@ -485,7 +485,7 @@ taps a crew member expects to feel instant.
   logging as is `localStorage` state the server can't know ahead of
   render — the client matches its own `crewId` against the list instead.
 
-## Scheduler (Phase 7, 2026-07-03; gated to owner/pm/scheduler 2026-07-06)
+## Scheduler (Phase 7, 2026-07-03; gated to owner/pm/scheduler + taken to flagship 2026-07-06)
 
 `/scheduler` (`app/(protected)/scheduler/page.tsx`) renders `CrewManager`
 (crew CRUD: name/size/cost-per-hour, add/remove `crew_members`; `crews`
@@ -542,12 +542,56 @@ equivalent view is "My assignments today" in Field.
   planned (sum of all targets) through today, green ≥1.0 / amber ≥0.8 /
   red below. Standard EVM-style thresholds, not numbers from the spec.
 
-Crew rate tracking (`crew_rates.units_per_hour`) isn't built — the schema
-anticipates it as a *derived* metric (actual installed ÷ actual hours
-from `day_logs`/`installs`), a non-trivial aggregation pipeline of its
-own that isn't a named Sub-phase C requirement; targets are generated
-from remaining-qty ÷ remaining-days only, not adjusted by a crew's
-historical rate.
+Crew rate tracking (`crew_rates.units_per_hour`) isn't built yet — see
+below, this is exactly what sub-phase D adds.
+
+### Cross-project crew calendar, capacity, per-crew SPI, Gantt timeline (2026-07-06)
+
+`/scheduler/calendar` (`app/(protected)/scheduler/calendar/page.tsx` +
+`components/scheduler/crew-calendar.tsx`) is the cross-project view the
+per-project `WeekView` above can't be — a crew-×-day grid across every
+active project for a given week (`?start=` search param drives the
+visible week server-side; `WeekView`'s all-in-one-project data fetch
+doesn't scale to "every project," so this page re-fetches per week
+instead of holding a wide window client-side).
+
+- **Native HTML5 drag-and-drop, no library.** Project chips (a sidebar
+  of active projects) are `draggable`; dropping one on a crew's day cell
+  calls `createAssignment` (whole-project scope). Existing assignment
+  chips are also `draggable` (only when `row_id` is null — a
+  rows/phase-scoped assignment is really N underlying `assignments` rows,
+  and moving that batch via one drag isn't what this grid models);
+  dropping one on a different cell calls the new `moveAssignment`. Before
+  either, `checkDoubleBooking(crewId, workDate, excludeAssignmentId)`
+  runs — a plain read, not role-gated like the writes — and a
+  `window.confirm()` names any conflicting project(s) the crew is
+  already on that day; declining leaves everything unchanged. See
+  ADR-029 for why this is native DnD rather than a library, unlike
+  nothing else in the app using one.
+- **Capacity** — each cell shows "planned units / capacity hours."
+  Capacity is `crew.size × 8`. Planned load is
+  `getProjectDailyLaborLoad` (a project's remaining labor units —
+  `assigned − installed` per material, weighted by
+  `materials.labor_units`, mirroring `listRemainingByMaterial`'s
+  "remaining" definition — spread across its remaining scheduled days)
+  divided by however many crews share that project on that day (same
+  "no rule specified, split evenly" reasoning as `generateTargets`).
+  `labor_units` defaults to `1`, read as "one standard hour," so this is
+  an explicit, honest placeholder until sub-phase D's learned per-crew
+  rates replace the flat 1:1 assumption — see ADR-029.
+- **Per-crew SPI** (`components/scheduler/crew-performance-panel.tsx`,
+  shown on the per-project `SchedulerWorkspace`, not the cross-project
+  calendar) — same even-split attribution, applied to `targets` (still
+  project-wide per ADR-022) instead of labor units: a crew's "planned"
+  for a day is that day's target divided by however many crews were
+  assigned that day; "actual" is their own `installs.crew_id`-scoped
+  total (`getCrewDailyActuals`).
+- **Gantt-style timeline** (`components/scheduler/project-timeline.tsx`,
+  also on `SchedulerWorkspace`) — `getPhaseTimelines` infers each
+  phase's date range from `assignments` joined through `rows.phase_id`
+  (a whole-project assignment counts toward every phase that has any
+  row); phases have no date columns of their own. A phase with no
+  assignments yet has no bar at all, not a zero-width placeholder.
 
 ## Packing-slip AI extraction (Sub-phase F, 2026-07-03)
 
@@ -704,6 +748,27 @@ short:
   correctly got `401` — proving the server-side guard is sound, not the
   test's premise); resolved by using plain Node `fetch()`, which has no
   ambient cookie jar of any kind, for that one assertion.
+- `e2e/crew-calendar-flow.spec.ts` (2026-07-06) — drags a project chip
+  onto a crew's day cell via Playwright's `locator.dragTo()` (verified to
+  correctly drive real `dragstart`/`dragover`/`drop` events against this
+  app's native-HTML5-DnD implementation, not assumed), confirms the
+  resulting assignment against the DB, then drags a second project onto
+  the same cell and confirms the double-booking `window.confirm()`
+  names the first project, and confirms removing one assignment leaves
+  the other intact. Found a real test-timing issue: the drop handler is
+  async (awaits `checkDoubleBooking` before ever calling `confirm()`),
+  so `dragTo()` resolving doesn't mean the dialog has appeared yet — a
+  `page.once("dialog", ...)` registered before the drag raced a
+  synchronous assertion right after it and read an empty message; fixed
+  by `Promise.all`-ing `page.waitForEvent("dialog")` with the drag call
+  itself, so the assertion genuinely waits for the dialog to exist.
+- `e2e/scheduler-flow.spec.ts` extended (2026-07-06) — tags a row with a
+  phase, assigns it, and logs an install, then confirms both the Gantt
+  timeline (a labeled bar) and the crew performance panel (a real SPI
+  figure) render from that data — scoped via a new
+  `data-testid="crew-performance-panel"` rather than a `hasText` div
+  locator, avoiding the "matches every ancestor" bug class documented
+  elsewhere in this list.
 
 This suite is what caught ADR-016's env var bug — self-review and
 `next build` both stayed clean through Phases 3–5 because neither
@@ -745,10 +810,9 @@ order:
     RPC (see ADR-027 for why a narrow `security definer` function, not a
     broader RLS policy).
 11. `day_log_photos.sql` (2026-07-06) — `day_logs.photo_paths text[]`.
-    **Not yet applied live** as of this writing — a persistent
-    Supabase-platform-side error blocked `db push` this session (see
-    ADR-028); the app defends against the column not existing yet at its
-    one always-on read site.
+    Initially blocked by a transient Supabase-platform-side error (see
+    ADR-028); applied cleanly once the platform issue cleared later the
+    same day, confirmed via a live E2E run.
 
 ### Tables
 

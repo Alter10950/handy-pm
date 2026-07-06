@@ -200,9 +200,15 @@ inputs for every role (blocked server-side, just not visually hidden);
 full UI role-awareness is deferred to sub-phase I's polish pass. Full
 suite green: 14 passed, 1 intentionally skipped.
 
-**Sub-phase B — Field to flagship — built and mostly verified live
-(2026-07-06, see ADR-028):** "My assignments today" on the top-level
-`/field` list (matched client-side by selected crew, same convention as
+**Update 2026-07-06, later the same day:** the Supabase-platform-side
+issue cleared on its own; `day_logs.photo_paths` applied cleanly, types
+regenerated with an exact match to the hand-patched version, and
+`e2e/field-flow.spec.ts`'s photo-attach step now passes live. Sub-phase
+B is fully done, not just "mostly."
+
+**Sub-phase B — Field to flagship — done and verified live (2026-07-06,
+see ADR-028):** "My assignments today" on the top-level `/field` list
+(matched client-side by selected crew, same convention as
 day_logs/blockers); the crew picker now defaults to the signed-in
 user's own assigned crew (`profiles.crew_id`) when a device hasn't
 picked one yet. "Close the day" now opens a mandatory review screen
@@ -218,13 +224,26 @@ fixed a real gap while building this: neither the packing-slip
 extraction route nor the new voice-note route had an explicit
 authentication check (voice-note had *none* at all, since it never
 touches Supabase) — both now use sub-phase A's `requireOrg()` helper.
-**One migration (`day_logs.photo_paths`) could not be applied this
-session** — a persistent Supabase-platform-side error (not a
-credentials or SQL problem; the same token applied three earlier
-migrations cleanly minutes before) — code was written defensively so
-nothing currently live broke, and the E2E coverage for that one feature
-is written but not yet run live; being retried, not silently dropped.
-Full suite otherwise green: 17 passed, 2 intentionally skipped.
+
+**Sub-phase C — Scheduler to flagship — done and verified live
+(2026-07-06, see ADR-029):** a crew calendar across every active
+project (`/scheduler/calendar`, a crew-×-day grid — the existing
+per-project week view only ever shows one project), with native HTML5
+drag-and-drop: drag a project onto a crew's day to assign it, drag an
+existing whole-project chip to move it, with a `window.confirm()`
+double-booking warning naming the conflicting project(s) before either
+proceeds. A capacity figure per crew-day (planned labor load vs.
+`crew.size × 8` hours) and a per-crew SPI panel, both using an explicit,
+documented placeholder (`materials.labor_units` read 1:1 as hours) until
+sub-phase D's learned per-crew rates replace it — genuinely useful
+today, not blocked on work two sub-phases don't share. A Gantt-style
+project timeline infers each phase's date range from its rows'
+assignments (phases have no date columns of their own) rather than a
+manually-set schedule. New `e2e/crew-calendar-flow.spec.ts` (drag
+create, double-booking warning, remove) and an extension to
+`e2e/scheduler-flow.spec.ts` (Timeline + per-crew SPI render from real
+phase/assignment/install data). Full suite green: 18 passed, 2
+intentionally skipped.
 
 This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
 
@@ -584,7 +603,7 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
       Materials grid still shows editable inputs to every role — writes
       are blocked server-side, just not visually hidden yet).
 
-## Batch 3, Sub-phase B — Field to flagship ✅ mostly done (2026-07-06)
+## Batch 3, Sub-phase B — Field to flagship ✅ done (2026-07-06)
 
 - [x] "My assignments today" on `/field`, matched client-side by crew;
       crew picker defaults to the signed-in user's own `profiles.crew_id`.
@@ -594,8 +613,7 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
       photos) with "← Back to edit" / "Confirm & close day" — edit/
       resume and the day-summary confirmation as one flow.
 - [x] End-of-day documentation photos (`day_logs.photo_paths`, distinct
-      from a blocker's own photo) — code complete; **live E2E
-      verification pending** (see below).
+      from a blocker's own photo) — live E2E verified.
 - [x] Voice-to-note: browser `SpeechRecognition` (feature-detected, no
       dead button on unsupported browsers) transcribes locally; Claude
       (`/api/field/voice-note`) cleans the transcript and flags a likely
@@ -605,21 +623,32 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
       had none at all) — both now use `requireOrg()`.
 - [x] `npm run lint`/`typecheck`/`build` all pass.
 - [x] `e2e/field-flow.spec.ts` extended (day-summary review verified
-      against real data, back-to-edit round trip) and
-      `e2e/voice-note-flow.spec.ts` new (no-key error, 401 for a
-      genuinely unauthenticated request via plain `fetch()`, and —
+      against real data, back-to-edit round trip, live photo attach/
+      remove) and `e2e/voice-note-flow.spec.ts` new (no-key error, 401
+      for a genuinely unauthenticated request via plain `fetch()`, and —
       gated on a real key — correct cleanup + blocker-code flagging).
-      Full suite green: 17 passed, 2 intentionally skipped.
-- [ ] **Blocked on a persistent Supabase-platform-side error, not a code
-      problem** (`supabase db push` and the Management API's own SQL
-      endpoint both failed identically across ~10 attempts over several
-      minutes — the same token applied 3 earlier migrations cleanly
-      minutes before): the `day_logs.photo_paths` migration hasn't
-      landed live yet, so the photo-attach E2E step is written but not
-      yet run for real. Code defends against the column not existing
-      (`?? []` at the one always-on call site) so nothing broke while
-      pending. Being retried; will confirm once the platform issue
-      clears.
+
+## Batch 3, Sub-phase C — Scheduler to flagship ✅ done (2026-07-06)
+
+- [x] Cross-project crew calendar (`/scheduler/calendar`) — crew-×-day
+      grid across every active project, native HTML5 drag-and-drop
+      (project → cell creates; chip → cell moves), double-booking
+      warning via `window.confirm()` before either proceeds.
+- [x] Capacity view per crew-day: planned labor load vs. `crew.size × 8`
+      hours — an explicit, documented placeholder
+      (`materials.labor_units` read 1:1 as hours) until sub-phase D's
+      learned per-crew rates replace it.
+- [x] Per-crew SPI panel alongside the existing per-project figure, same
+      even-split attribution reasoning as capacity, applied to `targets`.
+- [x] Gantt-style project timeline — each phase's date range inferred
+      from its rows' assignments (phases have no date columns of their
+      own); a phase with nothing scheduled yet has no bar.
+- [x] `npm run lint`/`typecheck`/`build` all pass.
+- [x] New `e2e/crew-calendar-flow.spec.ts` (drag-create, double-booking
+      warning, remove — all confirmed against the DB) and an extension
+      to `e2e/scheduler-flow.spec.ts` (Timeline + per-crew SPI render
+      from real data). Full suite green: 18 passed, 2 intentionally
+      skipped.
 
 ## Phase 8 — Customer portal (not started)
 

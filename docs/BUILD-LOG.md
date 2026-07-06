@@ -4,6 +4,61 @@ Engineering journal. Newest entries at top.
 
 ---
 
+## 2026-07-06 — Batch 3 sub-phase C: Scheduler to flagship
+
+**What:** A crew calendar across every active project (not just one
+project's own week view), drag-and-drop assignment with double-booking
+warnings, a capacity view (planned labor load vs. available hours),
+per-crew SPI alongside the existing per-project figure, and a
+Gantt-style project timeline. Full reasoning in `docs/DECISIONS.md`
+ADR-029; summary here.
+
+**Build:** `lib/scheduler/queries.ts` gained
+`getProjectRemainingLaborUnits`/`getProjectDailyLaborLoad` (remaining
+material qty weighted by `materials.labor_units`, spread across
+remaining scheduled days — same "split evenly, no rule specified"
+reasoning as `generateTargets`), `listOrgAssignmentsInRange` (org-wide,
+flat selects + JS joins, not embedded-resource syntax), `getPhaseTimelines`
+(a phase's date range inferred from assignments to its rows — phases
+have no date columns of their own), and `getCrewDailyActuals` (installs
+totals per crew per day). `lib/scheduler/actions.ts` gained
+`moveAssignment` and the read-only `checkDoubleBooking`. New
+`app/(protected)/scheduler/calendar/page.tsx` +
+`components/scheduler/crew-calendar.tsx` — a crew-×-day grid with native
+HTML5 drag-and-drop (project chips from a sidebar create whole-project
+assignments; existing chips move between cells), each cell showing a
+"planned units / capacity hours" figure. New
+`components/scheduler/project-timeline.tsx` (Gantt-style phase bars) and
+`components/scheduler/crew-performance-panel.tsx` (per-crew SPI), both
+wired into the existing per-project `SchedulerWorkspace`.
+
+**Verification:** `npm run lint`/`typecheck`/`build` all pass. New
+`e2e/crew-calendar-flow.spec.ts` — drags a project onto a crew's day
+cell (confirmed via Playwright's `dragTo()`, which was verified to
+correctly drive real HTML5 `dragstart`/`dragover`/`drop` events against
+this implementation), confirms a second project dragged onto the same
+cell triggers the double-booking `window.confirm()` naming the first
+project, and confirms removing one assignment leaves the other intact.
+Found a real test-timing issue while writing this: the drop handler is
+async (awaits `checkDoubleBooking` before ever calling `confirm()`), so
+`dragTo()` resolving doesn't mean the dialog has appeared yet — a
+`page.once("dialog", ...)` registered before the drag raced a
+synchronous assertion right after and read an empty message; fixed by
+`Promise.all`-ing `page.waitForEvent("dialog")` with the drag itself.
+`e2e/scheduler-flow.spec.ts` extended to tag a row with a phase, assign
+it, and log an install, confirming both the Timeline (a labeled bar) and
+per-crew performance panel (a real SPI figure) render from that data —
+scoped via a new `data-testid` on the performance panel rather than a
+`hasText` div locator, avoiding the "matches every ancestor" class of
+bug documented elsewhere in this log. Full suite green: 18 passed, 2
+intentionally skipped.
+
+**Also resolved from sub-phase B:** the Supabase platform-side issue
+that blocked `day_logs.photo_paths` cleared on its own; the migration
+applied cleanly on retry, types were regenerated with an exact match to
+the hand-patched version, and the photo-attach E2E step now passes
+live. Sub-phase B is fully done, not just "mostly."
+
 ## 2026-07-06 — Batch 3 sub-phase B: Field to flagship
 
 **What:** "My assignments today," a mandatory day-summary review before
@@ -60,11 +115,16 @@ hand-patched ahead of the migration landing (ADR-010's pattern). Will
 retry and confirm once the platform issue clears — tracked, not
 silently dropped.
 
+**Update, later the same day:** the Supabase platform-side issue
+cleared on its own; `db push` succeeded on the next retry, types were
+regenerated with an exact match to the hand-patched version, and the
+photo-attach E2E step now passes live. Sub-phase B is fully done.
+
 **Verification:** `npm run lint`/`typecheck`/`build` all pass.
 `e2e/field-flow.spec.ts` extended: the day-summary review is asserted
 against real logged data (not just that a screen appeared), including a
-"← Back to edit" round trip; a photo-attach step is written and ready
-but not yet run live (see above). New `e2e/voice-note-flow.spec.ts` —
+"← Back to edit" round trip and a live photo-attach/remove step. New
+`e2e/voice-note-flow.spec.ts` —
 the browser-only `SpeechRecognition` half isn't E2E-testable in headless
 Chromium (no real microphone), so this tests the route it calls
 directly: a clean 500 when no key is configured, a 401 for a genuinely

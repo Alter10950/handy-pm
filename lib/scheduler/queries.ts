@@ -92,6 +92,39 @@ export async function getDailyActuals(
   return totals;
 }
 
+// Actual installed qty per (crew, day) — same shape as getDailyActuals,
+// split one level further for the per-crew SPI view. installs.crew_id
+// is nullable (a delta logged with no crew picked); those are excluded
+// here since there's no crew to attribute them to.
+export async function getCrewDailyActuals(
+  projectId: string
+): Promise<Map<string, Map<string, number>>> {
+  const supabase = await createClient();
+  const { data: rows, error: rowsError } = await supabase
+    .from("rows")
+    .select("id")
+    .eq("project_id", projectId);
+  if (rowsError) throw rowsError;
+  const rowIds = rows.map((row) => row.id);
+  if (rowIds.length === 0) return new Map();
+
+  const { data, error } = await supabase
+    .from("installs")
+    .select("installed_on, qty, crew_id")
+    .in("row_id", rowIds)
+    .not("crew_id", "is", null);
+  if (error) throw error;
+
+  const byCrew = new Map<string, Map<string, number>>();
+  for (const install of data) {
+    const crewId = install.crew_id!;
+    const perDate = byCrew.get(crewId) ?? new Map<string, number>();
+    perDate.set(install.installed_on, (perDate.get(install.installed_on) ?? 0) + install.qty);
+    byCrew.set(crewId, perDate);
+  }
+  return byCrew;
+}
+
 export async function getProjectWithSchedule(
   projectId: string
 ): Promise<Views<"project_progress"> | null> {
@@ -103,4 +136,161 @@ export async function getProjectWithSchedule(
     .maybeSingle();
   if (error) throw error;
   return data;
+}
+
+// Remaining labor units for a project — assigned-minus-installed per
+// material (same "remaining" as listRemainingByMaterial), weighted by
+// materials.labor_units. Feeds the calendar's capacity view; the real
+// per-crew learned-rate conversion is sub-phase D's job (labor_units
+// defaults to 1, i.e. "one standard hour," until then).
+export async function getProjectRemainingLaborUnits(
+  projectId: string
+): Promise<number> {
+  const supabase = await createClient();
+  const [{ data: materials, error: materialsError }, { data: reconciliation, error: reconError }] =
+    await Promise.all([
+      supabase.from("materials").select("id, labor_units").eq("project_id", projectId),
+      supabase
+        .from("material_reconciliation")
+        .select("material_id, assigned, installed")
+        .eq("project_id", projectId),
+    ]);
+  if (materialsError) throw materialsError;
+  if (reconError) throw reconError;
+
+  const laborUnitsByMaterial = new Map(materials.map((m) => [m.id, m.labor_units]));
+  return reconciliation.reduce((sum, row) => {
+    const laborUnits = laborUnitsByMaterial.get(row.material_id) ?? 1;
+    const remaining = Math.max(0, row.assigned - row.installed);
+    return sum + remaining * laborUnits;
+  }, 0);
+}
+
+// A project's remaining labor, spread evenly across its remaining
+// scheduled days from today forward — same "no rule specified, split
+// evenly" reasoning generateTargets already uses for material qty
+// (ADR-022), applied to labor units instead.
+export async function getProjectDailyLaborLoad(projectId: string): Promise<number> {
+  const [remainingUnits, schedule] = await Promise.all([
+    getProjectRemainingLaborUnits(projectId),
+    listProjectSchedule(projectId),
+  ]);
+  const today = new Date().toISOString().slice(0, 10);
+  const upcomingDays = schedule.filter((s) => s.work_date >= today).length;
+  if (upcomingDays === 0) return 0;
+  return remainingUnits / upcomingDays;
+}
+
+export interface OrgAssignment {
+  id: string;
+  projectId: string;
+  projectName: string;
+  crewId: string;
+  crewName: string;
+  rowId: string | null;
+  workDate: string;
+}
+
+// Every crew's assignments across every active project within a date
+// range — the cross-project calendar's whole reason for being (the
+// per-project WeekView only ever shows one project at a time). Flat
+// selects + JS-side joins, not embedded-resource syntax, matching this
+// codebase's established convention.
+export async function listOrgAssignmentsInRange(
+  startDate: string,
+  endDate: string
+): Promise<OrgAssignment[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("assignments")
+    .select("id, project_id, crew_id, row_id, work_date")
+    .gte("work_date", startDate)
+    .lte("work_date", endDate)
+    .not("crew_id", "is", null);
+  if (error) throw error;
+
+  const projectIds = [...new Set(data.map((a) => a.project_id))];
+  const crewIds = [...new Set(data.map((a) => a.crew_id!))];
+  const [{ data: projects, error: projectsError }, { data: crews, error: crewsError }] =
+    await Promise.all([
+      projectIds.length > 0
+        ? supabase.from("projects").select("id, name").in("id", projectIds)
+        : Promise.resolve({ data: [] as { id: string; name: string }[], error: null }),
+      crewIds.length > 0
+        ? supabase.from("crews").select("id, name").in("id", crewIds)
+        : Promise.resolve({ data: [] as { id: string; name: string }[], error: null }),
+    ]);
+  if (projectsError) throw projectsError;
+  if (crewsError) throw crewsError;
+
+  const projectNameById = new Map(projects.map((p) => [p.id, p.name]));
+  const crewNameById = new Map(crews.map((c) => [c.id, c.name]));
+
+  return data.map((a) => ({
+    id: a.id,
+    projectId: a.project_id,
+    projectName: projectNameById.get(a.project_id) ?? "Unknown project",
+    crewId: a.crew_id!,
+    crewName: crewNameById.get(a.crew_id!) ?? "Unknown crew",
+    rowId: a.row_id,
+    workDate: a.work_date,
+  }));
+}
+
+// Every phase's date range, inferred from when its rows were actually
+// assigned to a crew (not a stored start/end — phases have no date
+// columns of their own). Powers the project timeline (Gantt-style)
+// view: a phase with no assignments yet simply has no bar to draw.
+export interface PhaseTimelineEntry {
+  phaseId: string;
+  startDate: string;
+  endDate: string;
+  crewIds: string[];
+}
+
+export async function getPhaseTimelines(
+  projectId: string
+): Promise<PhaseTimelineEntry[]> {
+  const supabase = await createClient();
+  const [{ data: rows, error: rowsError }, { data: assignments, error: assignError }] =
+    await Promise.all([
+      supabase.from("rows").select("id, phase_id").eq("project_id", projectId),
+      supabase
+        .from("assignments")
+        .select("row_id, crew_id, work_date")
+        .eq("project_id", projectId),
+    ]);
+  if (rowsError) throw rowsError;
+  if (assignError) throw assignError;
+
+  const phaseByRow = new Map(rows.map((r) => [r.id, r.phase_id]));
+  // A whole-project assignment (row_id null) covers every phase that day.
+  const allPhaseIds = [...new Set(rows.map((r) => r.phase_id).filter((id): id is string => id !== null))];
+
+  const byPhase = new Map<string, { dates: Set<string>; crewIds: Set<string> }>();
+  function record(phaseId: string, workDate: string, crewId: string | null) {
+    const entry = byPhase.get(phaseId) ?? { dates: new Set(), crewIds: new Set() };
+    entry.dates.add(workDate);
+    if (crewId) entry.crewIds.add(crewId);
+    byPhase.set(phaseId, entry);
+  }
+
+  for (const assignment of assignments) {
+    if (assignment.row_id === null) {
+      for (const phaseId of allPhaseIds) record(phaseId, assignment.work_date, assignment.crew_id);
+    } else {
+      const phaseId = phaseByRow.get(assignment.row_id);
+      if (phaseId) record(phaseId, assignment.work_date, assignment.crew_id);
+    }
+  }
+
+  return [...byPhase.entries()].map(([phaseId, entry]) => {
+    const dates = [...entry.dates].sort();
+    return {
+      phaseId,
+      startDate: dates[0],
+      endDate: dates[dates.length - 1],
+      crewIds: [...entry.crewIds],
+    };
+  });
 }
