@@ -56,7 +56,12 @@ test("multi-page drawings: first upload auto-marks, second page is view-only, sw
 
   await test.step("upload a second page — it's view-only by default", async () => {
     await page.getByRole("button", { name: "Add more pages" }).click();
-    await page.locator('input[type="file"]').setInputFiles(FIXTURE_PATH);
+    // Not a bare input[type="file"] locator — sub-phase G's drawing
+    // versioning panel added a second file input (its own "Upload new
+    // version" control) to this same page, making that ambiguous.
+    await page
+      .getByTestId("drawing-upload-input")
+      .setInputFiles(FIXTURE_PATH);
     await expect(page.getByText(/uploaded\.$/)).toBeVisible({
       timeout: 30_000,
     });

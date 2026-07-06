@@ -5,8 +5,10 @@ import { Button } from "@/components/ui/button";
 export function RowCommandPanel({
   selectedCount,
   isSingleSelection,
+  canDuplicateRange,
   isPending,
   onCopy,
+  onDuplicateRangeToggle,
   onDelete,
   onRenameToggle,
   onMaterialsToggle,
@@ -16,8 +18,10 @@ export function RowCommandPanel({
 }: {
   selectedCount: number;
   isSingleSelection: boolean;
+  canDuplicateRange: boolean;
   isPending: boolean;
   onCopy: () => void;
+  onDuplicateRangeToggle: () => void;
   onDelete: () => void;
   onRenameToggle: () => void;
   onMaterialsToggle: () => void;
@@ -40,6 +44,17 @@ export function RowCommandPanel({
         >
           Copy
         </Button>
+        {!isSingleSelection && canDuplicateRange ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={isPending}
+            onClick={onDuplicateRangeToggle}
+          >
+            Duplicate range ×N
+          </Button>
+        ) : null}
         {isSingleSelection ? (
           <Button
             type="button"

@@ -238,6 +238,118 @@ export async function confirmExtractedMaterials(
   revalidatePath(`/app/project/${projectId}/materials`);
 }
 
+export interface ImportedMaterialRow {
+  name: string;
+  unit?: string;
+  totalNeeded: number;
+  taskKey?: string;
+  size?: string | null;
+  profile?: string | null;
+  capacity?: string | null;
+  condition?: MaterialCondition;
+  compatibleSystem?: string | null;
+}
+
+// The CSV/XLSX counterpart to pasteMaterialList/confirmExtractedMaterials —
+// same "received = total_needed" packing-slip assumption, same
+// replaceExisting toggle, but carrying the fuller identity-field set a
+// spreadsheet import can plausibly supply straight from a column mapping.
+export async function importMaterials(
+  projectId: string,
+  items: ImportedMaterialRow[],
+  replaceExisting: boolean
+): Promise<{ imported: number }> {
+  const cleaned = items
+    .map((item) => ({
+      name: item.name.trim(),
+      unit: item.unit?.trim() || undefined,
+      totalNeeded: Math.round(Number(item.totalNeeded)),
+      taskKey: item.taskKey?.trim() || "general",
+      size: item.size?.trim() || null,
+      profile: item.profile?.trim() || null,
+      capacity: item.capacity?.trim() || null,
+      condition: item.condition ?? "new",
+      compatibleSystem: item.compatibleSystem?.trim() || null,
+    }))
+    .filter(
+      (item) =>
+        item.name.length > 0 &&
+        Number.isFinite(item.totalNeeded) &&
+        item.totalNeeded >= 0
+    );
+  if (cleaned.length === 0) {
+    throw new Error("No valid material rows to import.");
+  }
+  await requireRole(PROJECT_EDITORS);
+
+  const supabase = await createClient();
+  const standards = await loadLaborStandardsMap();
+
+  if (replaceExisting) {
+    const { error: deleteError } = await supabase
+      .from("materials")
+      .delete()
+      .eq("project_id", projectId);
+    if (deleteError) throw deleteError;
+  }
+
+  const { error } = await supabase.from("materials").insert(
+    cleaned.map((item) => ({
+      project_id: projectId,
+      name: item.name,
+      ...(item.unit ? { unit: item.unit } : {}),
+      total_needed: item.totalNeeded,
+      received: item.totalNeeded,
+      task_key: item.taskKey,
+      size: item.size,
+      profile: item.profile,
+      capacity: item.capacity,
+      condition: item.condition,
+      compatible_system: item.compatibleSystem,
+      labor_units: laborUnitsFor(standards, item.taskKey, item.size),
+    }))
+  );
+  if (error) throw error;
+
+  revalidatePath(`/app/project/${projectId}`);
+  revalidatePath(`/app/project/${projectId}/materials`);
+  return { imported: cleaned.length };
+}
+
+export async function deleteMaterialsBatch(
+  projectId: string,
+  materialIds: string[]
+): Promise<void> {
+  if (materialIds.length === 0) return;
+  await requireRole(PROJECT_EDITORS);
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("materials")
+    .delete()
+    .in("id", materialIds);
+  if (error) throw error;
+
+  revalidatePath(`/app/project/${projectId}`);
+  revalidatePath(`/app/project/${projectId}/materials`);
+}
+
+export async function bulkSetMaterialCondition(
+  projectId: string,
+  materialIds: string[],
+  condition: MaterialCondition
+): Promise<void> {
+  if (materialIds.length === 0) return;
+  await requireRole(PROJECT_EDITORS);
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("materials")
+    .update({ condition })
+    .in("id", materialIds);
+  if (error) throw error;
+
+  revalidatePath(`/app/project/${projectId}/materials`);
+}
+
 export async function recordDrawingUpload(
   projectId: string,
   pages: {
@@ -267,6 +379,22 @@ export async function recordDrawingUpload(
     )
     .select("id, page_index");
   if (error) throw error;
+
+  // Every drawings row needs a matching drawing_versions row (the version
+  // history/approval-gate table added in sub-phase 0) — this is the first
+  // version of a brand-new page, so there's nothing to supersede and no
+  // review gate on day one (see lib/drawings/actions.ts#uploadDrawingVersion
+  // for the re-upload path, which does supersede and does reset approval).
+  const { error: versionError } = await supabase.from("drawing_versions").insert(
+    pages.map((page) => ({
+      project_id: projectId,
+      page_index: page.pageIndex,
+      storage_path: page.storagePath,
+      version: 1,
+      approved_for_install: true,
+    }))
+  );
+  if (versionError) throw versionError;
 
   // A project's very first upload becomes its marking page automatically —
   // "exactly one marking page, owner/pm chooses" (see ADR-019) means manual

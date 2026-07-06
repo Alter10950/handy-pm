@@ -225,6 +225,44 @@ extraction route nor the new voice-note route had an explicit
 authentication check (voice-note had *none* at all, since it never
 touches Supabase) — both now use sub-phase A's `requireOrg()` helper.
 
+**Sub-phase G — CSV/XLSX import + row-range duplication + materials
+bulk ops + drawing versioning — done and verified live (2026-07-06, see
+ADR-034):** the Materials tab gained an "Import from file" dialog —
+one mode toggle for a materials list vs. a row×material assignment
+sheet, live column mapping (auto-guessed, always editable) against
+whatever headers the file has, and a preview table before anything
+commits. Row assignments resolve against the project's own existing
+rows/materials by name and never auto-create either — an unresolved
+name is a visible skip, not a silent phantom row. Chose `exceljs` +
+`papaparse` over the `xlsx` npm package specifically because the
+latter carries an unpatched high-severity advisory. The Layout tab's
+row command panel gained "Duplicate range ×N" — select a block of
+rows (e.g. rows 1-10) and repeat it as a rigid pattern N times in
+either direction, reusing the existing `duplicateRows` action
+unmodified (it already supported many-copies-per-source; the feature
+was entirely new client-side orchestration, no new Server Action).
+Materials grid gained bulk-select checkboxes + a delete/set-condition
+action bar. A real drawing-versioning UI now sits on top of sub-phase
+0's `drawing_versions` table, which had shipped with zero application
+code ever reading or writing it: upload a new version (auto-supersedes
+the prior one, starts unapproved), approve for install, a warning
+banner for everyone (crew included) when the latest version isn't
+approved yet, a version history log — first-ever upload of a page
+still auto-approves immediately, since there's nothing yet to review
+against. Found and fixed a genuine test-only race while writing the
+new E2E specs: a fast client-side tab navigation can read the
+drawing's bounding box before the zoom/pan "fit to screen" effect has
+recomputed it (every *existing* test happened to avoid this by
+reaching the canvas through a slow upload round trip) — fixed by
+clicking the real "Fit to screen" button for a synchronous, guaranteed
+recompute instead of guessing at a wait. Also fixed two regressions
+this sub-phase's own grid/upload changes caused in other pre-existing
+tests (a newly-ambiguous file-input locator, a shifted positional
+input index) — the same "positional locator survives until the next
+column/input is added" lesson logged once already in sub-phase D. New
+`e2e/import-bulk-flow.spec.ts` and `e2e/drawing-versioning-flow.spec.ts`.
+Full suite green: 25 passed, 2 intentionally skipped.
+
 **Sub-phase F — Material status lifecycle + reorder list + row
 readiness — done and verified live (2026-07-06, see ADR-033):** a new
 Receiving project tab logs receiving events per material (ordered/
@@ -783,6 +821,41 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
       indices shifted) by adding `data-testid`s throughout instead of
       just renumbering. Full suite green: 20 passed, 2 intentionally
       skipped.
+
+## Batch 3, Sub-phase G — CSV/XLSX import, row-range duplication, materials bulk ops, drawing versioning ✅ done (2026-07-06)
+
+- [x] "Import from file" dialog on the Materials tab: mode toggle
+      (materials list / row assignments), auto-guessed but always
+      user-editable column mapping, a preview table (per-row OK/skip
+      status), replace-existing toggle for materials mode.
+- [x] Row-assignment import resolves row label + material name against
+      the project's existing records only — never auto-creates either;
+      unresolved lines show a specific skip reason.
+- [x] Installed `exceljs` + `papaparse` (not the `xlsx` npm package,
+      which has an unpatched high-severity prototype-pollution advisory).
+- [x] "Duplicate range ×N": select a block of 2+ rows, repeat it as one
+      rigid pattern N times (right or below), with a real "also copy
+      materials" checkbox (previously hardcoded true on the single-row
+      Copy button) — reuses the existing `duplicateRows` action, no new
+      Server Action needed.
+- [x] Materials grid: bulk-select checkboxes, bulk delete, bulk
+      set-condition action bar.
+- [x] Drawing versioning: `lib/drawings/{queries,actions}.ts` on top of
+      sub-phase 0's previously-unused `drawing_versions` table — upload
+      a new version (supersedes the prior one, starts unapproved),
+      approve for install, a warning banner (all roles) when the latest
+      version isn't approved, version history log. First upload of a
+      page auto-approves (nothing yet to review against).
+- [x] `npm run lint`/`typecheck`/`build` all pass.
+- [x] New `e2e/import-bulk-flow.spec.ts` (CSV materials import → CSV
+      row-assignment import → bulk condition/delete → duplicate range)
+      and `e2e/drawing-versioning-flow.spec.ts` (v1 auto-approved → new
+      version pending → warning banner → approve → history log). Found
+      and fixed a genuine test-only zoom-fit race (fixed by clicking
+      "Fit to screen" for a synchronous recompute) and two regressions
+      in pre-existing tests (ambiguous file-input locator, shifted
+      positional input index). Full suite green: 25 passed, 2
+      intentionally skipped.
 
 ## Batch 3, Sub-phase F — Material status lifecycle, reorder list, row readiness ✅ done (2026-07-06)
 

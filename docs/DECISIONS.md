@@ -5,7 +5,139 @@ Consequences.
 
 ---
 
-## ADR-033: Sub-phase F — material status lifecycle (receiving log + reorder list), row readiness UI, richer material identity
+## ADR-034: Sub-phase G — CSV/XLSX import (materials + row assignments), row-range duplication, materials bulk ops, drawing versioning
+
+**Decision date:** 2026-07-06
+
+**Context:** Batch 3, sub-phase G: bulk-import a materials list or a
+row×material assignment sheet from a spreadsheet, duplicate a whole
+multi-row selection as a repeating pattern, bulk-select/delete/edit
+materials, and a real drawing-versioning UI on top of sub-phase 0's
+`drawing_versions` table (which had shipped with zero application code
+ever reading or writing it).
+
+**Choice — `exceljs` + `papaparse`, not the `xlsx` (SheetJS) npm
+package:** `xlsx`'s own npm-registry release has a **high-severity,
+unpatched** prototype-pollution advisory and a ReDoS advisory (SheetJS
+stopped publishing patched releases to the npm registry itself, pushing
+users to install directly from their own CDN tarball instead — not a
+supply-chain source worth taking on for this). `exceljs` (XLSX/XLS) +
+`papaparse` (CSV) are both actively maintained with no comparable
+severity findings — `npm audit` after installing both shows only one
+new moderate finding (a transitive `uuid` "missing buffer bounds check"
+inside `exceljs`, far short of xlsx's unpatched high-severity one) plus
+the pre-existing, unrelated `postcss`/`next` moderate finding that
+predates this sub-phase entirely.
+
+**Choice — one import dialog with a mode toggle, not two separate
+dialogs:** materials-list import and row-assignment import share the
+entire file-parse → column-map → preview → confirm shell; only the
+field list and the confirm action differ. A `mode` toggle inside one
+`ImportMaterialsDialog` reuses that shell instead of duplicating it.
+Column mapping is a real interactive step, not a black box: each target
+field gets its own `<select>` of detected headers, pre-guessed via
+case-insensitive exact-then-substring matching against a synonym list
+(`guessColumnIndex`) — auto-guessing gets the common case right without
+ever hiding the mapping from the user or forcing a rigid header format.
+
+**Choice — row-assignment import resolves against the project's
+EXISTING rows/materials by name, never auto-creates either:** a
+spreadsheet has no geometry to draw a new row from, and a typo'd
+material name silently creating a duplicate would be worse than a
+visible "no material named X" skip. Every preview line is either fully
+resolved (both row label and material name match an existing record) or
+hard-skipped with a stated reason — never partially applied. The commit
+step reuses the existing `upsertRowMaterialQtyMany` Server Action
+directly (no new action needed) since resolution already happens
+client-side, where the page's own already-fetched rows/materials lists
+live.
+
+**Choice — "Duplicate range ×N" reuses `duplicateRows` unmodified,
+called once per source row with N pre-offset copies, not a new Server
+Action:** `duplicateRows(projectId, drawingId, sourceRowId, newRows[],
+copyMaterials)` already accepted *multiple* new rows per source (the
+existing single-row "Copy" button just always passed exactly one) —
+generating `repeatCount` geometries client-side, each offset by a
+cumulative multiple of the *selection's own bounding-box* width/height
+(not each row's individual width/height, which would place every row
+adjacent to itself independently and overlap its neighbors once more
+than one row is involved), was the whole feature. The dialog also
+finally exposes `copyMaterials` as a real checkbox — it existed as a
+parameter since the original Copy button shipped, just hardcoded `true`
+at its one call site.
+
+**Choice — materials bulk ops (select/delete/set-condition) live
+directly in `MaterialsGrid`, not a copy of the rows' command-panel
+pattern:** the grid already owns its own `useTransition`/`error` state
+for every per-cell edit; a `selectedIds` Set plus a conditional
+bulk-action bar reuses that same `run()` helper rather than introducing
+a second undo-less action-dispatch shape. No undo/redo here (materials
+in this codebase are edited directly, never undo-tracked — matching
+existing per-cell edits, not rows' undo-tracked geometry).
+
+**Choice — first-ever drawing upload auto-creates an approved v1;
+every later upload of the same page supersedes and starts unapproved:**
+sub-phase 0's own migration comment already specified the intended
+contract ("re-uploading a page inserts a new version row, marks the
+prior latest superseded, updates `drawings` in place") — this sub-phase
+is the first code to implement it. A brand-new page has nothing yet to
+review against, so gating it would just be friction on day one with no
+safety benefit; a *revision* to an already-in-use drawing is exactly the
+moment a PM should look before crews build off it, so it starts
+`approved_for_install = false` until someone explicitly approves it.
+Approving one version defensively un-approves every other version for
+that page, keeping "at most one approved version per page" true even if
+called out of order.
+
+**Choice — the version panel warns, it doesn't hide or block the
+drawing:** consistent with this codebase's established "warn, don't
+hard-block" posture (ADR-029's double-booking warning, sub-phase F's
+blocked-row scheduler warning) — the marking canvas keeps working
+exactly as before, with a visible banner ("hasn't been approved for
+install yet") for every role including crew. Turning this into an
+actual gate is explicitly a later (Batch 4) job that builds on this UI.
+
+**Consequences:** No schema migration — `drawing_versions` already
+existed from sub-phase 0. New `lib/drawings/{queries,actions}.ts`, and
+`lib/projects/actions.ts#recordDrawingUpload` now also inserts the
+matching version-1 row for every newly uploaded page (previously it
+only touched `drawings`). New `data-testid`s on both drawing-upload
+hidden `<input>`s (`drawing-upload-input`, `drawing-version-upload-input`)
+since a project with any existing drawing now legitimately has two file
+inputs on the Layout tab — a bare `input[type="file"]` locator, safe
+everywhere before this sub-phase, is now ambiguous for any SECOND
+upload on the same page; fixed the one pre-existing test this broke
+(`multi-page-flow.spec.ts`) and this sub-phase's own new test the same
+way. Materials grid gained a leading checkbox column, which shifted
+`estimating-flow.spec.ts`'s positional `row.locator("input").nth(1)` —
+the same "adding a grid column breaks a positional test locator" lesson
+ADR-030 already logged once, recurring because a new column was added
+without re-checking for positional locators elsewhere — fixed with an
+explicit `data-testid` instead, again.
+
+**Bug found via the new E2E specs themselves (test-only, not
+application code):** a fast client-side tab navigation (Materials →
+Layout) can read the drawing image's bounding box *before* the
+zoom/pan "fit to screen" `useEffect` has recomputed it, capturing the
+image at its un-fitted natural size instead of its final on-screen
+size — invisible in every *existing* test because they all reach the
+canvas via a slow round trip (a real upload's "uploaded." wait) that
+incidentally gives the effect time to settle first. Polling the
+bounding box for two consecutive stable reads did not reliably fix
+this; explicitly clicking the real "Fit to screen" button first does,
+since that recomputes the fit synchronously in its own click handler
+rather than racing an effect. Applied to this sub-phase's own new
+`import-bulk-flow.spec.ts`.
+
+**Bug found via dogfooding this sub-phase's own new drawing-version
+panel (test-only):** adding a visible panel above the marking canvas
+pushes the stage further down the page — on `field-flow.spec.ts`'s
+390×844 mobile viewport and `layout-interaction-flow.spec.ts`'s later
+steps, this left parts of the canvas below the fold for a raw
+`page.mouse` coordinate (which, unlike a locator `.click()`, does not
+auto-scroll anything into view first). Fixed by adding
+`scrollIntoViewIfNeeded()` on the drawing image before computing a
+bounding box for mouse math, in both affected specs.
 
 **Decision date:** 2026-07-06
 

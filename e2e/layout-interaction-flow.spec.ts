@@ -52,9 +52,9 @@ test("layout editor: modeless interaction, pan priority, marquee, no snap-back",
       page.getByRole("button", { name: "Select mode" })
     ).toHaveCount(0);
 
-    const stageBox = (await page
-      .locator('img[alt="Layout drawing"]')
-      .boundingBox())!;
+    const layoutImage = page.locator('img[alt="Layout drawing"]');
+    await layoutImage.scrollIntoViewIfNeeded();
+    const stageBox = (await layoutImage.boundingBox())!;
 
     async function drawRow(x0: number, y0: number, x1: number, y1: number) {
       await page.mouse.move(stageBox.x + x0 * stageBox.width, stageBox.y + y0 * stageBox.height);
@@ -83,9 +83,9 @@ test("layout editor: modeless interaction, pan priority, marquee, no snap-back",
     // can land outside the actual (scaled, transformed) stage entirely.
     // x=0.75/y=0.6 is empty: the three rows drawn above only occupy up
     // to x=0.55, y=0.45.
-    const stageBox = (await page
-      .locator('img[alt="Layout drawing"]')
-      .boundingBox())!;
+    const emptySpaceImage = page.locator('img[alt="Layout drawing"]');
+    await emptySpaceImage.scrollIntoViewIfNeeded();
+    const stageBox = (await emptySpaceImage.boundingBox())!;
     await page.mouse.click(
       stageBox.x + stageBox.width * 0.75,
       stageBox.y + stageBox.height * 0.6
@@ -101,9 +101,9 @@ test("layout editor: modeless interaction, pan priority, marquee, no snap-back",
   });
 
   await test.step("shift-drag marquee selects multiple rows at once", async () => {
-    const stageBox = (await page
-      .locator('img[alt="Layout drawing"]')
-      .boundingBox())!;
+    const marqueeImage = page.locator('img[alt="Layout drawing"]');
+    await marqueeImage.scrollIntoViewIfNeeded();
+    const stageBox = (await marqueeImage.boundingBox())!;
     // Covers Row 1 and Row 2 (both in the 0.05-0.55 x-range, 0.05-0.2
     // y-range) but not Row 3 (y starts at 0.3).
     await page.mouse.move(

@@ -5,10 +5,13 @@ import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ImportMaterialsDialog } from "@/components/projects/import-materials-dialog";
 import { PasteMaterialsDialog } from "@/components/projects/paste-materials-dialog";
 import {
   addMaterial,
+  bulkSetMaterialCondition,
   deleteMaterial,
+  deleteMaterialsBatch,
   updateMaterial,
 } from "@/lib/projects/actions";
 import { upsertRowMaterialQty } from "@/lib/rows/actions";
@@ -42,6 +45,7 @@ export function MaterialsGrid({
 }) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const router = useRouter();
 
   const headerRefs = useRef<Map<string, HTMLTableCellElement>>(new Map());
@@ -77,6 +81,35 @@ export function MaterialsGrid({
     });
   }
 
+  function toggleSelection(materialId: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(materialId)) next.delete(materialId);
+      else next.add(materialId);
+      return next;
+    });
+  }
+
+  function handleBulkDelete() {
+    const ids = [...selectedIds];
+    if (ids.length === 0) return;
+    if (
+      !window.confirm(
+        `Delete ${ids.length} material${ids.length === 1 ? "" : "s"}? This can't be undone.`
+      )
+    ) {
+      return;
+    }
+    run(() => deleteMaterialsBatch(projectId, ids));
+    setSelectedIds(new Set());
+  }
+
+  function handleBulkCondition(condition: MaterialCondition) {
+    const ids = [...selectedIds];
+    if (ids.length === 0) return;
+    run(() => bulkSetMaterialCondition(projectId, ids, condition));
+  }
+
   return (
     <div className="flex flex-col gap-3">
       {rows.length === 0 ? (
@@ -90,6 +123,7 @@ export function MaterialsGrid({
         <table className="border-separate border-spacing-0 text-xs">
           <thead>
             <tr>
+              <th className="sticky top-0 z-20 border-b border-border bg-muted p-2" />
               <th className="sticky left-0 top-0 z-30 min-w-40 border-b border-r border-border bg-muted p-2 text-left font-semibold text-muted-foreground">
                 Part
               </th>
@@ -163,6 +197,16 @@ export function MaterialsGrid({
 
               return (
                 <tr key={material.id} data-testid={`material-row-${material.id}`}>
+                  <td className="border-b border-border p-1.5">
+                    <input
+                      type="checkbox"
+                      data-testid={`material-select-${material.id}`}
+                      aria-label={`Select ${material.name}`}
+                      checked={selectedIds.has(material.id)}
+                      onChange={() => toggleSelection(material.id)}
+                      className="size-4 rounded border-border"
+                    />
+                  </td>
                   <td className="sticky left-0 z-10 border-b border-r border-border bg-card p-1.5">
                     <Input
                       data-testid={`material-name-${material.id}`}
@@ -437,6 +481,58 @@ export function MaterialsGrid({
         </table>
       </div>
 
+      {selectedIds.size > 0 ? (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-2">
+          <span className="px-1 text-sm font-medium text-foreground">
+            {selectedIds.size} selected
+          </span>
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              Set condition
+              <select
+                aria-label="Set condition for selected"
+                defaultValue=""
+                disabled={isPending}
+                onChange={(event) => {
+                  if (event.target.value) {
+                    handleBulkCondition(event.target.value as MaterialCondition);
+                    event.target.value = "";
+                  }
+                }}
+                className="h-8 rounded-md border border-border bg-background px-1.5 text-xs text-foreground"
+              >
+                <option value="" disabled>
+                  —
+                </option>
+                {CONDITIONS.map((condition) => (
+                  <option key={condition} value={condition}>
+                    {condition}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={isPending}
+              onClick={handleBulkDelete}
+              className="text-destructive"
+            >
+              Delete {selectedIds.size}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => setSelectedIds(new Set())}
+            >
+              Clear
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
       <div className="flex flex-wrap items-center gap-2">
         <Button
           type="button"
@@ -447,6 +543,7 @@ export function MaterialsGrid({
           + Add material
         </Button>
         <PasteMaterialsDialog projectId={projectId} />
+        <ImportMaterialsDialog projectId={projectId} materials={materials} rows={rows} />
         {error ? <p className="text-sm text-destructive">{error}</p> : null}
       </div>
     </div>

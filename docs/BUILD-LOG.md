@@ -4,6 +4,80 @@ Engineering journal. Newest entries at top.
 
 ---
 
+## 2026-07-06 — Batch 3 sub-phase G: CSV/XLSX import, row-range duplication, materials bulk ops, drawing versioning
+
+**What:** Import a materials list or a row×material assignment sheet
+from a CSV/XLSX file (column mapping + preview + confirm); duplicate a
+multi-row selection as a repeating block ("rows 1-10" → "rows 11-20");
+bulk-select materials to delete or set condition in one action; and a
+real drawing-versioning UI (upload a new version, approve for install,
+a warning banner when the latest version isn't approved yet, version
+history) on top of sub-phase 0's previously-unused `drawing_versions`
+table. Full reasoning in `docs/DECISIONS.md` ADR-034; summary here.
+
+**Build:** No schema migration — every table this sub-phase touches
+already existed. Installed `exceljs` + `papaparse` (NOT the `xlsx` npm
+package, which carries an unpatched high-severity advisory). New
+`lib/projects/parse-spreadsheet.ts` (browser-only CSV/XLSX → headers+rows,
+plus a header-to-field auto-guesser). New
+`components/projects/import-materials-dialog.tsx` — one dialog, a
+materials/row-assignments mode toggle, live column mapping, a preview
+table with per-row OK/skip status. New `lib/projects/actions.ts#importMaterials`;
+row-assignment import resolves against the project's own already-loaded
+rows/materials client-side (never auto-creates either) and commits via
+the existing `upsertRowMaterialQtyMany` — no new action needed there.
+New `components/projects/duplicate-range-dialog.tsx` + a
+`handleDuplicateRange` in `row-marking-workspace.tsx` that calls the
+existing `duplicateRows` action once per selected row with N
+pre-offset copies — no new Server Action needed for this either. New
+bulk-select checkboxes + action bar in `materials-grid.tsx`, backed by
+new `deleteMaterialsBatch`/`bulkSetMaterialCondition` actions. New
+`lib/drawings/{queries,actions}.ts` (`listDrawingVersionsByProject`,
+`uploadDrawingVersion`, `approveDrawingVersion`) +
+`components/projects/drawing-version-panel.tsx`; `recordDrawingUpload`
+now also seeds a version-1 row for every newly uploaded page.
+
+**Caught and fixed my own lint violation before it shipped:**
+`DuplicateRangeDialog`'s "re-derive defaults when the dialog (re)opens"
+logic first called `setState` inside a `useEffect` body — the exact
+`react-hooks/set-state-in-effect` violation this session already hit
+once and documented (layout editor snap-back fix). Fixed with the same
+React-docs-sanctioned pattern: mirror the previous `open` prop in state,
+call `setState` conditionally during render when it changes, no effect
+at all.
+
+**Two real test-only bugs found via the new specs, both documented in
+ADR-034:** (1) a fast client-side tab navigation can read the drawing
+image's bounding box before zoom/pan's "fit to screen" effect has
+recomputed it — invisible in every existing test because they all
+reach the canvas through a slow upload round trip that masks the race
+by accident. Fixed by explicitly clicking "Fit to screen" (synchronous)
+before computing pointer math, not by polling/waiting. (2) the new
+drawing-version panel's added height pushed the canvas further down
+the page, leaving it partly below the fold on a mobile viewport and in
+a later step of an existing spec — raw `page.mouse` coordinates don't
+auto-scroll the way a locator `.click()` does. Fixed with
+`scrollIntoViewIfNeeded()` in both affected specs.
+
+**Also fixed two regressions this sub-phase's own UI changes caused in
+other, pre-existing tests** (same "shifted a positional/bare locator"
+lesson as ADR-030, recurring): `multi-page-flow.spec.ts`'s bare
+`input[type="file"]` locator became ambiguous once a project's Layout
+tab could have two file inputs (drawing upload + version upload) —
+fixed with new `data-testid`s on both. `estimating-flow.spec.ts`'s
+positional `row.locator("input").nth(1)` shifted once the materials
+grid gained a leading checkbox column — fixed with the existing
+`material-size-{id}` `data-testid` instead.
+
+**Verified:** `npm run lint`/`typecheck`/`build` all green. New
+`e2e/import-bulk-flow.spec.ts` (CSV materials import → CSV row-assignment
+import → bulk set-condition → bulk delete → duplicate range) and
+`e2e/drawing-versioning-flow.spec.ts` (v1 auto-approved → new version
+pending → warning banner → approve → history log). Full suite green:
+25 passed, 2 intentionally skipped.
+
+---
+
 ## 2026-07-06 — Batch 3 sub-phase F: Material status lifecycle, reorder list, row readiness
 
 **What:** A new Receiving project tab (check materials in against a

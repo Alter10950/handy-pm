@@ -16,6 +16,11 @@ import {
   type RowOrientation,
 } from "@/components/projects/auto-rows-dialog";
 import { BulkMaterialsPanel } from "@/components/projects/bulk-materials-panel";
+import {
+  DrawingVersionPanel,
+  type DrawingVersionSummary,
+} from "@/components/projects/drawing-version-panel";
+import { DuplicateRangeDialog } from "@/components/projects/duplicate-range-dialog";
 import { PhaseLegend } from "@/components/projects/phase-legend";
 import { PhasePicker } from "@/components/projects/phase-picker";
 import { RowCommandPanel } from "@/components/projects/row-command-panel";
@@ -47,7 +52,7 @@ import {
   type RowReadinessInputs,
   type RowSnapshot,
 } from "@/lib/rows/actions";
-import { maxRowNumber, nextRowLabel } from "@/lib/rows/naming";
+import { maxRowNumber, nextRowLabel, rowNumber } from "@/lib/rows/naming";
 import type {
   DrawingRole,
   RowReadinessStatus,
@@ -62,6 +67,7 @@ export interface WorkspacePage {
   width: number;
   height: number;
   role: DrawingRole;
+  history: DrawingVersionSummary[];
 }
 
 export interface ProjectRow {
@@ -121,6 +127,7 @@ export function RowMarkingWorkspace({
   const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set());
   const [hiddenPhaseIds, setHiddenPhaseIds] = useState<Set<string>>(new Set());
   const [autoRowsDialogOpen, setAutoRowsDialogOpen] = useState(false);
+  const [duplicateRangeDialogOpen, setDuplicateRangeDialogOpen] = useState(false);
   const [gridPending, setGridPending] = useState<GridPending | null>(null);
   const [activeCommand, setActiveCommand] = useState<ActiveCommand>(null);
   const [renameValue, setRenameValue] = useState("");
@@ -141,6 +148,34 @@ export function RowMarkingWorkspace({
   );
   const selectedCount = selectedRowIds.size;
   const isSingleSelection = selectedCount === 1;
+
+  // The selection's own bounding box, used by "Duplicate range" to shift
+  // the whole block as one rigid unit per repeat (not each row placed
+  // adjacent to itself independently, the way single-row Copy works —
+  // that would overlap neighbors once more than one row is involved).
+  // Also caps how many repeats actually fit before the drawing's 0..1
+  // edge, so the dialog can warn instead of silently clamping into an
+  // overlapping stack.
+  const selectionBounds = useMemo(() => {
+    if (selectedCount < 2) return null;
+    const sources = [...selectedRowIds]
+      .map((id) => pageRows.find((row) => row.id === id))
+      .filter((row): row is ProjectRow => Boolean(row));
+    if (sources.length < 2) return null;
+
+    const minX = Math.min(...sources.map((r) => r.x));
+    const minY = Math.min(...sources.map((r) => r.y));
+    const maxX = Math.max(...sources.map((r) => r.x + r.w));
+    const maxY = Math.max(...sources.map((r) => r.y + r.h));
+    const blockW = maxX - minX;
+    const blockH = maxY - minY;
+    return {
+      blockW,
+      blockH,
+      maxRepeatsRight: blockW > 0 ? Math.max(0, Math.floor((1 - maxX) / blockW)) : 0,
+      maxRepeatsBelow: blockH > 0 ? Math.max(0, Math.floor((1 - maxY) / blockH)) : 0,
+    };
+  }, [selectedCount, selectedRowIds, pageRows]);
 
   useEffect(() => {
     if (toastMessage) {
@@ -432,6 +467,67 @@ export function RowMarkingWorkspace({
     });
   }
 
+  // Repeats the CURRENT multi-selection as one rigid block, `repeatCount`
+  // times, offset by the block's own bounding-box width (direction
+  // "right") or height ("below") each time — a generalization of
+  // single-row Copy for "duplicate rows 1-10 as rows 11-20," not a loop
+  // that calls Copy N times (which would place each row adjacent to
+  // itself independently and overlap its own neighbors).
+  function handleDuplicateRange(
+    repeatCount: number,
+    direction: "right" | "below",
+    copyMaterials: boolean
+  ) {
+    if (!activePage || !selectionBounds || selectedRowIds.size < 2) return;
+    const sources = [...selectedRowIds]
+      .map((id) => pageRows.find((row) => row.id === id))
+      .filter((row): row is ProjectRow => Boolean(row))
+      .sort((a, b) => (rowNumber(a.label) ?? 0) - (rowNumber(b.label) ?? 0));
+    if (sources.length < 2) return;
+
+    const dx = direction === "right" ? selectionBounds.blockW : 0;
+    const dy = direction === "below" ? selectionBounds.blockH : 0;
+
+    runAction(async () => {
+      let nextNumber = maxRowNumber(allLabels) + 1;
+      const allCreated: RowSnapshot[] = [];
+      for (const source of sources) {
+        const newRows = Array.from({ length: repeatCount }, (_, i) => {
+          const n = i + 1;
+          const geometry = clampGeometry({
+            x: source.x + dx * n,
+            y: source.y + dy * n,
+            w: source.w,
+            h: source.h,
+          });
+          const label = `Row ${nextNumber}`;
+          nextNumber += 1;
+          return { label, geometry };
+        });
+        const created = await duplicateRows(
+          projectId,
+          activePage.id,
+          source.id,
+          newRows,
+          copyMaterials
+        );
+        allCreated.push(...created);
+      }
+      undoStack.push({
+        label: "Duplicate range",
+        undo: async () => {
+          await deleteRowsBatch(
+            allCreated.map((r) => r.id),
+            projectId
+          );
+        },
+        redo: async () => {
+          await restoreRows(projectId, allCreated);
+        },
+      });
+    });
+  }
+
   function handleDeleteSelection() {
     if (selectedRowIds.size === 0) return;
     const idsToDelete = [...selectedRowIds];
@@ -657,6 +753,15 @@ export function RowMarkingWorkspace({
         </div>
       ) : null}
 
+      {activePage ? (
+        <DrawingVersionPanel
+          projectId={projectId}
+          drawingId={activePage.id}
+          pageIndex={activePage.pageIndex}
+          history={activePage.history}
+        />
+      ) : null}
+
       <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-2">
         <Button
           type="button"
@@ -771,8 +876,10 @@ export function RowMarkingWorkspace({
         <RowCommandPanel
           selectedCount={selectedCount}
           isSingleSelection={isSingleSelection}
+          canDuplicateRange={selectionBounds !== null}
           isPending={isPending}
           onCopy={handleCopy}
+          onDuplicateRangeToggle={() => setDuplicateRangeDialogOpen(true)}
           onDelete={handleDeleteSelection}
           onRenameToggle={handleRenameToggle}
           onMaterialsToggle={() =>
@@ -870,6 +977,14 @@ export function RowMarkingWorkspace({
         onConfirm={(count, orientation) => {
           setGridPending({ count, orientation });
         }}
+      />
+
+      <DuplicateRangeDialog
+        open={duplicateRangeDialogOpen}
+        onOpenChange={setDuplicateRangeDialogOpen}
+        maxRepeatsRight={selectionBounds?.maxRepeatsRight ?? 0}
+        maxRepeatsBelow={selectionBounds?.maxRepeatsBelow ?? 0}
+        onConfirm={handleDuplicateRange}
       />
 
       <Toast message={toastMessage} />

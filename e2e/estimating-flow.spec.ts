@@ -67,8 +67,12 @@ test("estimating: draft an estimate, classify materials, save a forecast, conver
       })
       .toBe("beam");
 
-    await row.locator("input").nth(1).fill("96");
-    await row.locator("input").nth(1).blur();
+    // Not a positional row.locator("input").nth(1) — sub-phase G added a
+    // leading select-checkbox <input> to every row for bulk operations,
+    // shifting every subsequent input's index by one.
+    const sizeInput = page.getByTestId(`material-size-${beam!.id}`);
+    await sizeInput.fill("96");
+    await sizeInput.blur();
 
     // labor_standards seeds beam at base_labor_units=0.05, per_linear_ft —
     // 0.05 × 96 = 4.80 standard hours for this one unit.

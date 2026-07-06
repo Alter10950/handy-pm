@@ -74,6 +74,7 @@ export function DrawingUpload({
       <input
         ref={inputRef}
         type="file"
+        data-testid="drawing-upload-input"
         accept="application/pdf,image/*"
         className="hidden"
         onChange={(event) => {

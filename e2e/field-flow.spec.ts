@@ -48,9 +48,13 @@ test("field: pick project, select crew, log materials, report a blocker, offline
     await page.locator("#row-orientation").selectOption("vertical");
     await page.getByRole("button", { name: "Next → drag box" }).click();
     await expect(page.getByText("Auto-create rows")).not.toBeVisible();
-    const stageBox = (await page
-      .locator('img[alt="Layout drawing"]')
-      .boundingBox())!;
+    const layoutImage = page.locator('img[alt="Layout drawing"]');
+    // On this suite's narrow mobile viewport, the drawing-version panel
+    // (added in Batch 3 sub-phase G) pushes the stage further down the
+    // page than before — scroll it fully into view first so a 0.05..0.95
+    // drag actually lands on the canvas instead of partly below the fold.
+    await layoutImage.scrollIntoViewIfNeeded();
+    const stageBox = (await layoutImage.boundingBox())!;
     await page.mouse.move(
       stageBox.x + stageBox.width * 0.05,
       stageBox.y + stageBox.height * 0.05

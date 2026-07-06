@@ -461,6 +461,91 @@ new query for either tab's filter.
   material, no crew dispatch" into an actual block is an explicit later
   (Batch 4) job that builds on this UI rather than duplicating it.
 
+## CSV/XLSX import, row-range duplication, materials bulk ops, drawing versioning (Batch 3, Sub-phase G, 2026-07-06)
+
+Full design reasoning in `docs/DECISIONS.md` ADR-034.
+
+- **Spreadsheet import** — `lib/projects/parse-spreadsheet.ts`
+  (browser-only: `parseSpreadsheetFile(file)` uses `papaparse` for
+  `.csv`, `exceljs` for `.xlsx`/`.xls`, reading only the first
+  worksheet — both normalize to one `{headers, rows}` shape) +
+  `guessColumnIndex(headers, synonyms)` (exact case-insensitive match,
+  then substring fallback). `components/projects/import-materials-dialog.tsx`
+  is one dialog with a `mode` toggle (materials list / row assignments)
+  reusing the same file→map→preview→confirm shell for both — each mode
+  has its own field-synonym config and its own preview-row shape, but
+  the mapping `<select>`s and preview table render generically off
+  whichever field list is active. Materials mode calls the new
+  `lib/projects/actions.ts#importMaterials` (same `received =
+  total_needed` packing-slip assumption as `pasteMaterialList`/
+  `confirmExtractedMaterials`, same `replaceExisting` toggle). Row-
+  assignments mode resolves row label + material name against the
+  `rows`/`materials` lists already passed into `MaterialsGrid` as props
+  (case-insensitive, trimmed) — entirely client-side, so the preview
+  can show exactly which lines resolved before anything commits — and
+  commits via the pre-existing `upsertRowMaterialQtyMany` directly, no
+  new Server Action. **Deliberately never auto-creates a row or
+  material from an unresolved name** — a spreadsheet has no geometry to
+  draw a row from, and a silently-created near-duplicate material from
+  a typo would be worse than a visible, named skip reason per line.
+- **Duplicate range** — `components/projects/duplicate-range-dialog.tsx`
+  + `handleDuplicateRange` in `row-marking-workspace.tsx`. Treats the
+  current multi-row selection's own bounding box (not each row's
+  individual size) as the repeating unit, offsetting every selected row
+  by `n × blockWidth` (direction "right") or `n × blockHeight`
+  ("below") for `n` in `1..repeatCount`, then calls the pre-existing
+  `duplicateRows(projectId, drawingId, sourceRowId, newRows[],
+  copyMaterials)` once per source row — that action already accepted
+  *multiple* new rows per source (the single-row "Copy" button just
+  always passed exactly one), so generating N pre-offset geometries
+  client-side was the entire feature; no new Server Action. The dialog
+  computes `maxRepeatsRight`/`maxRepeatsBelow` from the selection's own
+  bounding box (how many repeats fit before the drawing's 0..1 edge) and
+  disables/caps accordingly rather than silently clamping into an
+  overlapping stack. Also the first UI to expose `copyMaterials` as a
+  real checkbox — it's existed as a `duplicateRows` parameter since the
+  original Copy button shipped, just hardcoded `true` at that one call
+  site.
+- **Materials bulk ops** — `MaterialsGrid` gained a leading checkbox
+  column and a `selectedIds` Set, reusing its own existing
+  `useTransition`/`error`/`run()` machinery (no separate undo-tracked
+  action-dispatch shape, since materials edits in this codebase are
+  direct, not undo-tracked, unlike rows). A conditional action bar
+  offers bulk delete (`deleteMaterialsBatch`, `window.confirm()`-gated)
+  and bulk set-condition (`bulkSetMaterialCondition`).
+- **Drawing versioning** — `lib/drawings/queries.ts`
+  (`listDrawingVersions`, `listDrawingVersionsByProject`) +
+  `lib/drawings/actions.ts` (`uploadDrawingVersion`,
+  `approveDrawingVersion`) on top of sub-phase 0's `drawing_versions`
+  table, which had shipped with **zero** application code ever reading
+  or writing it. `recordDrawingUpload` (existing) now also inserts a
+  matching version-1 row (`approved_for_install: true` — nothing yet to
+  review against) for every newly uploaded page, keeping the invariant
+  "every `drawings` row has ≥1 `drawing_versions` row" true going
+  forward. `uploadDrawingVersion` marks the page's current unsuperseded
+  version `superseded_at = now()`, inserts the new version row
+  UNAPPROVED, then updates the `drawings` row's `storage_path`/`width`/
+  `height` in place (same id) — exactly the contract sub-phase 0's own
+  migration comment specified but never implemented. `approveDrawingVersion`
+  defensively un-approves every other version for that page when
+  approving one, so "at most one approved version per page" holds even
+  if ever called out of latest-version order.
+  `components/projects/drawing-version-panel.tsx` (rendered above the
+  toolbar in `row-marking-workspace.tsx`, for whichever page tab is
+  currently active) shows the version badge, an "Upload new version"
+  button (reuses `renderFileToPages`, first page only), an "Approve for
+  install" button when pending, a warning banner visible to every role
+  including crew when the latest version isn't approved yet, and an
+  expandable version-history log — self-contained with its own
+  `useTransition`/`router.refresh()`, not threaded through the
+  workspace's undo stack (version history is an audit trail, not an
+  undo-able edit, same posture as `material_receipts`/
+  `project_estimates`). Intentionally a **soft warning, not a hard
+  gate** — consistent with this codebase's established posture
+  (ADR-029's double-booking warning, sub-phase F's blocked-row
+  scheduler warning); turning this into an actual mobilization block is
+  an explicit later (Batch 4) job.
+
 ## Field / crew app (Phase 6, 2026-07-03; taken to flagship 2026-07-06)
 
 `/field` (active projects + "My assignments today,"
@@ -1161,6 +1246,66 @@ short:
     `team-settings-flow.spec.ts`'s own entries above). Fixed by deleting
     the two stray crews via a one-off admin-client script, not by
     changing the now-fixed test.
+- `e2e/import-bulk-flow.spec.ts` (2026-07-06) — creates a project, draws
+  a row, imports a materials CSV (headers `Name,Total needed,Condition`
+  auto-map with zero manual mapping-select interaction, confirming the
+  guesser works on the common case), imports a row-assignments CSV
+  (`Row,Material,Qty`) and polls the DB for the resulting
+  `row_materials.required_qty`, bulk-sets both imported materials'
+  condition and polls the DB, bulk-deletes one (via the same
+  `page.once("dialog", ...)`-before-click pattern as
+  `materials-lifecycle-flow.spec.ts`'s scheduler-warning test, since
+  `MaterialsGrid`'s bulk-delete also calls a synchronous
+  `window.confirm()`), then draws a second row and duplicates both as a
+  block (`Duplicate range ×N`), confirming 4 rows exist both on-screen
+  and in the DB.
+  - **A genuine test-only race found while writing this spec**: the
+    "duplicate range" step navigates back to the Layout tab (a fast
+    client-side route change, unlike the initial upload) and draws
+    immediately — the very first run intermittently read the drawing
+    image's bounding box *before* zoom/pan's "fit to screen" `useEffect`
+    had recomputed it, silently drawing (or, worse, entirely failing to
+    draw) against the image's un-fitted natural size. Polling the
+    bounding box for two consecutive stable reads did not reliably fix
+    this. Fixed by clicking the real "Fit to screen" toolbar button
+    first — its click handler recomputes the fit synchronously, so
+    there's no effect-timing race left to lose.
+- `e2e/drawing-versioning-flow.spec.ts` (2026-07-06) — uploads a first
+  drawing and confirms it's auto-approved at v1 with no warning banner,
+  uploads a second version via the version panel's own file input and
+  confirms it becomes v2/pending with the warning banner now visible,
+  approves it and confirms the badge flips and the banner clears, then
+  expands the version-history disclosure and confirms both entries
+  render. Scopes every "v1"/"v2" assertion through a dedicated
+  `drawing-version-badge` `data-testid` and, for the history log, reads
+  `innerText()` on the already-uniquely-scoped `drawing-history-{id}`
+  element rather than a second round of `getByText()` calls — "v1"/"v2"
+  legitimately appear twice on the page once history is expanded (the
+  top badge and the entry's own label), so a bare `getByText("v2", {exact:
+  true})` would be a strict-mode violation, the same "matches more than
+  one real element" class of issue as elsewhere in this list, caught
+  before it ever became a flaky failure rather than after.
+- Regression found and fixed in `multi-page-flow.spec.ts`: a bare
+  `input[type="file"]` locator became ambiguous once the new drawing-
+  version panel gave any project with an existing drawing a *second*
+  file input on the same Layout tab — fixed with new
+  `drawing-upload-input`/`drawing-version-upload-input`
+  `data-testid`s on the two inputs, used here and in this sub-phase's
+  own new versioning spec.
+- Regression found and fixed in `estimating-flow.spec.ts`: the
+  materials grid's new leading bulk-select checkbox shifted every
+  subsequent `<input>`'s position, breaking a positional
+  `row.locator("input").nth(1)` (previously the Size input, now the
+  Name input) — fixed with the existing `material-size-{id}`
+  `data-testid`, the same lesson ADR-030 already logged once for a
+  different column addition.
+- Regression found and fixed in `field-flow.spec.ts` (mobile viewport)
+  and `layout-interaction-flow.spec.ts`: the new drawing-version panel's
+  added height pushed the canvas further down the page, leaving parts
+  of it below the fold — a raw `page.mouse.move/down/up` sequence,
+  unlike a locator `.click()`, never auto-scrolls its target into view.
+  Fixed by calling `scrollIntoViewIfNeeded()` on the drawing image
+  before reading its bounding box for pointer math, in both specs.
 
 This suite is what caught ADR-016's env var bug — self-review and
 `next build` both stayed clean through Phases 3–5 because neither
