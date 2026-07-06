@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { SchedulerWorkspace } from "@/components/scheduler/scheduler-workspace";
 import { listCrewMembers, listCrews } from "@/lib/crews/queries";
@@ -12,6 +12,7 @@ import {
   listRemainingByMaterial,
   listTargets,
 } from "@/lib/scheduler/queries";
+import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +21,25 @@ export default async function SchedulerProjectPage({
 }: {
   params: Promise<{ projectId: string }>;
 }) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role, org_id")
+    .eq("id", user.id)
+    .single();
+
+  if (
+    !profile?.org_id ||
+    !["owner", "pm", "scheduler"].includes(profile.role)
+  ) {
+    redirect("/app");
+  }
+
   const { projectId } = await params;
   const project = await getProject(projectId);
   if (!project) notFound();

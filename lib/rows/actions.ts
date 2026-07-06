@@ -2,7 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 
+import { requireRole } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
+
+// Matches rows_write / row_materials_write RLS exactly (crew reads rows
+// but never writes them).
+const ROW_EDITORS = ["owner", "pm"] as const;
 
 export interface RowGeometry {
   x: number;
@@ -39,6 +44,7 @@ export async function createRow(
   geometry: RowGeometry,
   id?: string
 ): Promise<{ id: string }> {
+  await requireRole(ROW_EDITORS);
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("rows")
@@ -63,6 +69,7 @@ export async function createRowsBatch(
   rows: { id?: string; label: string; geometry: RowGeometry }[]
 ): Promise<{ id: string; label: string; geometry: RowGeometry }[]> {
   if (rows.length === 0) return [];
+  await requireRole(ROW_EDITORS);
 
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -92,6 +99,7 @@ export async function updateRowGeometry(
   projectId: string,
   geometry: RowGeometry
 ): Promise<void> {
+  await requireRole(ROW_EDITORS);
   const supabase = await createClient();
   const { error } = await supabase
     .from("rows")
@@ -109,6 +117,7 @@ export async function renameRow(
 ): Promise<void> {
   const trimmed = label.trim();
   if (!trimmed) throw new Error("Row name is required.");
+  await requireRole(ROW_EDITORS);
 
   const supabase = await createClient();
   const { error } = await supabase
@@ -124,6 +133,7 @@ export async function deleteRow(
   rowId: string,
   projectId: string
 ): Promise<void> {
+  await requireRole(ROW_EDITORS);
   const supabase = await createClient();
   const { error } = await supabase.from("rows").delete().eq("id", rowId);
   if (error) throw error;
@@ -136,6 +146,7 @@ export async function deleteRowsBatch(
   projectId: string
 ): Promise<void> {
   if (rowIds.length === 0) return;
+  await requireRole(ROW_EDITORS);
   const supabase = await createClient();
   const { error } = await supabase.from("rows").delete().in("id", rowIds);
   if (error) throw error;
@@ -182,6 +193,7 @@ export async function restoreRows(
   snapshots: RowSnapshot[]
 ): Promise<void> {
   if (snapshots.length === 0) return;
+  await requireRole(ROW_EDITORS);
   const supabase = await createClient();
 
   const { error } = await supabase.from("rows").insert(
@@ -219,6 +231,7 @@ export async function upsertRowMaterialQty(
   projectId: string,
   requiredQty: number
 ): Promise<void> {
+  await requireRole(ROW_EDITORS);
   const supabase = await createClient();
   const { error } = await supabase.from("row_materials").upsert(
     {
@@ -275,6 +288,7 @@ export async function upsertRowMaterialQtyMany(
   entries: { rowId: string; materialId: string; requiredQty: number }[]
 ): Promise<void> {
   if (entries.length === 0) return;
+  await requireRole(ROW_EDITORS);
 
   const supabase = await createClient();
   const { error } = await supabase.from("row_materials").upsert(
@@ -296,6 +310,7 @@ export async function setRowsPhase(
   phaseId: string | null
 ): Promise<void> {
   if (rowIds.length === 0) return;
+  await requireRole(ROW_EDITORS);
   const supabase = await createClient();
   const { error } = await supabase
     .from("rows")
@@ -338,6 +353,7 @@ export async function duplicateRows(
   copyMaterials: boolean
 ): Promise<RowSnapshot[]> {
   if (newRows.length === 0) return [];
+  await requireRole(ROW_EDITORS);
 
   const supabase = await createClient();
   const { data: inserted, error } = await supabase

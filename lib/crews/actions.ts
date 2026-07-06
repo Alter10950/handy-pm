@@ -2,32 +2,15 @@
 
 import { revalidatePath } from "next/cache";
 
+import { requireRole } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
+
+// Matches crews_write / crew_members_write RLS exactly.
+const CREW_MANAGERS = ["owner", "pm", "scheduler"] as const;
 
 function revalidateCrews() {
   revalidatePath("/scheduler");
   revalidatePath("/field");
-}
-
-async function requireOrgId(): Promise<string> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Not signed in.");
-
-  const { data: profile, error } = await supabase
-    .from("profiles")
-    .select("org_id")
-    .eq("id", user.id)
-    .single();
-  if (error) throw error;
-  if (!profile.org_id) {
-    throw new Error(
-      "Your account isn't assigned to an organization yet. Ask an owner/PM to assign you one."
-    );
-  }
-  return profile.org_id;
 }
 
 export async function createCrew(
@@ -35,7 +18,7 @@ export async function createCrew(
   size: number,
   costPerHour: number | null
 ): Promise<{ id: string }> {
-  const orgId = await requireOrgId();
+  const { orgId } = await requireRole(CREW_MANAGERS);
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("crews")
@@ -58,6 +41,7 @@ export async function updateCrew(
   size: number,
   costPerHour: number | null
 ): Promise<void> {
+  await requireRole(CREW_MANAGERS);
   const supabase = await createClient();
   const { error } = await supabase
     .from("crews")
@@ -68,6 +52,7 @@ export async function updateCrew(
 }
 
 export async function deleteCrew(crewId: string): Promise<void> {
+  await requireRole(CREW_MANAGERS);
   const supabase = await createClient();
   const { error } = await supabase.from("crews").delete().eq("id", crewId);
   if (error) throw error;
@@ -78,6 +63,7 @@ export async function addCrewMember(
   crewId: string,
   name: string
 ): Promise<void> {
+  await requireRole(CREW_MANAGERS);
   const supabase = await createClient();
   const { error } = await supabase
     .from("crew_members")
@@ -87,6 +73,7 @@ export async function addCrewMember(
 }
 
 export async function removeCrewMember(memberId: string): Promise<void> {
+  await requireRole(CREW_MANAGERS);
   const supabase = await createClient();
   const { error } = await supabase
     .from("crew_members")

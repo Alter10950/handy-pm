@@ -2,8 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 
+import { requireRole } from "@/lib/auth/session";
 import { listProjectSchedule, listRemainingByMaterial } from "@/lib/scheduler/queries";
 import { createClient } from "@/lib/supabase/server";
+
+// Matches assignments_write / targets_write / project_schedule_write RLS.
+const SCHEDULERS = ["owner", "pm", "scheduler"] as const;
 
 function revalidateScheduler(projectId: string) {
   revalidatePath("/scheduler");
@@ -14,6 +18,7 @@ export async function upsertPlannedDays(
   projectId: string,
   plannedDays: number | null
 ): Promise<void> {
+  await requireRole(SCHEDULERS);
   const supabase = await createClient();
   const { error } = await supabase
     .from("projects")
@@ -30,6 +35,7 @@ export async function setProjectSchedule(
   projectId: string,
   dates: string[]
 ): Promise<void> {
+  await requireRole(SCHEDULERS);
   const supabase = await createClient();
   const { error: deleteError } = await supabase
     .from("project_schedule")
@@ -52,6 +58,7 @@ export async function createAssignment(
   workDate: string,
   rowIds: string[] | null
 ): Promise<void> {
+  await requireRole(SCHEDULERS);
   const supabase = await createClient();
   const rows = rowIds && rowIds.length > 0 ? rowIds : [null];
   const { error } = await supabase.from("assignments").insert(
@@ -70,6 +77,7 @@ export async function deleteAssignment(
   id: string,
   projectId: string
 ): Promise<void> {
+  await requireRole(SCHEDULERS);
   const supabase = await createClient();
   const { error } = await supabase.from("assignments").delete().eq("id", id);
   if (error) throw error;
@@ -86,6 +94,7 @@ export async function upsertTarget(
   materialId: string,
   targetQty: number
 ): Promise<void> {
+  await requireRole(SCHEDULERS);
   const supabase = await createClient();
   let existing = supabase
     .from("targets")
@@ -127,6 +136,7 @@ export async function upsertTarget(
 // so re-running this after progress changes gives a clean recompute
 // instead of accumulating stale rows.
 export async function generateTargets(projectId: string): Promise<number> {
+  await requireRole(SCHEDULERS);
   const supabase = await createClient();
   const today = new Date().toISOString().slice(0, 10);
 

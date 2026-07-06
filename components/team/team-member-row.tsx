@@ -6,23 +6,27 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+  assignTeamMemberCrew,
   resetTeamMemberPassword,
   setTeamMemberActive,
   updateTeamMemberRole,
 } from "@/lib/team/actions";
 import { generateTempPassword } from "@/lib/team/generate-password";
 import type { TeamMember } from "@/lib/team/queries";
-import type { ProfileRole } from "@/lib/supabase/database.types";
+import type { ProfileRole, Tables } from "@/lib/supabase/database.types";
 import { cn } from "@/lib/utils";
 
 export function TeamMemberRow({
   member,
+  crews,
   isSelf,
 }: {
   member: TeamMember;
+  crews: Tables<"crews">[];
   isSelf: boolean;
 }) {
   const [role, setRole] = useState<ProfileRole>(member.role);
+  const [crewId, setCrewId] = useState<string | null>(member.crewId);
   const [isActive, setIsActive] = useState(member.isActive);
   const [resetOpen, setResetOpen] = useState(false);
   const [password, setPassword] = useState("");
@@ -43,6 +47,25 @@ export function TeamMemberRow({
         router.refresh();
       } catch (err) {
         setRole(previous);
+        setError(err instanceof Error ? err.message : "Could not save.");
+      }
+    });
+  }
+
+  function handleCrewChange(nextCrewId: string) {
+    const previous = crewId;
+    const normalized = nextCrewId || null;
+    setCrewId(normalized);
+    setError(null);
+    startTransition(async () => {
+      try {
+        const formData = new FormData();
+        formData.set("member_id", member.id);
+        formData.set("crew_id", normalized ?? "");
+        await assignTeamMemberCrew(formData);
+        router.refresh();
+      } catch (err) {
+        setCrewId(previous);
         setError(err instanceof Error ? err.message : "Could not save.");
       }
     });
@@ -134,6 +157,21 @@ export function TeamMemberRow({
             <option value="pm">PM</option>
             <option value="scheduler">Scheduler</option>
             <option value="crew">Crew</option>
+          </select>
+
+          <select
+            aria-label={`Crew for ${member.email}`}
+            value={crewId ?? ""}
+            disabled={isPending}
+            onChange={(event) => handleCrewChange(event.target.value)}
+            className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <option value="">No crew</option>
+            {crews.map((crew) => (
+              <option key={crew.id} value={crew.id}>
+                {crew.name}
+              </option>
+            ))}
           </select>
 
           {!resetOpen ? (

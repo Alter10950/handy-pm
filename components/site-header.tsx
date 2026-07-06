@@ -8,9 +8,8 @@ import { signOut } from "@/lib/auth/actions";
 import { cn } from "@/lib/utils";
 import type { ProfileRole } from "@/lib/supabase/database.types";
 
-const NAV_LINKS = [
+const BASE_NAV_LINKS = [
   { href: "/app", label: "Projects" },
-  { href: "/scheduler", label: "Scheduler" },
   { href: "/field", label: "Field" },
 ];
 
@@ -22,10 +21,20 @@ export function SiteHeader({
   role: ProfileRole | null;
 }) {
   const pathname = usePathname();
-  const navLinks =
-    role === "owner" || role === "pm"
-      ? [...NAV_LINKS, { href: "/app/team", label: "Team" }]
-      : NAV_LINKS;
+  // Scheduler is an office tool — matches the page-level redirect guard on
+  // /scheduler and /scheduler/[projectId] (crew's equivalent is Field).
+  const navLinks = [
+    ...BASE_NAV_LINKS,
+    ...(role === "owner" || role === "pm" || role === "scheduler"
+      ? [{ href: "/scheduler", label: "Scheduler" }]
+      : []),
+    ...(role === "owner" || role === "pm"
+      ? [
+          { href: "/app/team", label: "Team" },
+          { href: "/app/settings", label: "Settings" },
+        ]
+      : []),
+  ];
 
   return (
     <header className="sticky top-0 z-10 border-b border-border bg-background/95 backdrop-blur">

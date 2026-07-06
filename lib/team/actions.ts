@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { requireRole } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type { ProfileRole } from "@/lib/supabase/database.types";
@@ -13,40 +14,17 @@ const ASSIGNABLE_ROLES: readonly ProfileRole[] = [
   "crew",
 ];
 
+// The admin client used for user creation/password resets bypasses RLS
+// entirely, so this check is the only gate standing between "any signed-in
+// user" and "team management" for those specific mutations.
+const TEAM_MANAGERS = ["owner", "pm"] as const;
+
 function parseRole(value: FormDataEntryValue | null): ProfileRole {
   const role = String(value ?? "");
   if (!ASSIGNABLE_ROLES.includes(role as ProfileRole)) {
     throw new Error("Invalid role.");
   }
   return role as ProfileRole;
-}
-
-/**
- * Every mutation below re-derives the caller's role from the DB, never
- * trusting anything the client claims about itself — the admin client used
- * for user creation/password resets bypasses RLS entirely, so this check is
- * the only gate standing between "any signed-in user" and "team management."
- */
-async function requireOwnerOrPm(): Promise<{ userId: string; orgId: string }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Not signed in.");
-
-  const { data: profile, error } = await supabase
-    .from("profiles")
-    .select("org_id, role")
-    .eq("id", user.id)
-    .single();
-  if (error) throw error;
-  if (!profile.org_id) {
-    throw new Error("Your account isn't assigned to an organization yet.");
-  }
-  if (profile.role !== "owner" && profile.role !== "pm") {
-    throw new Error("Only an owner or PM can manage team members.");
-  }
-  return { userId: user.id, orgId: profile.org_id };
 }
 
 export async function createTeamMember(formData: FormData) {
@@ -62,7 +40,7 @@ export async function createTeamMember(formData: FormData) {
     throw new Error("Temporary password must be at least 8 characters.");
   }
 
-  const { orgId } = await requireOwnerOrPm();
+  const { orgId } = await requireRole(TEAM_MANAGERS);
 
   const admin = createAdminClient();
   const { data: created, error: createError } =
@@ -92,7 +70,7 @@ export async function updateTeamMemberRole(formData: FormData) {
   const role = parseRole(formData.get("role"));
   if (!memberId) throw new Error("Missing member id.");
 
-  const { userId } = await requireOwnerOrPm();
+  const { userId } = await requireRole(TEAM_MANAGERS);
   if (memberId === userId) {
     throw new Error("You can't change your own role here.");
   }
@@ -139,7 +117,7 @@ export async function resetTeamMemberPassword(formData: FormData) {
     throw new Error("Temporary password must be at least 8 characters.");
   }
 
-  const { orgId } = await requireOwnerOrPm();
+  const { orgId } = await requireRole(TEAM_MANAGERS);
   await requireMemberInOrg(memberId, orgId);
 
   const admin = createAdminClient();
@@ -158,12 +136,33 @@ export async function resetTeamMemberPassword(formData: FormData) {
 // it isn't an instant kill-switch on an active session.
 const PERMANENT_BAN_DURATION = "876000h"; // ~100 years
 
+export async function assignTeamMemberCrew(formData: FormData) {
+  const memberId = String(formData.get("member_id") ?? "");
+  const crewId = String(formData.get("crew_id") ?? "") || null;
+  if (!memberId) throw new Error("Missing member id.");
+
+  await requireRole(TEAM_MANAGERS);
+
+  // A normal profiles update, same RLS path as updateTeamMemberRole above —
+  // crew_id has no admin-only implications, so no admin client needed.
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("profiles")
+    .update({ crew_id: crewId })
+    .eq("id", memberId)
+    .select("id")
+    .single();
+  if (error) throw error;
+
+  revalidatePath("/app/team");
+}
+
 export async function setTeamMemberActive(formData: FormData) {
   const memberId = String(formData.get("member_id") ?? "");
   const active = formData.get("active") === "true";
   if (!memberId) throw new Error("Missing member id.");
 
-  const { userId, orgId } = await requireOwnerOrPm();
+  const { userId, orgId } = await requireRole(TEAM_MANAGERS);
   if (memberId === userId) {
     throw new Error("You can't deactivate your own account here.");
   }

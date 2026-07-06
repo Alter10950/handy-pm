@@ -3,29 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import { requireRole } from "@/lib/auth/session";
 import { parseMaterialList } from "@/lib/projects/parse-material-list";
 import { createClient } from "@/lib/supabase/server";
 
-async function requireOrgId(): Promise<{ userId: string; orgId: string }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Not signed in.");
-
-  const { data: profile, error } = await supabase
-    .from("profiles")
-    .select("org_id")
-    .eq("id", user.id)
-    .single();
-  if (error) throw error;
-  if (!profile.org_id) {
-    throw new Error(
-      "Your account isn't assigned to an organization yet. Ask an owner/PM to assign you one."
-    );
-  }
-  return { userId: user.id, orgId: profile.org_id };
-}
+// Matches projects_insert/update/delete, materials_write, drawings_write,
+// and packing_slips_write RLS — all owner/pm only.
+const PROJECT_EDITORS = ["owner", "pm"] as const;
 
 export async function createProject(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
@@ -34,7 +18,7 @@ export async function createProject(formData: FormData) {
 
   if (!name) throw new Error("Project name is required.");
 
-  const { userId, orgId } = await requireOrgId();
+  const { userId, orgId } = await requireRole(PROJECT_EDITORS);
   const supabase = await createClient();
   const { data: project, error } = await supabase
     .from("projects")
@@ -56,6 +40,7 @@ export async function createProject(formData: FormData) {
 export async function addMaterial(projectId: string, name: string) {
   const trimmed = name.trim();
   if (!trimmed) throw new Error("Material name is required.");
+  await requireRole(PROJECT_EDITORS);
 
   const supabase = await createClient();
   const { error } = await supabase
@@ -77,6 +62,7 @@ export async function updateMaterial(
     received: number;
   }>
 ) {
+  await requireRole(PROJECT_EDITORS);
   const supabase = await createClient();
   const { error } = await supabase
     .from("materials")
@@ -88,6 +74,7 @@ export async function updateMaterial(
 }
 
 export async function deleteMaterial(materialId: string, projectId: string) {
+  await requireRole(PROJECT_EDITORS);
   const supabase = await createClient();
   const { error } = await supabase
     .from("materials")
@@ -108,6 +95,7 @@ export async function pasteMaterialList(
   if (parsed.length === 0) {
     throw new Error('Couldn\'t find any "name, qty" lines to add.');
   }
+  await requireRole(PROJECT_EDITORS);
 
   const supabase = await createClient();
 
@@ -156,6 +144,7 @@ export async function confirmExtractedMaterials(
   if (cleaned.length === 0) {
     throw new Error("No valid material lines to add.");
   }
+  await requireRole(PROJECT_EDITORS);
 
   const supabase = await createClient();
 
@@ -190,6 +179,7 @@ export async function recordDrawingUpload(
     height: number;
   }[]
 ) {
+  await requireRole(PROJECT_EDITORS);
   const supabase = await createClient();
   // Ordering by page_index has to happen client-side, not via .order() on
   // an insert-returning query — that form errors with "column
@@ -238,6 +228,7 @@ export async function setMarkingDrawing(
   projectId: string,
   drawingId: string
 ): Promise<void> {
+  await requireRole(PROJECT_EDITORS);
   const supabase = await createClient();
   const { error } = await supabase.rpc("set_marking_drawing", {
     p_project_id: projectId,
@@ -251,6 +242,7 @@ export async function recordPackingSlipUpload(
   projectId: string,
   storagePath: string
 ) {
+  await requireRole(PROJECT_EDITORS);
   const supabase = await createClient();
   const { error } = await supabase
     .from("packing_slips")

@@ -5,6 +5,92 @@ Consequences.
 
 ---
 
+## ADR-027: Sub-phase A — shared requireRole guard, RPC for self-service name edit, Scheduler gated whole-page
+
+**Decision date:** 2026-07-06
+
+**Context:** Batch 3, sub-phase A: complete user management (assign a
+user to a crew, on top of Batch 1's create/role/reset/deactivate),
+org settings (name/address/logo/default working days), and — the part
+with the widest blast radius — "enforce role permissions consistently
+everywhere... add server-side guards, not just hidden buttons." Auditing
+the existing codebase found every mutating Server Action relied
+*entirely* on Postgres RLS for role enforcement, with zero
+application-level check: not a security hole (RLS genuinely blocks a
+disallowed write), but a real gap from "hidden button is the only
+defense" — a raw RLS error is what a disallowed caller saw, and nothing
+stopped a future call site from reaching a service-role client without
+re-deriving the caller's role first.
+
+**Choice — one shared `requireRole`/`requireOrg` helper
+(`lib/auth/session.ts`), applied everywhere a role restriction already
+exists at the RLS level:** rather than each feature folder growing its
+own copy-pasted "fetch org_id/role, throw if not allowed" (this had
+already happened three times — `lib/team/actions.ts`'s
+`requireOwnerOrPm`, `lib/projects/actions.ts`'s `requireOrgId`,
+`lib/crews/actions.ts`'s `requireOrgId`), one helper now backs every
+mutation: `lib/crews/actions.ts` (owner/pm/scheduler, matching
+`crews_write`), `lib/phases/actions.ts` (same), `lib/rows/actions.ts`
+and `lib/projects/actions.ts`'s materials/drawings/packing-slip
+mutations (owner/pm, matching `rows_write`/`materials_write`/
+`drawings_write`), `lib/scheduler/actions.ts` (owner/pm/scheduler,
+matching `assignments_write`/`targets_write`/`project_schedule_write`),
+and `lib/team/actions.ts` (refactored onto the shared helper instead of
+its own copy). Each guard's allowed-role set is chosen to exactly match
+the table's own RLS policy — never looser (that would be a false sense
+of permission RLS then blocks anyway with a confusing raw error) and
+never stricter without reason. `lib/field/actions.ts` (installs/
+blockers/day_logs) deliberately keeps its existing org-only check with
+no role restriction — crew *should* reach these, that's the entire
+point of the field app.
+
+**Choice — self-service full-name edit goes through a narrow
+`security definer` RPC, not a broader RLS policy:** "Account page
+(change own password/name)" — password already worked
+(`supabase.auth.updateUser`, `auth.users`, no RLS involved), but
+`profiles_update`'s existing policy only lets owner/pm update *any*
+profile row, including their own — a crew/scheduler user couldn't
+self-edit their own name through it at all. Postgres RLS is row-level,
+not column-level: a policy can't say "any signed-in user may update
+this one column of their own row" without also exposing every other
+column (`role`, `org_id`) on that row to a crafted client-side update.
+`update_own_full_name(p_full_name)` hardcodes both `where id =
+auth.uid()` and the one column it ever touches, so there's nothing
+broader for a client to exploit even though the function itself bypasses
+RLS — same reasoning as `set_marking_drawing` (ADR-019).
+
+**Choice — `/scheduler` is gated to owner/pm/scheduler at the page
+level, not left open with individually-hidden buttons inside it:**
+`/scheduler` was in the base nav for every role, including crew, and
+`CrewManager`/`ScheduleBuilder`/`AssignCrewForm` render their mutating
+controls with zero role-awareness — a crew user could see and click
+"+ New crew" today (previously failing with a raw RLS error, now a
+friendly one, but visible and clickable either way). Rather than thread
+role-conditional rendering through every control in that whole
+component tree, the page itself now redirects non-owner/pm/scheduler
+callers to `/app` — matching how `/app/team` and the new
+`/app/settings` are already gated, and matching the product reality
+that crew's equivalent view is "My assignments today" in Field (sub-phase
+B), not the Scheduler management UI. The nav link is hidden to match.
+
+**Consequences — explicitly scoped, not exhaustive:** this sub-phase
+fixes the two clearest, most literal instances of "hidden button, not a
+real guard" the spec named (Scheduler; the Team/Settings pages already
+followed this pattern). It does **not** yet audit every remaining
+screen for role-conditional rendering — e.g., the Materials grid still
+renders editable inputs regardless of viewer role (blocked server-side
+by the now-guarded `updateMaterial`/etc., just not visually hidden for
+scheduler/crew). Deferred deliberately to sub-phase I's polish/QA pass,
+which will have full visibility into every screen this batch touches
+rather than auditing piecemeal mid-batch. Also found and fixed a real
+E2E test bug while verifying: `e2e/team-settings-flow.spec.ts`'s own
+crew-creation step (used to prove crew assignment) had no cleanup,
+leaving permanent leftover `crews` rows that broke an unrelated test's
+`.filter({hasText})` locator (matches every ancestor containing that
+text — the same class of bug documented in `docs/ARCHITECTURE.md`'s
+Testing section, this time triggered by test pollution rather than DOM
+nesting alone).
+
 ## ADR-026: Batch 3 schema — receipts as an event log, drawing_versions parallel to drawings, row readiness precedence, types genuinely regenerated
 
 **Decision date:** 2026-07-06

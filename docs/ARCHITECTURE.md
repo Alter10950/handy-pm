@@ -6,14 +6,15 @@
 | ----------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `/`                           | redirect  | Sends signed-in users to `/app`, everyone else to `/login`.                                                                                                                                                                     |
 | `/login`                      | public    | Email + password sign-in (Handy PM branded). No sign-up form — see ADR-017.                                                                                                                                                     |
-| `/account`                    | protected | Self-service change-password. Any signed-in role.                                                                                                                                                                               |
+| `/account`                    | protected | Self-service change-password + display-name edit. Any signed-in role.                                                                                                                                                           |
 | `/app`                        | protected | Projects list (from `project_progress`) + New project dialog.                                                                                                                                                                   |
-| `/app/team`                   | protected | Team/user management — owner/pm only. Create accounts (email + temp password + role), change an existing member's role, reset their password.                                                                                   |
+| `/app/team`                   | protected | Team/user management — owner/pm only. Create accounts (email + temp password + role), change an existing member's role, reset their password, deactivate/reactivate, assign to a crew.                                          |
+| `/app/settings`               | protected | Org settings — owner/pm only. Name, address, logo, default working days.                                                                                                                                                         |
 | `/app/project/[id]`           | protected | Overview tab — meta, quick stats, drawing thumbnail.                                                                                                                                                                            |
 | `/app/project/[id]/mark`      | protected | "Layout" tab — drawing upload/viewer + row marking workspace (auto/draw/edit tools). Named `mark`, not `layout`, to avoid colliding with the Next.js `layout.tsx` file convention in the same folder — see `docs/DECISIONS.md`. |
 | `/app/project/[id]/materials` | protected | Materials tab — packing-slip/paste-list upload, reference drawing overlay, materials × rows grid, reconciliation card.                                                                                                          |
 | `/app/project/[id]/progress`  | protected | Project-level progress rollup (row counts, hazards, overall %). Per-material reconciliation lives on the Materials tab instead.                                                                                                 |
-| `/scheduler`                  | protected | Crew/install scheduling. Placeholder until Phase 7.                                                                                                                                                                             |
+| `/scheduler`                  | protected | Crew/install scheduling — owner/pm/scheduler only (redirects crew to `/app`; their equivalent is Field). See Scheduler section below.                                                                                            |
 | `/field`                      | protected | Crew phone app (installable PWA). Placeholder until Phase 6.                                                                                                                                                                    |
 | `/portal/[token]`             | public    | Customer-facing read-only project status, gated by an unguessable share token. Placeholder until Phase 8.                                                                                                                       |
 
@@ -42,21 +43,40 @@ why `/field` is included.
    project's very first user still auto-becomes `owner` of a new org
    (`handle_new_user` trigger, unchanged) — that path just isn't reachable
    from the UI anymore, only from the Supabase dashboard or a script.
-4. Self-service password change lives at `/account`
-   (`components/account/change-password-form.tsx`), calling
-   `supabase.auth.updateUser({ password })` on the current session directly
-   — no admin API involved, since a user changing their own password
-   doesn't need to bypass RLS.
+4. Self-service password change and display-name edit both live at
+   `/account` — `components/account/change-password-form.tsx` calls
+   `supabase.auth.updateUser({ password })` on the current session
+   directly (no admin API — changing your own password doesn't need to
+   bypass RLS); `components/account/update-name-form.tsx` calls
+   `updateOwnName` (`lib/account/actions.ts`), which goes through the
+   `update_own_full_name` RPC rather than a plain `profiles` update — see
+   below for why.
 5. Sign-out is a Server Action (`lib/auth/actions.ts`) invoked from a form in
    `SiteHeader`.
+
+### Role guards (`lib/auth/session.ts`, 2026-07-06)
+
+Every mutating Server Action that maps to a role-restricted RLS policy
+calls `requireRole([...])` as its first line — it re-derives the
+caller's own org/role from the DB (never trusts the client) and throws a
+friendly error if they don't hold one of the listed roles. This exists
+*alongside* RLS, not instead of it: RLS is the real security boundary
+(a disallowed write is rejected by Postgres regardless of what
+application code does or doesn't check), but relying on it exclusively
+meant a disallowed attempt surfaced as a raw Postgres RLS error, and
+nothing stopped a future call site from reaching the service-role admin
+client without re-deriving the caller's role first. Each call site's
+allowed-role list matches its table's RLS policy exactly — see ADR-027
+for the full audit. `requireOrg()` is the same shape with no role
+restriction, for actions any signed-in org member should reach (Field's
+installs/blockers/day_logs — crew *should* write these).
 
 ### Team management (`/app/team`)
 
 Owner/pm only — `app/(protected)/app/team/page.tsx` redirects anyone else
-to `/app`, and every mutation in `lib/team/actions.ts` independently
-re-derives the caller's role from the DB (never trusts the client), since
-this is the one area of the app that reaches for the service-role admin
-client:
+to `/app`, and every mutation in `lib/team/actions.ts` calls
+`requireRole(["owner", "pm"])`, since this is the one area of the app
+that reaches for the service-role admin client:
 
 - `createTeamMember` — `admin.auth.admin.createUser` (email + the temp
   password typed into the form, visible not masked, so the admin can read
@@ -66,10 +86,11 @@ client:
   the admin client — `profiles_update`'s RLS `using` clause checks the
   row's _pre-update_ org_id, which is null for a brand-new profile, so the
   caller's own RLS-scoped session could never pass that check itself.
-- `updateTeamMemberRole` — a plain role change (org_id unchanged) is
-  exactly what `profiles_update`'s RLS already allows an owner/pm to do
-  directly, so this one uses the normal cookie-scoped client, not admin.
-  Blocks changing your own role from this screen (self-lockout guard).
+- `updateTeamMemberRole` / `assignTeamMemberCrew` (2026-07-06) — a plain
+  role or `crew_id` change (org_id unchanged) is exactly what
+  `profiles_update`'s RLS already allows an owner/pm to do directly, so
+  both use the normal cookie-scoped client, not admin. Role change blocks
+  changing your own role from this screen (self-lockout guard).
 - `resetTeamMemberPassword` — `admin.auth.admin.updateUserById(...,
 {password})`. Since this goes through the admin client (bypasses RLS),
   it explicitly checks the target profile's `org_id` against the caller's
@@ -81,6 +102,34 @@ RLS-scoped client (already correctly limited to the caller's org) and
 resolves each member's email with `admin.auth.admin.getUserById` — bounded
 to this org's own member count, never a whole-project user dump, since
 `auth.users` isn't exposed through RLS/PostgREST at all.
+
+**Self-service name edit needs a narrow RPC, not a plain update.**
+`profiles_update`'s RLS policy only lets owner/pm update *any* profile
+row, including their own — a crew/scheduler user can't touch their own
+`full_name` through it at all. Postgres RLS is row-level, not
+column-level, so there's no way to write a policy granting "any user may
+update this one column of their own row" without also exposing every
+other column (`role`, `org_id`) on that row to a crafted client update.
+`update_own_full_name(p_full_name)` (`security definer`) hardcodes both
+`where id = auth.uid()` and the single column it ever touches — same
+narrow-RPC pattern as `set_marking_drawing`.
+
+### Org settings (`/app/settings`)
+
+Owner/pm only, same page-level redirect pattern as Team.
+`lib/org/actions.ts`'s `updateOrgSettings`/`recordOrgLogo` both call
+`requireRole(["owner", "pm"])`, matching the `organizations_update` RLS
+policy (organizations was read-only for every role until 2026-07-06 —
+name/created_at never changed post-creation; a dedicated update policy
+was added rather than widening `organizations_select`, so read access
+for everyone else stays exactly as narrow as before). Logo upload
+(`components/org/org-logo-upload.tsx`) mirrors `PackingSlipUpload`'s
+browser-upload-then-record pattern exactly: browser Supabase client
+uploads to the private `org-logos` bucket (path `{org_id}/{filename}`),
+then a Server Action records `logo_path`. Default working days is an
+`int[]` of JS `Date.getDay()` values (0=Sunday..6=Saturday) — a single
+convention the estimator/scheduler can share rather than inventing a
+second one, defaulting to Mon-Fri (`{1,2,3,4,5}`).
 
 ## Projects feature (Phase 3)
 
@@ -392,7 +441,7 @@ taps a crew member expects to feel instant.
   logging as is `localStorage` state the server can't know ahead of
   render — the client matches its own `crewId` against the list instead.
 
-## Scheduler (Phase 7, 2026-07-03)
+## Scheduler (Phase 7, 2026-07-03; gated to owner/pm/scheduler 2026-07-06)
 
 `/scheduler` (`app/(protected)/scheduler/page.tsx`) renders `CrewManager`
 (crew CRUD: name/size/cost-per-hour, add/remove `crew_members`; `crews`
@@ -400,7 +449,12 @@ and `crew_members` have existed in the schema since Batch 1 with no UI
 until now) and `SchedulerProjectList` (active projects, linking into each
 one's workspace). `/scheduler/[projectId]` fetches everything server-side
 in one `Promise.all` and hands it to `SchedulerWorkspace`
-(`components/scheduler/scheduler-workspace.tsx`):
+(`components/scheduler/scheduler-workspace.tsx`). Both pages redirect
+non-owner/pm/scheduler callers to `/app` (ADR-027) — `CrewManager` and
+the components below it render mutating controls with no role-awareness
+of their own, so gating the whole page is simpler and more correct than
+threading conditional rendering through each one individually; crew's
+equivalent view is "My assignments today" in Field.
 
 - **Remaining-qty math uses `assigned − installed`, not
   `material_reconciliation.left_qty`.** `left_qty` is
@@ -569,6 +623,24 @@ short:
   committed) and asserts the real extraction keeps two same-code/
   different-size lines distinct and drops a freight line, then confirms
   the save actually creates the right materials rows.
+- `e2e/team-settings-flow.spec.ts` (2026-07-06) — crew assignment,
+  own-name edit, and org settings (name/address/working days, confirmed
+  against the DB directly — not just the UI) plus a logo upload (same
+  synthetic-in-memory-image technique as the packing-slip test) all
+  verified to persist. Its last test is this suite's first to sign in as
+  a **different** user mid-run: creates a fresh crew-role account via
+  the admin client, opens a genuinely separate `browser.newContext()`
+  (the default `page` fixture reuses the seeded owner's storageState,
+  which would defeat the point), signs in through the real `/login`
+  form, and confirms direct navigation to `/scheduler`, `/app/team`, and
+  `/app/settings` all redirect to `/app` — proving the new role guards
+  are real page-level checks, not just hidden nav links. Found a real
+  test-pollution bug while writing this: the crew-assignment test
+  creates a crew via the UI but hadn't been cleaning it up, leaving
+  permanent leftover rows that broke `scheduler-flow.spec.ts`'s
+  `.filter({hasText: ...})` locator once more than one crew existed on
+  the page (same "matches every ancestor" class of bug as elsewhere in
+  this list) — fixed by deleting the crew by name in `afterAll`.
 
 This suite is what caught ADR-016's env var bug — self-review and
 `next build` both stayed clean through Phases 3–5 because neither
@@ -603,6 +675,12 @@ order:
    current-pointer table); `labor_standards` (org-scoped, seeded
    defaults) and `project_estimates` (append-only) for the estimation
    engine; `notifications` (per-user in-app inbox).
+9. `org_settings_crew_assignment.sql` (2026-07-06) — `organizations.
+   address`/`logo_path`/`default_working_days`; `profiles.crew_id`; the
+   `org-logos` bucket; an `organizations_update` RLS policy (owner/pm).
+10. `self_update_full_name.sql` (2026-07-06) — `update_own_full_name`
+    RPC (see ADR-027 for why a narrow `security definer` function, not a
+    broader RLS policy).
 
 ### Tables
 
@@ -612,8 +690,8 @@ transitively via `project_id` → `projects.org_id` or `crew_id` →
 
 | Table                                    | Scoped via                    | Purpose                                                                                                                                                                                                                                     |
 | ---------------------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `organizations`                          | —                             | Tenant boundary. One per Handy Equip-style deployment (see auth bootstrap below); multi-org support exists in the schema but isn't exercised yet.                                                                                           |
-| `profiles`                               | `org_id` (nullable)           | One row per `auth.users`, `role` ∈ `owner`/`pm`/`scheduler`/`crew`.                                                                                                                                                                         |
+| `organizations`                          | —                             | Tenant boundary. One per Handy Equip-style deployment (see auth bootstrap below); multi-org support exists in the schema but isn't exercised yet. `address`/`logo_path`/`default_working_days` added 2026-07-06 (Org Settings) — was read-only for every role until then. |
+| `profiles`                               | `org_id` (nullable)           | One row per `auth.users`, `role` ∈ `owner`/`pm`/`scheduler`/`crew`. `crew_id` (nullable, 2026-07-06) — a user's home crew, assigned from `/app/team`.                                                                                        |
 | `projects`                               | `org_id`                      | A racking-install job. `status` ∈ `active`/`on_hold`/`complete`. `planned_days` (Scheduler target math) and `mark_drawing_id` (the one markable page — see below) added 2026-07-03.                                                         |
 | `crews` / `crew_members`                 | `org_id` / via `crews`        | Install crews and their members (Scheduler sub-phase).                                                                                                                                                                                      |
 | `drawings`                               | `project_id`                  | One row per rendered page (`page_index` 0-based) of an uploaded layout PDF/image. `storage_path` points into the private `drawings` bucket. `role` ∈ `reference`/`marking` — see below.                                                     |
@@ -737,12 +815,15 @@ sub-phases) reads this directly rather than recomputing it.
 
 ### Storage
 
-Three private buckets: `drawings` and `packing-slips`, path convention
+Four private buckets: `drawings` and `packing-slips`, path convention
 `{project_id}/{filename}`; `daily-photos` (added 2026-07-03), path
 convention `{project_id}/{date}/{crew_id}/{filename}` — the extra path
 segments don't change the org-scoping check below, since it only ever
-looks at the _first_ segment. RLS policies on `storage.objects` derive the
-owning project from the first path segment
+looks at the _first_ segment; `org-logos` (added 2026-07-06), path
+convention `{org_id}/{filename}` — org-scoped directly rather than via
+`org_id_of_project()`, since a logo isn't project-scoped at all. RLS
+policies on `storage.objects` derive the owning project from the first
+path segment
 (`(storage.foldername(name))[1]::uuid`) and check it against
 `current_org_id()`. `daily-photos` allows INSERT from any org role
 (crew uploads photos in the field); `drawings`/`packing-slips` stay

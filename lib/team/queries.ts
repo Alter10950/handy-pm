@@ -7,6 +7,7 @@ export interface TeamMember {
   email: string;
   fullName: string | null;
   role: ProfileRole;
+  crewId: string | null;
   isActive: boolean;
   createdAt: string;
 }
@@ -31,7 +32,7 @@ export async function listTeamMembers(): Promise<TeamMember[]> {
   const supabase = await createClient();
   const { data: profiles, error } = await supabase
     .from("profiles")
-    .select("id, full_name, role, created_at")
+    .select("id, full_name, role, crew_id, created_at")
     .order("created_at", { ascending: true });
   if (error) throw error;
 
@@ -47,6 +48,7 @@ export async function listTeamMembers(): Promise<TeamMember[]> {
         email: data.user?.email ?? "(unknown)",
         fullName: profile.full_name,
         role: profile.role,
+        crewId: profile.crew_id,
         isActive: isUserActive(data.user?.banned_until),
         createdAt: profile.created_at,
       };

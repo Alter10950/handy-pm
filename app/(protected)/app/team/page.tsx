@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { AddTeamMemberDialog } from "@/components/team/add-team-member-dialog";
 import { TeamMemberRow } from "@/components/team/team-member-row";
+import { listCrews } from "@/lib/crews/queries";
 import { createClient } from "@/lib/supabase/server";
 import { listTeamMembers } from "@/lib/team/queries";
 
@@ -27,7 +28,7 @@ export default async function TeamPage() {
     redirect("/app");
   }
 
-  const members = await listTeamMembers();
+  const [members, crews] = await Promise.all([listTeamMembers(), listCrews()]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -49,6 +50,7 @@ export default async function TeamPage() {
           <TeamMemberRow
             key={member.id}
             member={member}
+            crews={crews}
             isSelf={member.id === user.id}
           />
         ))}

@@ -176,6 +176,30 @@ the SQL genuinely guarantees non-null). Full E2E suite green afterward,
 along the way (`scheduler-flow.spec.ts`'s date-sensitive strict-mode
 violation, unrelated to this migration; see ADR-026).
 
+**Sub-phase A — user management, org settings, role guards — done and
+verified live (2026-07-06, see ADR-027):** assign a team member to a
+crew (new `profiles.crew_id`); org settings page (name, address, logo
+upload, default working days); self-service display-name edit (a narrow
+`update_own_full_name` RPC, since the existing `profiles_update` RLS
+policy only ever let owner/pm touch profile rows, even their own). The
+bigger piece: audited every mutating Server Action in the app and found
+role enforcement relied *entirely* on RLS with no application-level
+check anywhere — added a shared `requireRole`/`requireOrg` helper
+(`lib/auth/session.ts`) and applied it across crews/phases/rows/
+scheduler/projects/team actions, each matching its table's real RLS
+role set exactly. `/scheduler` is now gated to owner/pm/scheduler at
+the page level (crew's equivalent is Field) rather than trying to hide
+every mutating control inside `CrewManager`/`ScheduleBuilder`
+individually. New `e2e/team-settings-flow.spec.ts` proves the guards
+are real: a freshly-created crew-role user, signed in through a
+genuinely separate browser context, gets redirected away from
+`/scheduler`/`/app/team`/`/app/settings` on direct navigation — not
+just a hidden nav link. This is a deliberately scoped pass, not an
+exhaustive UI audit — e.g. the Materials grid still renders editable
+inputs for every role (blocked server-side, just not visually hidden);
+full UI role-awareness is deferred to sub-phase I's polish pass. Full
+suite green: 14 passed, 1 intentionally skipped.
+
 This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
 
 2. DB schema/RLS/storage/types
@@ -379,6 +403,11 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
       real key) renders a synthetic packing-slip image in-memory and
       checks the AI keeps two same-code/different-size lines distinct
       while dropping a freight line.
+- [x] `e2e/team-settings-flow.spec.ts` (2026-07-06) — crew assignment,
+      own-name edit, org settings + logo upload all confirmed to
+      persist; a crew-role user in a genuinely separate browser context
+      (not the shared owner storageState) is confirmed redirected away
+      from every owner/pm/scheduler-gated page on direct navigation.
 
 ## Phase 6 — Field/Crew PWA ✅ built (2026-07-03)
 
@@ -492,6 +521,34 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
       test:e2e` green (10 passed, 1 intentionally skipped) after fixing
       one real, pre-existing, date-sensitive test bug in
       `scheduler-flow.spec.ts` (unrelated to this migration).
+
+## Batch 3, Sub-phase A — User management, org settings, role guards ✅ done (2026-07-06)
+
+- [x] Assign a team member to a crew (`profiles.crew_id`, a `<select>`
+      per row on `/app/team`).
+- [x] Org settings (`/app/settings`, owner/pm only): name, address, logo
+      upload (`org-logos` bucket), default working days.
+- [x] Self-service display-name edit on `/account`, via a narrow
+      `update_own_full_name` RPC (existing `profiles_update` RLS only
+      ever let owner/pm touch profile rows, even the caller's own).
+- [x] Shared `requireRole`/`requireOrg` helper (`lib/auth/session.ts`),
+      applied across every mutating Server Action that previously relied
+      solely on RLS with no application-level check: crews, phases,
+      rows, scheduler, projects/materials/drawings, team.
+- [x] `/scheduler` + `/scheduler/[projectId]` gated to owner/pm/
+      scheduler at the page level (crew redirected to `/app`); nav
+      updated to match.
+- [x] `npm run lint`/`typecheck`/`build` all pass.
+- [x] New `e2e/team-settings-flow.spec.ts` — crew assignment, own-name
+      edit, and org settings (incl. logo upload) each verified to
+      persist; a freshly-created crew-role user in a genuinely separate
+      browser context is confirmed redirected away from every
+      newly-gated page, proving the guards are real and not just hidden
+      nav links. Full suite green: 14 passed, 1 intentionally skipped.
+- [ ] **Not yet done, deliberately deferred to sub-phase I:** a full
+      role-aware-rendering pass across every remaining screen (e.g. the
+      Materials grid still shows editable inputs to every role — writes
+      are blocked server-side, just not visually hidden yet).
 
 ## Phase 8 — Customer portal (not started)
 

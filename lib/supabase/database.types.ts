@@ -742,18 +742,27 @@ export type Database = {
       }
       organizations: {
         Row: {
+          address: string | null
           created_at: string
+          default_working_days: number[]
           id: string
+          logo_path: string | null
           name: string
         }
         Insert: {
+          address?: string | null
           created_at?: string
+          default_working_days?: number[]
           id?: string
+          logo_path?: string | null
           name: string
         }
         Update: {
+          address?: string | null
           created_at?: string
+          default_working_days?: number[]
           id?: string
+          logo_path?: string | null
           name?: string
         }
         Relationships: []
@@ -842,6 +851,7 @@ export type Database = {
       profiles: {
         Row: {
           created_at: string
+          crew_id: string | null
           full_name: string | null
           id: string
           org_id: string | null
@@ -849,6 +859,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          crew_id?: string | null
           full_name?: string | null
           id: string
           org_id?: string | null
@@ -856,12 +867,20 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          crew_id?: string | null
           full_name?: string | null
           id?: string
           org_id?: string | null
           role?: ProfileRole
         }
         Relationships: [
+          {
+            foreignKeyName: "profiles_crew_id_fkey"
+            columns: ["crew_id"]
+            isOneToOne: false
+            referencedRelation: "crews"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "profiles_org_id_fkey"
             columns: ["org_id"]
@@ -1378,6 +1397,10 @@ export type Database = {
       org_id_of_row: { Args: { p_row_id: string }; Returns: string }
       set_marking_drawing: {
         Args: { p_drawing_id: string; p_project_id: string }
+        Returns: undefined
+      }
+      update_own_full_name: {
+        Args: { p_full_name: string }
         Returns: undefined
       }
     }

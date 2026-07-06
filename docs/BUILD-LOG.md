@@ -4,6 +4,61 @@ Engineering journal. Newest entries at top.
 
 ---
 
+## 2026-07-06 — Batch 3 sub-phase A: user management, org settings, role guards
+
+**What:** Complete user management (assign a team member to a crew),
+org settings (name/address/logo/default working days), and a pass
+adding real server-side role enforcement across every mutating Server
+Action that didn't already have one. Full reasoning in
+`docs/DECISIONS.md` ADR-027; summary here.
+
+**Schema:** two small migrations —
+`20260706100401_org_settings_crew_assignment.sql` (`organizations.
+address`/`logo_path`/`default_working_days`, `profiles.crew_id`, the
+`org-logos` storage bucket, an `organizations_update` RLS policy for
+owner/pm) and `20260706100904_self_update_full_name.sql` (the
+`update_own_full_name` RPC — see ADR-027 for why this needed a narrow
+SECURITY DEFINER function rather than a broader RLS policy). Both
+applied cleanly; types regenerated again the same way as sub-phase 0.
+
+**Build:** `lib/auth/session.ts` — new `requireRole`/`requireOrg`
+shared helpers. Applied across `lib/crews/actions.ts`,
+`lib/phases/actions.ts`, `lib/rows/actions.ts`,
+`lib/scheduler/actions.ts`, and the owner/pm-only mutations in
+`lib/projects/actions.ts`; `lib/team/actions.ts` refactored onto the
+same helper instead of its own private copy. New `lib/account/actions.ts`
+(`updateOwnName`), `lib/org/{actions,queries}.ts` (org settings CRUD +
+logo upload, mirroring `PackingSlipUpload`'s browser-upload-then-record
+pattern), `app/(protected)/app/settings/page.tsx`,
+`components/org/{org-settings-form,org-logo-upload}.tsx`. Team page
+gained a crew-assignment `<select>` per member (`TeamMemberRow` +
+`assignTeamMemberCrew`); Account page gained a display-name field.
+`/scheduler` and `/scheduler/[projectId]` now redirect non-owner/pm/
+scheduler callers to `/app` (crew's equivalent is Field, sub-phase B) —
+simpler and more correct than threading role-conditional rendering
+through `CrewManager`/`ScheduleBuilder`/`AssignCrewForm` individually;
+`site-header.tsx`'s nav now hides Scheduler/Team/Settings links to
+match.
+
+**Verification:** `npm run lint`/`typecheck`/`build` all pass. New
+`e2e/team-settings-flow.spec.ts`: crew assignment persists across
+reload; own-name edit persists; org settings (name/address/working
+days, confirmed via a direct DB read, not just the UI) plus a logo
+upload (synthetic in-memory image, same technique as the packing-slip
+test); and — the proof that guards are real, not hidden buttons — a
+freshly-created crew-role user, signed in through a genuinely separate
+browser context (not the shared owner storageState), is redirected away
+from `/scheduler`, `/app/team`, and `/app/settings` on direct
+navigation, with the corresponding nav links hidden too. Found and
+fixed a real test-pollution bug along the way: this new spec's own
+crew-creation step had no cleanup, leaving permanent leftover `crews`
+rows that broke `scheduler-flow.spec.ts`'s `.filter({hasText: ...})`
+locator (matches every ancestor containing that text, so with more than
+one crew on the page it resolved to multiple elements) — fixed by
+deleting the crew by name in `afterAll`, and manually cleared the two
+already-leftover rows from earlier runs directly via the admin client.
+Full suite green afterward: 14 passed, 1 intentionally skipped.
+
 ## 2026-07-06 — Batch 3 sub-phase 0: schema for estimating, readiness, versioning
 
 **What:** Batch 3 kicked off — a large flagship push across user

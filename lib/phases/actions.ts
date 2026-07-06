@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { requireRole } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 
 function revalidateProjectTabs(projectId: string) {
@@ -21,6 +22,9 @@ export async function createPhase(
 ): Promise<{ id: string }> {
   const trimmed = name.trim();
   if (!trimmed) throw new Error("Phase name is required.");
+
+  // Matches phases_write RLS exactly.
+  await requireRole(["owner", "pm", "scheduler"]);
 
   const supabase = await createClient();
   const { data: existing, error: countError } = await supabase
