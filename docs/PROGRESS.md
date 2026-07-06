@@ -225,6 +225,36 @@ extraction route nor the new voice-note route had an explicit
 authentication check (voice-note had *none* at all, since it never
 touches Supabase) — both now use sub-phase A's `requireOrg()` helper.
 
+**Sub-phase H — Customer portal — done and verified live (2026-07-06,
+see ADR-035):** a public, unauthenticated, read-only status page at
+`/portal/[token]` — project name, % complete, most recent day-log
+update, next planned milestone (project deadline, falling back to the
+latest saved estimate's forecast finish), and only office-approved
+photos. Never shortages, costs, reconciliation, or internal notes —
+every query in the new admin-client-backed `lib/portal/public.ts`
+selects narrowly by name, not `select("*")`, specifically to keep
+shortage-adjacent columns from ever reaching this page. A new "Portal"
+project tab lets an owner/pm generate or revoke share links (with an
+optional expiry) and approve individual day-log/blocker photos for
+customer visibility — nothing is customer-visible by default, a
+blocker photo especially, since those usually document a problem, not
+a highlight. The `share_tokens` table (project_id/token/scope/
+expires_at) had actually existed in full since Phase 2, provisioned
+ahead of time with RLS already anticipating this exact sub-phase — only
+a `revoked_at` column needed adding, so a link could be explicitly
+revoked as a distinguishable office action rather than just quietly
+expired. Found a real bug in the sub-phase's own new E2E spec: a status
+badge's CSS `capitalize` class only changes how the text *looks*, not
+its actual lowercase DOM content — an unscoped assertion had been
+silently passing against the wrong element (the project's own,
+properly-capitalized status pill) instead of the token's own badge.
+New `e2e/customer-portal-flow.spec.ts` (seeds a day-log photo + a
+throwaway shortage material, generates a link, approves the photo,
+loads the real public page and confirms the shortage material name
+never appears anywhere on it, then revokes the link and confirms the
+friendly invalid-link fallback). Full suite green: 26 passed, 2
+intentionally skipped.
+
 **Sub-phase G — CSV/XLSX import + row-range duplication + materials
 bulk ops + drawing versioning — done and verified live (2026-07-06, see
 ADR-034):** the Materials tab gained an "Import from file" dialog —
@@ -822,6 +852,33 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
       just renumbering. Full suite green: 20 passed, 2 intentionally
       skipped.
 
+## Batch 3, Sub-phase H — Customer portal ✅ done (2026-07-06)
+
+- [x] Public, unauthenticated, read-only status page at
+      `/portal/[token]` — project name, % complete, most recent
+      day-log update, next planned milestone (deadline, falling back
+      to the latest saved estimate's forecast finish), only
+      office-approved photos. Friendly "this link is no longer valid"
+      fallback for an invalid/expired/revoked token.
+- [x] New "Portal" project tab (owner/pm, hidden on `'estimate'`
+      status): generate/revoke share links (optional expiry), approve
+      individual day-log/blocker photos for customer visibility.
+- [x] Schema: `share_tokens.revoked_at` (the table itself already
+      existed in full since Phase 2) + new `approved_photos` table.
+- [x] `lib/portal/public.ts` (admin client, narrow selects only —
+      shortage/cost-adjacent columns never leak) vs.
+      `lib/portal/{queries,actions}.ts` (RLS-scoped, office UI only) —
+      deliberately split by auth context.
+- [x] `npm run lint`/`typecheck`/`build` all pass.
+- [x] New `e2e/customer-portal-flow.spec.ts` (seed a day-log photo +
+      throwaway shortage material → generate link → approve photo →
+      public page shows safe data, shortage material name never
+      appears → revoke → friendly invalid-link fallback). Found and
+      fixed a real test bug: an unscoped status-badge assertion had
+      been silently matching the wrong element (CSS `capitalize`
+      doesn't change the actual DOM text). Full suite green: 26
+      passed, 2 intentionally skipped.
+
 ## Batch 3, Sub-phase G — CSV/XLSX import, row-range duplication, materials bulk ops, drawing versioning ✅ done (2026-07-06)
 
 - [x] "Import from file" dialog on the Materials tab: mode toggle
@@ -916,6 +973,6 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
       flake in `packing-slip-extract-flow.spec.ts` found along the way.
       Full suite green: 22 passed, 2 intentionally skipped.
 
-## Phase 8 — Customer portal (not started)
+## Phase 8 — Customer portal ✅ built (2026-07-06, see Batch 3 Sub-phase H above)
 
 ## Phase 9 — Dashboards/reports/polish (not started)

@@ -16,7 +16,7 @@
 | `/app/project/[id]/progress`  | protected | Project-level progress rollup (row counts, hazards, overall %). Per-material reconciliation lives on the Materials tab instead.                                                                                                 |
 | `/scheduler`                  | protected | Crew/install scheduling — owner/pm/scheduler only (redirects crew to `/app`; their equivalent is Field). See Scheduler section below.                                                                                            |
 | `/field`                      | protected | Crew phone app (installable PWA). Placeholder until Phase 6.                                                                                                                                                                    |
-| `/portal/[token]`             | public    | Customer-facing read-only project status, gated by an unguessable share token. Placeholder until Phase 8.                                                                                                                       |
+| `/portal/[token]`             | public    | Customer-facing read-only project status, gated by an unguessable share token. Built (Batch 3, Sub-phase H).                                                                                                                       |
 
 Protected routes live under the `app/(protected)/` route group, which shares
 one layout (`app/(protected)/layout.tsx`) that fetches the current user,
@@ -545,6 +545,65 @@ Full design reasoning in `docs/DECISIONS.md` ADR-034.
   (ADR-029's double-booking warning, sub-phase F's blocked-row
   scheduler warning); turning this into an actual mobilization block is
   an explicit later (Batch 4) job.
+
+## Customer portal (Batch 3, Sub-phase H, 2026-07-06)
+
+Full design reasoning in `docs/DECISIONS.md` ADR-035.
+
+- **`lib/portal/public.ts`** — the ONLY module the public
+  `/portal/[token]` route calls. Uses `createAdminClient()` throughout
+  (an anonymous request has no session, so RLS has nothing to scope
+  against) and, unlike other admin-client modules in this codebase
+  (`lib/reports/data.ts`), selects columns **by explicit name
+  everywhere, never `select("*")`** — this output is directly
+  customer-facing, so `project_progress`'s shortage-adjacent columns
+  (`rows_missing_materials`, `required_total`, `installed_total`) are
+  never even fetched, let alone rendered.
+  - `resolveShareToken(token)` — looks up `share_tokens` by token;
+    invalid if missing, `revoked_at` is set, or `expires_at` has
+    passed. Collapses all three into one `null` return — the public
+    page never explains *which* reason, just "no longer valid."
+  - `getPortalData(projectId)` — `project_progress` (name/status/pct/
+    deadline only), the single most recent `day_logs` row across every
+    crew (`order by work_date desc, created_at desc limit 1`) for
+    "most recent update," `projects.deadline` falling back to the
+    latest `project_estimates.forecast_finish` for "next milestone,"
+    and every `approved_photos` row for this project with a fresh
+    1-hour signed URL from the private `daily-photos` bucket.
+- **`lib/portal/queries.ts` / `lib/portal/actions.ts`** — the OFFICE
+  side (RLS-scoped, authenticated owner/pm session), deliberately
+  separate files from `public.ts` so it's never ambiguous at a call
+  site which client (admin vs. RLS-scoped) a given function uses.
+  `listCandidatePhotos` flattens every `day_logs.photo_paths` array and
+  every non-null `blockers.photo_path` for the project into one browsable
+  list (each entry tagged `source: 'day_log' | 'blocker'` and a
+  human context string like "Day log — Jul 6, 2026"), cross-referenced
+  against `approved_photos` so the UI knows which are already shown.
+  `createShareToken`/`revokeShareToken`/`approvePhoto`/`unapprovePhoto`
+  match `share_tokens_write`/`approved_photos_write` RLS exactly
+  (owner/pm). `approvePhoto` upserts on `(project_id, storage_path)` —
+  re-approving an already-approved photo (e.g. to change its caption)
+  is idempotent, not a duplicate-key error.
+- **"Portal" project tab** (`app/(protected)/app/project/[id]/portal/page.tsx`,
+  hidden on `'estimate'`-status projects same as Layout/Receiving/
+  Progress) — `ShareLinkPanel` (generate with an optional expiry,
+  copy link, revoke with a `window.confirm()`) and `PhotoApprovalPanel`
+  (a grid of every candidate photo, already-approved ones sorted first,
+  "Show to customer" / "Remove from portal" toggle + an optional
+  caption). Both are self-contained client components with their own
+  `useTransition`/`router.refresh()` — no undo/redo (photo approval and
+  link management are direct actions, not the kind of geometry/qty edit
+  this codebase undo-tracks).
+- **The public page itself** (`app/portal/[token]/page.tsx`) — a Server
+  Component, no client-side state at all. Valid token → project name +
+  status badge + % complete + (if set) target completion date + (if any
+  day log exists) most recent update + (if any approved) a photo grid.
+  Invalid/expired/revoked token → the same page shell with a single
+  friendly message, no distinction shown to the customer between "link
+  expired" and "PM revoked it." `next/image` renders every photo with
+  `unoptimized` (same convention as the Overview tab's drawing
+  thumbnail) since these are already-signed, already-sized URLs from
+  Supabase Storage, not a `next/image`-optimizable path.
 
 ## Field / crew app (Phase 6, 2026-07-03; taken to flagship 2026-07-06)
 
@@ -1306,6 +1365,30 @@ short:
   unlike a locator `.click()`, never auto-scrolls its target into view.
   Fixed by calling `scrollIntoViewIfNeeded()` on the drawing image
   before reading its bounding box for pointer math, in both specs.
+- `e2e/customer-portal-flow.spec.ts` (2026-07-06) — seeds a day-log
+  note + photo (a synthetic image uploaded directly to the
+  `daily-photos` bucket via the admin client, same throwaway-screenshot
+  technique as `team-settings-flow.spec.ts`'s logo upload) and a
+  throwaway shortage material via the admin client, generates a share
+  link from the new Portal tab, approves the photo, then navigates to
+  the real public `/portal/[token]` page (looking the token up in the
+  DB, not scraping it from the office UI's own copy button) and
+  confirms the project name/status/%/note/photo all render while the
+  shortage material's name and the words "to order"/"reconciliation"
+  never appear anywhere on the page. Revokes the link and confirms the
+  public page falls back to the friendly invalid-link message.
+  - **Found a real bug in the test itself while writing it**: the
+    share-link status badge is styled with a plain CSS `capitalize`
+    class over a lowercase literal ("active"/"revoked") — an unscoped
+    `getByText("Active", {exact:true})` assertion had been silently
+    matching the *wrong* element (the project header's own status
+    pill, which genuinely is capitalized text, not CSS-transformed) and
+    passing for the wrong reason; the bug only surfaced once a later
+    `getByText("Revoked", ...)` assertion had no same-named decoy
+    element to accidentally match and failed outright. Fixed both to
+    check the actual lowercase DOM text, scoped to the specific token's
+    own row (`page.locator("li").filter({hasText: "/portal/"})`) rather
+    than an unscoped page-wide match.
 
 This suite is what caught ADR-016's env var bug — self-review and
 `next build` both stayed clean through Phases 3–5 because neither
@@ -1387,7 +1470,8 @@ transitively via `project_id` → `projects.org_id` or `crew_id` →
 | `labor_standards`                        | `org_id`                       | Size-normalized labor baseline (2026-07-06) — `base_labor_units` (hours/unit at a standard pace) per `task_key`, seeded with reasonable defaults per org, editable from `/app/estimate`. Feeds `materials.labor_units` computation directly and `crew_rates`' standard-pace fallback (1.0) indirectly — see ADR-030. |
 | `project_estimates`                      | `project_id`                  | Append-only estimate log (2026-07-06), like `installs` — recomputing inserts a new row rather than overwriting, so an estimate's history over a project's life isn't lost. Latest row = current estimate.                                   |
 | `notifications`                          | `org_id` (+ `user_id`)         | Per-user in-app inbox (2026-07-06) — `select`/`update`/`delete` are strictly own-row (`user_id = auth.uid()`), unlike every other table here which is org-wide-readable; `insert` is org-scoped only, since a Server Action running as the caller creates notifications addressed to *other* org members. |
-| `share_tokens`                           | `project_id`                  | Customer portal tokens (Phase 8). Not publicly RLS-readable — see below.                                                                                                                                                                    |
+| `share_tokens`                           | `project_id`                  | Customer portal tokens (project_id/token/scope/expires_at existed since Phase 2; `revoked_at` added Batch 3 Sub-phase H). Not publicly RLS-readable — see below.                                                                                                                                                                    |
+| `approved_photos`                        | `project_id`                  | Customer-visible photo curation (2026-07-06) — keyed by the photo's own `storage_path` (`unique(project_id, storage_path)`), sourced from either `day_logs.photo_paths` or `blockers.photo_path`. Nothing is customer-visible until explicitly approved here; see Customer portal section below. |
 
 **Exactly one marking page per project:** `drawings.role` defaults to
 `'reference'`; a partial unique index
@@ -1455,9 +1539,11 @@ as the calling user needs to create notifications addressed to someone
 else in the org.
 
 `share_tokens` is deliberately **not** readable via any anon RLS policy —
-the Phase 8 customer portal will read it through a server Route Handler
-using `lib/supabase/admin.ts` (service role, bypasses RLS), never directly
-from the browser.
+the customer portal (Batch 3, Sub-phase H) reads it through
+`lib/portal/public.ts` using `lib/supabase/admin.ts` (service role,
+bypasses RLS), never directly from the browser. Same posture for the new
+`approved_photos` table (owner/pm read+write; the portal reads it via the
+same admin-client module, not a dedicated anon policy).
 
 Newer Supabase projects don't auto-grant new tables to the `anon`/
 `authenticated` API roles (see `auto_expose_new_tables` in

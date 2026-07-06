@@ -32,6 +32,7 @@ export function ProjectTabs({
       ? [
           { href: `${base}/receiving`, label: "Receiving" },
           { href: `${base}/progress`, label: "Progress" },
+          { href: `${base}/portal`, label: "Portal" },
         ]
       : []),
     { href: `${base}/estimate`, label: "Estimate" },

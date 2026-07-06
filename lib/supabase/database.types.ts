@@ -47,6 +47,7 @@ export type MaterialReceiptStatus =
   | "damaged"
   | "wrong";
 export type RowReadinessStatus = "ready" | "partial" | "blocked" | "complete";
+export type PhotoSource = "day_log" | "blocker";
 
 export type Database = {
   // Allows to automatically instantiate createClient with right options
@@ -81,6 +82,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      approved_photos: {
+        Row: {
+          approved_at: string
+          approved_by: string | null
+          caption: string | null
+          id: string
+          project_id: string
+          source: PhotoSource
+          storage_path: string
+        }
+        Insert: {
+          approved_at?: string
+          approved_by?: string | null
+          caption?: string | null
+          id?: string
+          project_id: string
+          source: PhotoSource
+          storage_path: string
+        }
+        Update: {
+          approved_at?: string
+          approved_by?: string | null
+          caption?: string | null
+          id?: string
+          project_id?: string
+          source?: PhotoSource
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "approved_photos_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "project_progress"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "approved_photos_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       assignments: {
         Row: {
           created_at: string
@@ -1174,6 +1220,7 @@ export type Database = {
           expires_at: string | null
           id: string
           project_id: string
+          revoked_at: string | null
           scope: string
           token: string
         }
@@ -1183,6 +1230,7 @@ export type Database = {
           expires_at?: string | null
           id?: string
           project_id: string
+          revoked_at?: string | null
           scope?: string
           token?: string
         }
@@ -1192,6 +1240,7 @@ export type Database = {
           expires_at?: string | null
           id?: string
           project_id?: string
+          revoked_at?: string | null
           scope?: string
           token?: string
         }
@@ -1536,15 +1585,6 @@ export type CompositeTypes<
     ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
 
-// Compatibility alias: the generator now folds views into Tables<T>'s own
-// union and no longer emits a separate Views<T> helper, but every query
-// module in this codebase imports Views<"row_progress"> etc. Single-arg
-// call sites (every one in this codebase) resolve identically through
-// Tables<T> — this just keeps the old, simpler two-helper shape callers
-// already use, rather than rewriting every Views<...> call site to Tables.
-export type Views<T extends keyof DefaultSchema["Views"]> =
-  DefaultSchema["Views"][T]["Row"];
-
 export const Constants = {
   graphql_public: {
     Enums: {},
@@ -1553,3 +1593,12 @@ export const Constants = {
     Enums: {},
   },
 } as const
+
+// Compatibility alias: the generator now folds views into Tables<T>'s own
+// union and no longer emits a separate Views<T> helper, but every query
+// module in this codebase imports Views<"row_progress"> etc. Single-arg
+// call sites (every one in this codebase) resolve identically through
+// Tables<T> — this just keeps the old, simpler two-helper shape callers
+// already use, rather than rewriting every Views<...> call site to Tables.
+export type Views<T extends keyof DefaultSchema["Views"]> =
+  DefaultSchema["Views"][T]["Row"];

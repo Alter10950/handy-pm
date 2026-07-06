@@ -4,6 +4,56 @@ Engineering journal. Newest entries at top.
 
 ---
 
+## 2026-07-06 — Batch 3 sub-phase H: Customer portal
+
+**What:** A public, unauthenticated, read-only customer status page at
+`/portal/[token]` — project name, % complete, most recent update, next
+planned milestone, and only office-approved photos. Never shortages,
+costs, reconciliation, or internal notes. A new "Portal" project tab
+(office-side, owner/pm) to generate/revoke share links and to approve
+which photos (from day logs or blockers) are customer-visible. Full
+reasoning in `docs/DECISIONS.md` ADR-035; summary here.
+
+**Build:** One migration (`20260706193100_customer_portal.sql`):
+`share_tokens.revoked_at` (the `share_tokens` table itself — project_id/
+token/scope/expires_at — already existed in full since Phase 2, RLS
+already anticipating "the portal reads this via service_role") and a new
+`approved_photos` table (keyed by `storage_path`, `unique(project_id,
+storage_path)`), RLS owner/pm both ways. Types regenerated and
+hand-adjusted (new `PhotoSource` literal union). New `lib/portal/public.ts`
+(admin client — the public route has no session for RLS to scope
+against, narrow selects throughout so shortage-adjacent columns never
+leak) and `lib/portal/{queries,actions}.ts` (RLS-scoped, office UI
+only). New `components/portal/share-link-panel.tsx` +
+`photo-approval-panel.tsx`. Rewrote the Phase-1 `/portal/[token]`
+placeholder into a real page (valid token → real project data; invalid/
+expired/revoked → one friendly "this link is no longer valid" message,
+deliberately not distinguishing why). "Next milestone" reuses
+`projects.deadline`, falling back to the latest saved
+`project_estimates.forecast_finish` — no schema/computation invented
+for this, since neither concept needed to be new.
+
+**Verified:** `npm run lint`/`typecheck`/`build` all green. New
+`e2e/customer-portal-flow.spec.ts`: seeds a day-log note + photo and a
+throwaway material shortage via the admin client, generates a share
+link from the new Portal tab, approves the photo, then loads the real
+public `/portal/[token]` page and confirms the note/photo/% render
+while the shortage material name, "to order," and "reconciliation"
+never appear anywhere on the page — then revokes the link and confirms
+the public page falls back to the friendly invalid-link message.
+
+**Bug found via this new spec (test-only):** the share-link status
+badge's CSS `capitalize` class only changes how "active"/"revoked"
+*look*, not the actual lowercase DOM text `getByText()` matches — an
+unscoped assertion had been silently passing against the wrong element
+(the project header's own, properly-capitalized status pill) rather
+than the token badge itself. Fixed both assertions to check the
+lowercase text, scoped to the token's own row.
+
+**Full suite green:** 26 passed, 2 intentionally skipped.
+
+---
+
 ## 2026-07-06 — Batch 3 sub-phase G: CSV/XLSX import, row-range duplication, materials bulk ops, drawing versioning
 
 **What:** Import a materials list or a row×material assignment sheet

@@ -5,7 +5,101 @@ Consequences.
 
 ---
 
-## ADR-034: Sub-phase G — CSV/XLSX import (materials + row assignments), row-range duplication, materials bulk ops, drawing versioning
+## ADR-035: Sub-phase H — customer portal (`/portal/[token]`), share-link + photo-approval office UI
+
+**Decision date:** 2026-07-06
+
+**Context:** Batch 3, sub-phase H: a public, unauthenticated, read-only
+customer status page at `/portal/[token]`, gated by an unguessable
+per-project share token — name, % complete, most recent update, next
+planned milestone, and only office-approved photos. Never shortages,
+costs, reconciliation, or internal notes. Plus office-side UI to
+generate/revoke links and to approve which photos are customer-visible.
+
+**Choice — build on the `share_tokens` table as-is, add only
+`revoked_at`:** `share_tokens` (project_id, token, scope, expires_at)
+already existed in full since Phase 2 — provisioned ahead of time, RLS
+already owner/pm-only, with a migration comment already anticipating
+"the portal reads this via service_role." The one real gap: only
+`expires_at` existed, no way to explicitly revoke a link before its
+natural expiry as a distinguishable office action (vs. quietly setting
+`expires_at` to now, which would make an intentional revoke
+indistinguishable from natural expiry in the office's own management
+view). Added `share_tokens.revoked_at timestamptz`; a token is invalid
+if `revoked_at` is set OR `expires_at` has passed — the portal collapses
+both into one generic "this link is no longer valid" message (nothing
+customer-facing should explain *why* beyond "ask your PM"), while the
+office UI shows the three states (`active`/`revoked`/`expired`)
+distinctly.
+
+**Choice — a new `approved_photos` table, not a flag on `day_logs`/
+`blockers`:** neither existing photo-bearing table can carry a
+per-photo approval cleanly — `day_logs.photo_paths` is a plain `text[]`
+(no per-photo row to hang a boolean off without normalizing crew
+uploads themselves), and `blockers.photo_path` documents a *problem*,
+not something to default-expose to a customer. A dedicated table keyed
+by the photo's own `storage_path` (`unique(project_id, storage_path)`)
+lets an office user curate photos from either source into one
+customer-facing list without touching either source table's shape, and
+without ever auto-suggesting a blocker photo as "probably fine to
+show."
+
+**Choice — "next milestone" = `projects.deadline`, falling back to the
+latest saved `project_estimates.forecast_finish`:** no existing concept
+of a forward-looking "next milestone" exists anywhere in the schema
+(`phases` has no date columns at all). `deadline` is set directly by a
+PM at project creation and is the more reliable, always-intentional
+figure; a saved estimate's `forecast_finish` (sub-phase D) is the only
+other genuinely forward-looking, already-computed date in the system,
+used only when no deadline is set. If neither exists, the portal simply
+omits that stat card rather than inventing a number.
+
+**Choice — the public route reads through `createAdminClient()` with
+deliberately narrow `select()`s, never `select("*")`:** an anonymous
+portal request has no session at all, so RLS has nothing to scope
+against — same reasoning as `lib/reports/data.ts` (a Vercel Cron
+request has no session either). But unlike that module (an
+office-only email, free to read broadly), this route's output is
+directly customer-facing, so `lib/portal/public.ts` names only the
+exact columns the page renders (`name, status, pct, deadline` from
+`project_progress`, never `rows_missing_materials`/`required_total`/
+`installed_total`) rather than reusing the wider selects other admin-
+client callers use.
+
+**Choice — office-side share-link + photo-approval UI lives on its own
+new "Portal" project tab, not folded into Overview:** matches this
+codebase's own precedent of a dedicated tab per distinct concern
+(Receiving, Progress, Estimate) rather than growing Overview
+indefinitely; hidden on `'estimate'`-status projects (a pre-sale draft
+has no customer to share a link with yet), same convention as
+Layout/Receiving/Progress.
+
+**Consequences:** One migration (`revoked_at` column +
+`approved_photos` table/RLS/grants), types regenerated and
+hand-adjusted (new `PhotoSource` literal union, same ADR-010 pattern).
+New `lib/portal/public.ts` (admin client, public route only),
+`lib/portal/queries.ts` + `lib/portal/actions.ts` (RLS-scoped, office
+UI only) — deliberately split into two files by auth context rather
+than one module with admin/RLS branches, so it's never ambiguous at a
+call site which client a given function uses. `daily-photos` bucket
+signed URLs generated fresh per request (1 hour expiry) on both the
+public and office sides — no persistent public URL scheme exists for
+this private bucket.
+
+**Bug found via the new E2E spec (test-only):** a share-link status
+badge (`active`/`revoked`/`expired`) is styled with a plain CSS
+`capitalize` class over the lowercase literal string — visually reads
+"Active"/"Revoked", but the actual DOM text content Playwright's
+`getByText()` matches against stays lowercase, since CSS
+`text-transform` never changes the underlying text node. An unscoped
+`getByText("Active", {exact:true})` assertion had **already been
+silently matching the wrong element** (the project header's own status
+pill, which *is* properly capitalized) rather than the token's own
+badge — a false-positive pass for the wrong reason, only caught once
+the later `getByText("Revoked", ...)` assertion had no same-named
+decoy element to accidentally match and failed outright. Fixed both
+assertions to check the lowercase text, scoped to the specific token's
+own row.
 
 **Decision date:** 2026-07-06
 
