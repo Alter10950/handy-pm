@@ -1508,6 +1508,16 @@ order:
     (`materials.labor_units`/`.size`, `crew_rates`, `labor_standards`,
     `project_estimates`, `projects.planned_days`) already existed from
     earlier migrations.
+13. `customer_portal.sql` (2026-07-06) — `share_tokens.revoked_at`;
+    `approved_photos` (see ADR-035).
+14. `batch4_operating_layer.sql` (2026-07-06) — the PM Operating Layer
+    schema: `gate_templates`/`gate_template_stages`/`gate_template_items`,
+    `project_stages`/`project_gate_items`, `scope_items`,
+    `handoff_surveys`, `change_orders`, `project_comms`,
+    `project_autopsies`; `projects` gains `pm_user_id`/`stage_key`/
+    `last_activity_at`/customer-contact/comms-preference columns;
+    `organizations.num_crews` (see ADR-037). Seeds one default gate
+    template per org with a verbatim 29-item starter checklist.
 
 ### Tables
 
@@ -1539,6 +1549,13 @@ transitively via `project_id` → `projects.org_id` or `crew_id` →
 | `notifications`                          | `org_id` (+ `user_id`)         | Per-user in-app inbox (2026-07-06) — `select`/`update`/`delete` are strictly own-row (`user_id = auth.uid()`), unlike every other table here which is org-wide-readable; `insert` is org-scoped only, since a Server Action running as the caller creates notifications addressed to *other* org members. |
 | `share_tokens`                           | `project_id`                  | Customer portal tokens (project_id/token/scope/expires_at existed since Phase 2; `revoked_at` added Batch 3 Sub-phase H). Not publicly RLS-readable — see below.                                                                                                                                                                    |
 | `approved_photos`                        | `project_id`                  | Customer-visible photo curation (2026-07-06) — keyed by the photo's own `storage_path` (`unique(project_id, storage_path)`), sourced from either `day_logs.photo_paths` or `blockers.photo_path`. Nothing is customer-visible until explicitly approved here; see Customer portal section below. |
+| `gate_templates` / `gate_template_stages` / `gate_template_items` | `org_id` / via `gate_templates` / via `gate_template_stages` | Batch 4 (2026-07-06) — a reusable, org-editable 8-stage checklist definition (`handoff`/`scope`/`schedule`/`materials`/`mobilize`/`execute`/`punch`/`closeout`). Exactly one `is_default` template per org (partial unique index, same convention as "exactly one marking page"). Copied per-project at creation (sub-phase A) so later per-project edits never mutate the template. Seeded with a verbatim 29-item starter checklist — see ADR-037. |
+| `project_stages` / `project_gate_items`  | `project_id` / via `project_stages` | Batch 4 (2026-07-06) — the actual per-project copy of the above. `project_stages.status` ∈ `locked`/`active`/`complete`/`overridden` (one enum, not separate booleans) + `overridden_by`/`override_reason` when a gate is overridden. `project_gate_items.done`/`done_by`/`done_at` + optional `photo_path`/`signoff_user_id`/`due_date`. The stage-gate lifecycle UI itself (the stepper, "what's next," nags) is sub-phase A scope — this migration only lays down the schema and seeds the template it copies from. |
+| `scope_items`                            | `project_id` (+ optional `row_id`/`phase_id`) | Batch 4 (2026-07-06) — work beyond install (`work_type` ∈ `install`/`teardown`/`remove_levels`/`add_levels`/`relocate`/`repair`/`other`) — the category of work an earlier real project ("iBuy") lost two weeks to leaving unscoped. `source` ∈ `handoff`/`estimate`/`change_order` tracks where an item came from; `change_order_id` links one added via a CO. |
+| `handoff_surveys`                        | `project_id` (unique)          | Batch 4 (2026-07-06) — the sales→ops handoff: site conditions, `constraints` (jsonb: live_warehouse/access_notes/forklift_onsite/working_hours/floor_condition/permits_needed), `photo_paths` (same array convention as `day_logs`), and dual estimator+PM sign-off columns/timestamps. One row per project. |
+| `change_orders`                          | `project_id`                  | Batch 4 (2026-07-06) — numbered per project (`unique(project_id, number)`), `reason`/`status` enums, `labor_units`/`added_days`/`price`, customer-approval tracking (`customer_approved_via`/`_at`/`_approver_name`). |
+| `project_comms`                          | `project_id`                  | Batch 4 (2026-07-06) — an auditable log of everything the customer was told (`kind` ∈ `milestone`/`weekly_report`/`manual`/`schedule_change`, `channel` ∈ `email`/`portal`/`logged_call`/`logged_other`). The push channel — the customer portal (Batch 3) stays the pull channel. |
+| `project_autopsies`                      | `project_id` (unique)          | Batch 4 (2026-07-06) — estimated vs actual, generated at the Closeout stage: days/hours/labor units/`material_variance` (jsonb)/change-order count+days/blocker days, plus an optional narrative. |
 
 **Exactly one marking page per project:** `drawings.role` defaults to
 `'reference'`; a partial unique index

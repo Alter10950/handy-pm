@@ -4,6 +4,65 @@ Engineering journal. Newest entries at top.
 
 ---
 
+## 2026-07-06 — Batch 4 kickoff + Sub-phase 0: PM Operating Layer schema
+
+**What:** Batch 4 begins — the "PM Operating Layer," designed against
+a real ~$200K project ("iBuy") that ran two weeks over for five
+specific reasons (scope never captured, no owner, bad material found
+mid-install, customer left in the dark, everything in one manager's
+head). Sub-phase 0 is the schema for the whole batch: a reusable
+8-stage gate template (handoff/scope/schedule/materials/mobilize/
+execute/punch/closeout) copied per-project at creation, scope-of-work
+beyond install, the sales→ops handoff survey, change orders, a
+customer-comms audit log, hard crew-capacity settings, and the
+closeout autopsy. Full reasoning in `docs/DECISIONS.md` ADR-037;
+summary here.
+
+**Credentials check (per this batch's own instruction to ask up front):**
+none needed — Supabase access token, `RESEND_API_KEY`, and
+`ANTHROPIC_API_KEY` were all already secured and deployed during
+Batch 3. Batch 4 can run start to finish without a new credential gate.
+
+**Build:** One migration (`20260707000000_batch4_operating_layer.sql`):
+ten new tables (`gate_templates`, `gate_template_stages`,
+`gate_template_items`, `project_stages`, `project_gate_items`,
+`scope_items`, `handoff_surveys`, `change_orders`, `project_comms`,
+`project_autopsies`), three new RLS helper functions, seven new
+columns on `projects` (`pm_user_id`, `stage_key`, `last_activity_at`,
+`customer_contact_name`, `customer_contact_email`,
+`comms_weekly_report`, `comms_milestones`), one new column on
+`organizations` (`num_crews`). RLS gives crew read-only access to
+stage/scope tables, owner/pm full manage, and — per the brief's own
+specific instruction — scheduler a narrow write exception scoped to
+just the Schedule stage's own rows, not every stage. Seeded one
+default gate template per existing org with the batch's own verbatim
+29-item starter checklist (transcribed from the brief, not
+paraphrased) so every org has a real, usable template from day one —
+confirmed live: 1 template, 8 stages, 29 items. Types regenerated and
+hand-adjusted with 8 new literal-union types
+(`GateStageKey`/`ProjectStageStatus`/`ScopeWorkType`/`ScopeSource`/
+`ChangeOrderReason`/`ChangeOrderStatus`/`CommsKind`/`CommsChannel`),
+following the existing ADR-010 pattern.
+
+**Deliberately deferred:** backfilling existing projects' OWN
+`project_stages`/`project_gate_items` rows — unlike the template
+(seeded now, since it's org-wide and needs no per-project judgment),
+giving each existing, already-in-progress project a realistic current
+stage and marking its genuinely-complete earlier stages `overridden`
+requires actual judgment this migration shouldn't guess at. That's
+sub-phase J's explicit job; sub-phase A's own data-access layer will
+lazily create a project's stage rows from the current template the
+first time they're needed, covering both brand-new and not-yet-touched
+pre-Batch-4 projects in the meantime.
+
+**Verified:** `npm run lint`/`typecheck`/`build` all green. Full E2E
+suite green: 26 passed, 2 intentionally skipped — zero changes needed
+to any existing code, confirming this migration is purely additive
+(nothing yet reads/writes any of the new schema; that starts with
+sub-phase A).
+
+---
+
 ## 2026-07-06 — Batch 3 sub-phase I: Polish/QA/perf pass + production deploy (Batch 3 complete)
 
 **What:** The final Batch 3 sub-phase — loading/empty/error states,

@@ -5,6 +5,126 @@ Consequences.
 
 ---
 
+## ADR-037: Batch 4, Sub-phase 0 — PM Operating Layer schema (stage-gate lifecycle, scope, handoff, change orders, comms, autopsy)
+
+**Decision date:** 2026-07-06
+
+**Context:** Batch 4 is a new flagship push — the "PM Operating Layer" —
+designed against a real ~$200K project ("iBuy") that ran two weeks over
+because teardown/level-change scope was never captured, no one owned
+the job, wrong/short material surfaced mid-install, the customer never
+knew the schedule, and everything lived in one manager's head. Sub-phase
+0 is the schema for all of it: a reusable, org-editable 8-stage gate
+template (handoff → scope → schedule → materials → mobilize → execute →
+punch → closeout) copied per-project so later edits never mutate the
+template; scope-of-work beyond install; the sales→ops handoff survey;
+change orders; a customer-comms audit log; org-wide crew capacity; and
+the closeout autopsy. Ten new tables, one combined idempotent migration,
+following this batch's own brief closely enough to use its exact
+column names throughout (`template_id`, `position`, `done`/`done_by`/
+`done_at`, etc.) rather than this codebase's more usual naming — kept
+verbatim since sub-phase A's own application code will be written
+against this exact spec.
+
+**Choice — `project_stages.status` as a single enum
+(`locked`/`active`/`complete`/`overridden`), not separate completed/
+overridden booleans:** this is what the batch's own schema line
+specifies, and it's genuinely cleaner than tracking multiple booleans
+that could otherwise contradict each other (e.g. both "complete" and
+"overridden" true at once) — a stage is in exactly one of these four
+states at a time, never a combination.
+
+**Choice — `pm_user_id` stays nullable at the schema level, "required"
+is an application-level rule for sub-phase B:** the batch brief calls
+`pm_user_id` "required," but every existing project has no PM assigned
+yet, and guessing one via SQL would be worse than leaving it genuinely
+unset until a human (or sub-phase B's own UI) assigns one deliberately.
+`stage_key` similarly defaults to `'handoff'` for every project
+(existing and new) at the schema level — sub-phase J's own backfill
+step is where existing, already-in-progress projects get a realistic
+current stage and their earlier stages marked `overridden` with reason
+`'pre-Batch-4 backfill'`, a judgment call this migration deliberately
+doesn't try to make.
+
+**Choice — seed the default gate template NOW (sub-phase 0), not
+defer it to sub-phase A:** the batch brief explicitly says so ("Seed
+ONE default template with sensible items per stage"), and doing it as
+part of the schema migration (one `do $$ ... $$` block per existing
+org) means every org — current and future — has a real, usable
+8-stage/29-item template from the moment this migration lands, with
+nothing left to backfill for the template itself later. The exact item
+text for all 29 items is transcribed verbatim from sub-phase A's own
+paragraph in the original brief (not paraphrased), split one item per
+semicolon-separated clause. Two items get `requires_photo = true`
+("site survey completed w/ photos," "final photos" — the only two the
+brief explicitly ties to photos); one gets `requires_signoff_role =
+'pm'` ("PM sign-off" — there's no literal "estimator" `ProfileRole` in
+this schema, so "Estimator sign-off" is left without a role constraint;
+sub-phase D's dual-signoff mechanism will enforce both signers via
+`requireRole(['owner','pm'])`, the only pool of eligible signers this
+schema actually has).
+
+**Choice — existing projects do NOT get `project_stages`/
+`project_gate_items` rows in this migration:** unlike the template
+(seeded now), backfilling every existing project's OWN stage rows
+requires judgment about where that specific project realistically
+already stands (most active projects are already well past Handoff) —
+exactly the kind of decision sub-phase J's brief says needs "sensible
+statuses," not a blind copy-the-template-verbatim insert. The plan
+going forward: sub-phase A's own project-stages data-access layer
+lazily creates a project's stage rows from the org's current default
+template the first time they're needed (covering both brand-new
+projects and any pre-Batch-4 project that hasn't been touched yet),
+and sub-phase J is where the *existing, already-in-progress* projects
+specifically get walked forward and their genuinely-already-done
+earlier stages marked `overridden`.
+
+**Choice — RLS on `project_stages`/`project_gate_items` gives
+scheduler a narrow, stage-scoped write exception, not a blanket one:**
+the batch brief's own RLS line is specific — "crew read-only on
+stage/scope... pm/owner manage; scheduler read + schedule-stage
+writes" — so the write policy checks `stage_key = 'schedule'` (for
+`project_stages`) or a subquery to the parent stage's `stage_key` (for
+`project_gate_items`) in addition to role, rather than a same role
+list on every stage. A scheduler can update the Schedule stage's own
+gate items but not, say, mark Closeout complete.
+
+**Choice — `gate_templates`/stages/items are office-only (owner/pm)
+for read, owner-only for write:** matches "Template management
+(owner)" precisely — pm can see what the template looks like (useful
+context when reviewing a project's copied stages) but only owner edits
+the org's shared template. `handoff_surveys`/`change_orders`/
+`project_comms`/`project_autopsies` are owner/pm both ways — none of
+these are crew-facing screens anywhere else in this codebase either
+(sign-offs, financials, customer comms, and estimate-accuracy review
+are inherently office concerns).
+
+**Consequences:** Ten new tables (`gate_templates`,
+`gate_template_stages`, `gate_template_items`, `project_stages`,
+`project_gate_items`, `scope_items`, `handoff_surveys`,
+`change_orders`, `project_comms`, `project_autopsies`), two new RLS
+helper functions (`org_id_of_gate_template`,
+`org_id_of_gate_template_stage`, `org_id_of_project_stage` — three,
+not two), seven new columns on `projects` (`pm_user_id`, `stage_key`,
+`last_activity_at`, `customer_contact_name`, `customer_contact_email`,
+`comms_weekly_report`, `comms_milestones`), one new column on
+`organizations` (`num_crews`, default 2 — a hard constraint enforced
+starting sub-phase G, not yet). `scope_items.change_order_id` is added
+as a plain column and only gets its FK constraint once `change_orders`
+exists later in the same migration file (Postgres requires the
+referenced table to exist first; both tables are listed in the same
+order the original brief specifies them, rather than reordering the
+file to satisfy the FK upfront). Eight new literal-union types added to
+`database.types.ts` following the existing ADR-010 pattern
+(`GateStageKey`, `ProjectStageStatus`, `ScopeWorkType`, `ScopeSource`,
+`ChangeOrderReason`, `ChangeOrderStatus`, `CommsKind`, `CommsChannel`).
+Purely additive — full E2E suite (26 passed, 2 intentionally skipped)
+confirmed green with zero changes needed to any existing code, since
+nothing yet reads or writes any of these new tables/columns (that
+starts with sub-phase A).
+
+---
+
 ## ADR-036: Sub-phase I — polish/QA/perf pass, Vercel production env vars, final Batch 3 deploy
 
 **Decision date:** 2026-07-06

@@ -148,6 +148,49 @@ documented. Full E2E suite green at close: 10 passed, 1 skipped
 (intentionally — the packing-slip no-key test, inactive now that a key
 is configured).
 
+**Batch 4 (in progress, 2026-07-06):** the "PM Operating Layer" — a new
+flagship push designed against a real ~$200K project ("iBuy") that ran two
+weeks over because scope was never captured, no one owned the job, bad
+material surfaced mid-install, the customer was never told the schedule,
+and everything lived in one manager's head. Ten sub-phases (0, A-J) make
+each of those structurally impossible: a stage-gate lifecycle (handoff →
+scope → schedule → materials → mobilize → execute → punch → closeout),
+PM-of-record + accountability, scope-of-work beyond install, the sales→ops
+handoff survey, a hard material-verification gate, change orders, a hard
+two-crew capacity board, customer communication (push, not just the
+portal's pull), and a closeout autopsy. No new credentials needed — every
+key Batch 4 requires (Supabase access token, `RESEND_API_KEY`,
+`ANTHROPIC_API_KEY`) was already secured and deployed during Batch 3.
+
+**Sub-phase 0 — schema — done and verified live (2026-07-06, see
+ADR-037):** ten new tables for the whole batch — a reusable, org-editable
+8-stage gate template (`gate_templates`/`gate_template_stages`/
+`gate_template_items`) copied per-project at creation so later edits never
+mutate the template; `project_stages` (one row per project per stage, a
+single `locked`/`active`/`complete`/`overridden` status) + 
+`project_gate_items` (the actual checklist, `done`/`done_by`/`done_at`,
+optional photo/signoff/due-date); `scope_items` (everything beyond
+install — teardown/remove-add-levels/relocate/repair/other — the work
+that killed iBuy); `handoff_surveys` (site conditions, constraints, dual
+estimator+PM sign-off); `change_orders`; `project_comms` (an auditable
+customer-communication log); `project_autopsies` (estimated vs actual).
+`projects` gains `pm_user_id`/`stage_key`/`last_activity_at` +
+customer-contact/comms-preference columns; `organizations` gains
+`num_crews` (a hard capacity constraint, enforced starting sub-phase G).
+Seeded one default gate template per org with the batch's own verbatim
+29-item starter checklist across all 8 stages — confirmed live: 1
+template, 8 stages, 29 items. RLS gives crew read-only on stage/scope,
+owner/pm full manage, and scheduler a narrow write exception scoped
+specifically to the Schedule stage's own rows (per the batch's own precise
+instruction), not a blanket role list. Deliberately did NOT backfill
+existing projects' own stage rows in this migration — that needs actual
+judgment about where each already-in-progress project realistically
+stands, which is explicitly sub-phase J's job; sub-phase A's own
+data-access layer will lazily create a project's stages from the current
+template the first time they're needed. Purely additive: full E2E suite
+green with zero changes needed anywhere else — 26 passed, 2 intentionally
+skipped.
+
 **Batch 3 — ✅ COMPLETE (2026-07-06):** a large flagship push — full user
 management/org settings, Field and Scheduler taken to "flagship," a
 rules-based estimation engine, an exception-first dashboard + emailed
@@ -754,6 +797,51 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
       spacers/barriers/protectors, two anchor types) is deferred by the
       user's own choice, not blocked on anything — can be revisited
       anytime by pointing the route at that file.
+
+## Batch 4, Sub-phase 0 — PM Operating Layer schema ✅ done (2026-07-06)
+
+- [x] `gate_templates`/`gate_template_stages`/`gate_template_items` — a
+      reusable, org-editable 8-stage checklist definition (handoff/
+      scope/schedule/materials/mobilize/execute/punch/closeout).
+- [x] `project_stages` (one row per project per stage, single
+      `locked`/`active`/`complete`/`overridden` status +
+      `overridden_by`/`override_reason`) + `project_gate_items` (the
+      actual checklist copied from the template at project creation).
+- [x] `projects` gains `pm_user_id` (nullable — "required" is an
+      application rule for sub-phase B), `stage_key` (defaults
+      `'handoff'`), `last_activity_at`, `customer_contact_name`/
+      `customer_contact_email`, `comms_weekly_report`/`comms_milestones`.
+- [x] `scope_items` — work beyond install (teardown/remove_levels/
+      add_levels/relocate/repair/other), optionally attached to a row
+      or phase, sourced from handoff/estimate/change_order.
+- [x] `handoff_surveys` — site conditions, constraints (jsonb), photo
+      paths, dual estimator+PM sign-off columns.
+- [x] `change_orders` — numbered per project, reason/status enums,
+      labor_units/added_days/price, customer-approval tracking.
+- [x] `project_comms` — an auditable log of everything the customer
+      was told (kind/channel/recipient/subject/body snapshot).
+- [x] `organizations.num_crews` (default 2) — a hard capacity
+      constraint, enforced starting sub-phase G.
+- [x] `project_autopsies` — estimated vs actual (days/hours/labor
+      units/material variance/change orders/blocker days) + narrative.
+- [x] RLS: crew read-only on stage/scope; owner/pm full manage;
+      scheduler gets a narrow write exception scoped specifically to
+      the Schedule stage's own rows, not every stage. Gate templates
+      are owner/pm read, owner-only write ("Template management
+      (owner)").
+- [x] Seeded one default gate template per existing org with the
+      batch's own verbatim 29-item starter checklist across all 8
+      stages — confirmed live: 1 template, 8 stages, 29 items.
+- [x] Types regenerated + 8 new literal-union types added
+      (`GateStageKey`/`ProjectStageStatus`/`ScopeWorkType`/
+      `ScopeSource`/`ChangeOrderReason`/`ChangeOrderStatus`/
+      `CommsKind`/`CommsChannel`), same ADR-010 pattern as before.
+- [x] Deliberately deferred: backfilling EXISTING projects' own
+      `project_stages` rows — needs real judgment about where each
+      project already stands, explicitly sub-phase J's job.
+- [x] `npm run lint`/`typecheck`/`build` all pass. Full E2E suite
+      green: 26 passed, 2 intentionally skipped — purely additive,
+      zero changes needed anywhere else in the app.
 
 ## Batch 3, Sub-phase 0 — Schema for estimating/readiness/versioning ✅ done (2026-07-06)
 
