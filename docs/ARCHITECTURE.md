@@ -1274,6 +1274,56 @@ of Batch 4, built first and most carefully per the batch's own framing.
   the assertion to content that can only exist on the destination page,
   the same fix shape used for the other two races.
 
+## PM-of-record accountability (Batch 4, Sub-phase B, 2026-07-06)
+
+`pm_user_id` (nullable since Sub-phase 0) is now enforced as required at
+the application level for real projects, shown everywhere a project
+appears, reassignable with an audit trail, and filterable.
+
+- **Default-to-creator, not a forced empty choice:** the New Project
+  form's PM `<select defaultValue={currentUserId}>` — anyone who can
+  reach this form is already owner/pm (`PROJECT_EDITORS`), so the
+  signed-in creator is always a valid candidate. `createProject`
+  (`lib/projects/actions.ts`) still hard-validates the submitted
+  `pm_user_id` server-side (a real owner/pm in the caller's org) — the
+  default just makes the common case frictionless, it doesn't make the
+  requirement optional. This choice also meant zero pre-existing E2E
+  specs needed editing, since none of them ever touched a PM field that
+  didn't previously exist.
+- **`reassignProjectPm`** (`lib/projects/actions.ts`) — updates
+  `projects.pm_user_id`, inserts a `project_pm_history` row
+  (`previous_pm_user_id`/`new_pm_user_id`/`changed_by`), then sends up
+  to two independent notifications via `notifyUsers` (kind
+  `pm_reassigned`, `isNewPm` flips the message) — the incoming PM always
+  gets one (unless they reassigned themselves), the outgoing PM gets one
+  only if they existed, differ from the incoming PM, and aren't the one
+  who made the change. Two separate calls, not one shared batch — the
+  messages read differently and either leg can independently be a no-op.
+- **`project_pm_history`** — owner/pm select+insert RLS, no
+  update/delete policy (append-only from the application's own
+  perspective). Deliberately minimal columns — no `reason`, since a
+  reassignment is a routine operational change worth recording, not an
+  exceptional one needing justification (unlike a gate override).
+- **Shows everywhere:** `project_progress` view gains `pm_user_id`
+  (raw uuid, appended at the end of the SELECT/GROUP BY lists — the same
+  positional-column rule ADR-019 established for this view already).
+  Name resolution happens in application code
+  (`lib/team/queries.ts#listTeamMembers`/`listPmCandidates`), matching
+  the existing convention for every other person-name lookup in this
+  codebase (crew names, blocker crew names) rather than joining
+  `profiles`/`auth.users` into the view itself. `ProjectCard`'s
+  `pmLabel` prop is three-valued: `undefined` (pre-sale estimates list —
+  no PM row rendered at all), `null` (an active project genuinely has
+  none — rendered as a `text-warning` "No PM assigned"), or a real
+  label. Same pattern on the Overview page (`PmAssignment` — inline
+  reassign control for owner/pm, a plain label otherwise) and the
+  dashboard's project list (new PM column, "Unassigned" in the same
+  warning style).
+- **"My projects only" filter** — `components/projects/project-list.tsx`,
+  a client-side toggle filtering the already-fetched project list by
+  `project.pm_user_id === currentUserId`. No new query — the full list
+  (with `pm_user_id`) was already being fetched for card rendering.
+
 ## Testing
 
 `npm run test:e2e` (`npm run seed && playwright test`) runs a Playwright
@@ -1686,7 +1736,8 @@ transitively via `project_id` → `projects.org_id` or `crew_id` →
 | ---------------------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `organizations`                          | —                             | Tenant boundary. One per Handy Equip-style deployment (see auth bootstrap below); multi-org support exists in the schema but isn't exercised yet. `address`/`logo_path`/`default_working_days` added 2026-07-06 (Org Settings) — was read-only for every role until then. `num_crews` added Batch 4 Sub-phase 0 (hard capacity constraint, enforced starting Sub-phase G). `stalled_after_days` (int, default 3) added in a Batch 4 Sub-phase A follow-up migration — feeds `isProjectStalled`. |
 | `profiles`                               | `org_id` (nullable)           | One row per `auth.users`, `role` ∈ `owner`/`pm`/`scheduler`/`crew`. `crew_id` (nullable, 2026-07-06) — a user's home crew, assigned from `/app/team`.                                                                                        |
-| `projects`                               | `org_id`                      | A racking-install job. `status` ∈ `estimate`/`active`/`on_hold`/`complete` (`estimate` added 2026-07-06 for pre-sale drafts on the company estimating screen — see ADR-030). `planned_days` (Scheduler target math) and `mark_drawing_id` (the one markable page — see below) added 2026-07-03.                                                         |
+| `projects`                               | `org_id`                      | A racking-install job. `status` ∈ `estimate`/`active`/`on_hold`/`complete` (`estimate` added 2026-07-06 for pre-sale drafts on the company estimating screen — see ADR-030). `planned_days` (Scheduler target math) and `mark_drawing_id` (the one markable page — see below) added 2026-07-03. `pm_user_id` (nullable at the schema level since Sub-phase 0) is enforced as required at the application level for real (non-estimate) projects starting Batch 4 Sub-phase B — see ADR-039. |
+| `project_pm_history`                     | `project_id`                  | Batch 4 Sub-phase B (2026-07-06) — an append-only audit trail of PM reassignments (`previous_pm_user_id`/`new_pm_user_id`/`changed_by`/`changed_at`). No `reason` column — a reassignment is routine, not exceptional, unlike a gate override. |
 | `crews` / `crew_members`                 | `org_id` / via `crews`        | Install crews and their members (Scheduler sub-phase).                                                                                                                                                                                      |
 | `drawings`                               | `project_id`                  | One row per rendered page (`page_index` 0-based) of an uploaded layout PDF/image. `storage_path` points into the private `drawings` bucket. `role` ∈ `reference`/`marking` — see below.                                                     |
 | `packing_slips`                          | `project_id`                  | Uploaded packing-slip files; `parsed` reserved for future OCR/extraction.                                                                                                                                                                   |

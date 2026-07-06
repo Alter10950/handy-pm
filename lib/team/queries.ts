@@ -55,3 +55,18 @@ export async function listTeamMembers(): Promise<TeamMember[]> {
     })
   );
 }
+
+export interface PmCandidate {
+  id: string;
+  label: string;
+}
+
+// Owner/pm-role members, active only — the pool "PM of record" can be
+// assigned to (Batch 4 Sub-phase B). Deactivated accounts are excluded
+// so a project can't be handed to someone who can't sign back in.
+export async function listPmCandidates(): Promise<PmCandidate[]> {
+  const members = await listTeamMembers();
+  return members
+    .filter((m) => m.isActive && (m.role === "owner" || m.role === "pm"))
+    .map((m) => ({ id: m.id, label: m.fullName || m.email }));
+}

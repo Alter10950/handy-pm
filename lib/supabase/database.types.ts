@@ -1452,6 +1452,48 @@ export type Database = {
           },
         ]
       }
+      project_pm_history: {
+        Row: {
+          changed_at: string
+          changed_by: string | null
+          id: string
+          new_pm_user_id: string | null
+          previous_pm_user_id: string | null
+          project_id: string
+        }
+        Insert: {
+          changed_at?: string
+          changed_by?: string | null
+          id?: string
+          new_pm_user_id?: string | null
+          previous_pm_user_id?: string | null
+          project_id: string
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string | null
+          id?: string
+          new_pm_user_id?: string | null
+          previous_pm_user_id?: string | null
+          project_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_pm_history_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "project_progress"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "project_pm_history_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_schedule: {
         Row: {
           created_at: string
@@ -1986,6 +2028,7 @@ export type Database = {
           name: string
           org_id: string
           pct: number
+          pm_user_id: string | null
           project_id: string
           required_total: number
           row_count: number

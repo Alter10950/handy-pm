@@ -14,8 +14,13 @@ function formatDeadline(deadline: string | null): string {
 
 export function ProjectCard({
   project,
+  pmLabel,
 }: {
   project: Views<"project_progress">;
+  // undefined: don't show a PM row at all (the pre-sale estimates list —
+  // a PM isn't expected yet there). null: show the "No PM assigned"
+  // warning (the real, active projects list — Batch 4 Sub-phase B).
+  pmLabel?: string | null;
 }) {
   const pct = Math.round(project.pct * 100);
 
@@ -43,9 +48,22 @@ export function ProjectCard({
         </span>
       </div>
 
-      <p className="text-sm text-muted-foreground">
-        {formatDeadline(project.deadline)}
-      </p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm text-muted-foreground">
+          {formatDeadline(project.deadline)}
+        </p>
+        {pmLabel !== undefined ? (
+          <p
+            className={
+              pmLabel
+                ? "truncate text-sm text-muted-foreground"
+                : "truncate text-sm font-medium text-warning"
+            }
+          >
+            {pmLabel ? `PM: ${pmLabel}` : "No PM assigned"}
+          </p>
+        ) : null}
+      </div>
     </Link>
   );
 }

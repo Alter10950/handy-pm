@@ -22,6 +22,7 @@ export function ProjectRiskList({ projects }: { projects: DashboardProject[] }) 
         <thead>
           <tr className="text-left text-xs uppercase tracking-wide text-muted-foreground">
             <th className="pb-2">Project</th>
+            <th className="pb-2">PM</th>
             <th className="pb-2">Status</th>
             <th className="pb-2 text-right">Complete</th>
             <th className="pb-2">Crew today</th>
@@ -39,6 +40,13 @@ export function ProjectRiskList({ projects }: { projects: DashboardProject[] }) 
                 >
                   {project.name}
                 </Link>
+              </td>
+              <td className="py-2">
+                {project.pmName ? (
+                  <span className="text-muted-foreground">{project.pmName}</span>
+                ) : (
+                  <span className="font-medium text-warning">Unassigned</span>
+                )}
               </td>
               <td className="py-2">
                 <span

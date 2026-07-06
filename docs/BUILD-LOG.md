@@ -4,6 +4,48 @@ Engineering journal. Newest entries at top.
 
 ---
 
+## 2026-07-06 — Batch 4 Sub-phase B: PM-of-record accountability
+
+**What:** iBuy's second failure — "no one owned the job" — made
+structurally hard to repeat. Full reasoning in `docs/DECISIONS.md`
+ADR-039; summary here.
+
+**Build:** `pm_user_id` is now required to create a real project — the
+New Project form's PM dropdown defaults to the signed-in creator (always
+valid, since anyone who can reach the form is already owner/pm),
+`createProject` server-validates whatever's submitted actually belongs
+to a real owner/pm in the caller's org. New `reassignProjectPm` action:
+updates `projects.pm_user_id`, inserts a `project_pm_history` row
+(previous/new/changed_by), and sends up to two independent
+notifications (new PM: "you're now the PM"; outgoing PM, if any and if
+not the same person performing the change: "you're no longer the PM") —
+never a shared/duplicate send. PM now shows everywhere: the project
+card (`PM: name`, or a warning-styled "No PM assigned" for an active
+project missing one — the estimates list shows no PM row at all,
+correctly, since a pre-sale draft isn't expected to have one yet), the
+Overview page (`PmAssignment` — inline reassign control for owner/pm,
+read-only label otherwise), and a new PM column on the dashboard's
+project list. New "My projects only" filter (`ProjectList`, client-side
+toggle) on `/app`.
+
+**Schema:** new `project_pm_history` table (owner/pm select+insert,
+append-only). `project_progress` view gains `pm_user_id` (appended at
+the end of the SELECT/GROUP BY lists — same positional-column rule
+ADR-019 already established for this exact view's sibling).
+
+**Verified:** `npm run lint`/`typecheck`/`build` all green. New
+`e2e/pm-of-record-flow.spec.ts` — confirms the default-to-creator value
+actually submits (never touches the PM field, checks the DB), PM shows
+on the card and Overview, reassignment updates the DB + logs history +
+notifies only the incoming PM (not the owner, who was both the previous
+PM and the actor), the "My projects only" filter actually hides the
+other project, and the dashboard row isn't showing the "Unassigned"
+state. Full suite green: 30 passed, 2 intentionally skipped — including
+every pre-existing spec that creates a project through the now-changed
+"+ New project" form, none of which needed a single edit.
+
+---
+
 ## 2026-07-06 — Batch 4 Sub-phase A: stage-gate lifecycle engine, What's Next, notifications, gate nags, template management
 
 **What:** The spine of Batch 4 — the actual application layer on top of

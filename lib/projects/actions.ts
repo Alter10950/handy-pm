@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth/session";
 import { laborUnitsFor } from "@/lib/estimating/labor";
 import { loadLaborStandardsMap } from "@/lib/estimating/queries";
+import { notifyUsers } from "@/lib/notifications/create";
 import { parseMaterialList } from "@/lib/projects/parse-material-list";
 import { createClient } from "@/lib/supabase/server";
 import type { MaterialCondition } from "@/lib/supabase/database.types";
@@ -33,11 +34,33 @@ export async function createProject(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   const siteAddress = String(formData.get("site_address") ?? "").trim();
   const deadline = String(formData.get("deadline") ?? "").trim();
+  const pmUserId = String(formData.get("pm_user_id") ?? "").trim();
 
   if (!name) throw new Error("Project name is required.");
+  // "Required" from Batch 4 Sub-phase B on — no owner-less real project
+  // going forward (iBuy's failure #2). Existing pre-Batch-4 projects and
+  // pre-sale estimates (a separate creation path, createEstimateProject)
+  // are unaffected — this only gates the real, active-project form.
+  if (!pmUserId) throw new Error("A PM is required to create a project.");
 
   const { userId, orgId } = await requireRole(PROJECT_EDITORS);
   const supabase = await createClient();
+
+  // Defense-in-depth, same convention as every other role-sensitive
+  // action in this codebase — the dropdown only ever lists valid
+  // candidates, but a submitted id is still verified server-side rather
+  // than trusted as-is.
+  const { data: pmProfile, error: pmError } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", pmUserId)
+    .eq("org_id", orgId)
+    .maybeSingle();
+  if (pmError) throw pmError;
+  if (!pmProfile || (pmProfile.role !== "owner" && pmProfile.role !== "pm")) {
+    throw new Error("The selected PM isn't a valid owner/pm in this organization.");
+  }
+
   const { data: project, error } = await supabase
     .from("projects")
     .insert({
@@ -46,6 +69,7 @@ export async function createProject(formData: FormData) {
       site_address: siteAddress || null,
       deadline: deadline || null,
       created_by: userId,
+      pm_user_id: pmUserId,
     })
     .select("id")
     .single();
@@ -53,6 +77,72 @@ export async function createProject(formData: FormData) {
 
   revalidatePath("/app");
   redirect(`/app/project/${project.id}`);
+}
+
+export async function reassignProjectPm(
+  projectId: string,
+  newPmUserId: string
+): Promise<void> {
+  const { userId, orgId } = await requireRole(PROJECT_EDITORS);
+  const supabase = await createClient();
+
+  const { data: pmProfile, error: pmError } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", newPmUserId)
+    .eq("org_id", orgId)
+    .maybeSingle();
+  if (pmError) throw pmError;
+  if (!pmProfile || (pmProfile.role !== "owner" && pmProfile.role !== "pm")) {
+    throw new Error("The selected PM isn't a valid owner/pm in this organization.");
+  }
+
+  const { data: project, error: projectError } = await supabase
+    .from("projects")
+    .select("name, pm_user_id")
+    .eq("id", projectId)
+    .single();
+  if (projectError) throw projectError;
+  const previousPmUserId = project.pm_user_id;
+  if (previousPmUserId === newPmUserId) return;
+
+  const { error: updateError } = await supabase
+    .from("projects")
+    .update({ pm_user_id: newPmUserId })
+    .eq("id", projectId);
+  if (updateError) throw updateError;
+
+  const { error: historyError } = await supabase.from("project_pm_history").insert({
+    project_id: projectId,
+    previous_pm_user_id: previousPmUserId,
+    new_pm_user_id: newPmUserId,
+    changed_by: userId,
+  });
+  if (historyError) throw historyError;
+
+  // Two independent notifications, not a shared batch call — the new PM
+  // and the outgoing PM read very different messages (isNewPm flips the
+  // phrasing in formatNotificationMessage), and either leg is skipped
+  // when it would just notify the person who made the change themselves.
+  if (newPmUserId !== userId) {
+    await notifyUsers(supabase, orgId, [newPmUserId], "pm_reassigned", {
+      projectId,
+      projectName: project.name,
+      isNewPm: true,
+    }).catch((err) => console.error("pm_reassigned notification failed", err));
+  }
+  if (previousPmUserId && previousPmUserId !== newPmUserId && previousPmUserId !== userId) {
+    await notifyUsers(supabase, orgId, [previousPmUserId], "pm_reassigned", {
+      projectId,
+      projectName: project.name,
+      isNewPm: false,
+    }).catch((err) => console.error("pm_reassigned notification failed", err));
+  }
+
+  await touchProjectActivity(projectId);
+  revalidatePath(`/app/project/${projectId}`);
+  revalidatePath("/app");
+  revalidatePath("/app/dashboard");
 }
 
 export async function addMaterial(projectId: string, name: string) {

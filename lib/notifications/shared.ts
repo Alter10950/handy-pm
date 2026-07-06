@@ -7,7 +7,10 @@ import type { Tables } from "@/lib/supabase/database.types";
 // see the migration), but the application only ever writes one of these,
 // so this union is a self-imposed, non-enforced convention: new kinds
 // can be added here without a migration.
-export type NotificationKind = "gate_item_overdue" | "project_stalled";
+export type NotificationKind =
+  | "gate_item_overdue"
+  | "project_stalled"
+  | "pm_reassigned";
 
 // One notification per project per nag run (not one per overdue item) —
 // itemLabel names the first/only one for a quick peek, overdueCount
@@ -25,6 +28,15 @@ export interface ProjectStalledPayload {
   daysSinceActivity: number;
 }
 
+// isNewPm flips the phrasing — the incoming PM and the outgoing PM (if
+// any) get two independently-sent notifications with this same kind,
+// never a single shared one, since the message reads differently.
+export interface PmReassignedPayload {
+  projectId: string;
+  projectName: string;
+  isNewPm: boolean;
+}
+
 export type NotificationRow = Tables<"notifications">;
 
 export function formatNotificationMessage(notification: NotificationRow): string {
@@ -39,6 +51,12 @@ export function formatNotificationMessage(notification: NotificationRow): string
     case "project_stalled": {
       const p = payload as unknown as ProjectStalledPayload;
       return `${p.projectName} has had no activity in ${p.daysSinceActivity} days`;
+    }
+    case "pm_reassigned": {
+      const p = payload as unknown as PmReassignedPayload;
+      return p.isNewPm
+        ? `You're now the PM for ${p.projectName}`
+        : `You're no longer the PM for ${p.projectName}`;
     }
     default:
       return notification.kind;

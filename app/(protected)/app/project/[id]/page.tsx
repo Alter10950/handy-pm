@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 
 import { LifecyclePanel } from "@/components/gates/lifecycle-panel";
 import { WhatsNextPanel } from "@/components/gates/whats-next-panel";
+import { PmAssignment } from "@/components/projects/pm-assignment";
 import { ensureProjectStages } from "@/lib/gates/actions";
 import { computeNextActions, getProjectLifecycle } from "@/lib/gates/queries";
 import {
@@ -14,6 +15,7 @@ import {
   listMaterials,
 } from "@/lib/projects/queries";
 import { createClient } from "@/lib/supabase/server";
+import { listPmCandidates, listTeamMembers } from "@/lib/team/queries";
 
 function formatDate(value: string | null): string {
   if (!value) return "—";
@@ -61,6 +63,7 @@ export default async function ProjectOverviewPage({
   const canDownloadCloseout = profile?.role === "owner" || profile?.role === "pm";
   const canManageGates = profile?.role === "owner" || profile?.role === "pm";
   const canWriteGates = canManageGates || profile?.role === "scheduler";
+  const canManagePm = profile?.role === "owner" || profile?.role === "pm";
 
   // A pre-sale draft (status='estimate') has no execution lifecycle yet —
   // the 8 stages are about running a real job, not pricing one.
@@ -70,6 +73,13 @@ export default async function ProjectOverviewPage({
     lifecycle = await getProjectLifecycle(id);
   }
   const nextActions = computeNextActions(lifecycle);
+
+  const [pmCandidates, teamMembers] = await Promise.all([
+    listPmCandidates(),
+    listTeamMembers(),
+  ]);
+  const currentPm = teamMembers.find((m) => m.id === project.pm_user_id);
+  const currentPmLabel = currentPm ? currentPm.fullName || currentPm.email : null;
 
   const thumbnail = drawings[0];
   const thumbnailUrl = thumbnail
@@ -125,6 +135,20 @@ export default async function ProjectOverviewPage({
                 {formatDate(project.created_at.slice(0, 10))}
               </dd>
             </div>
+            {project.status !== "estimate" ? (
+              <div>
+                <dt className="text-xs text-muted-foreground">PM of record</dt>
+                <dd className="mt-0.5">
+                  <PmAssignment
+                    projectId={id}
+                    currentPmId={project.pm_user_id}
+                    currentPmLabel={currentPmLabel}
+                    candidates={pmCandidates}
+                    canManage={canManagePm}
+                  />
+                </dd>
+              </div>
+            ) : null}
           </dl>
         </div>
 

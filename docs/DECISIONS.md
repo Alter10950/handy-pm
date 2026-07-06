@@ -5,6 +5,92 @@ Consequences.
 
 ---
 
+## ADR-039: Batch 4, Sub-phase B — PM-of-record accountability
+
+**Decision date:** 2026-07-06
+
+**Context:** iBuy's second failure was "no one owned the job." Sub-phase
+B makes that structurally hard to repeat: a PM of record is required on
+every new real project, shown wherever a project appears, reassignable
+with an audit trail and a notification, and filterable ("my projects
+only").
+
+**Choice — default the New Project form's PM selector to the creator,
+not an empty/forced choice:** the brief says `pm_user_id` is "required,"
+but making the office pick from a dropdown with no default would be
+friction for the common case (whoever's creating a project is
+overwhelmingly likely to either be its PM or know immediately who is)
+and — practically — would have silently broken every existing E2E spec
+that creates a project through "+ New project" without touching a PM
+field, since none of them were written expecting one to exist.
+Defaulting to the signed-in creator resolves both: anyone who can reach
+this form is already owner/pm (`PROJECT_EDITORS`), so they're always a
+valid candidate, the common case needs zero extra clicks, and every
+pre-existing test's "create a project" step keeps working unchanged
+because the default value is what actually submits. `createProject`
+still hard-validates a `pm_user_id` was submitted and belongs to a real
+owner/pm in the caller's org — the default makes the field easy to
+satisfy, it doesn't make the requirement optional.
+
+**Choice — `pm_user_id` "required" applies to real projects
+(`createProject`) only, not the pre-sale estimate path
+(`createEstimateProject`):** an estimate is a speculative draft that may
+never become a real job — forcing ownership on something that might not
+exist next week adds friction without the accountability payoff the
+brief is actually after. When an estimate converts to active
+(`convertEstimateToActive`), it inherits whatever `pm_user_id` was
+already set (`null` if never touched) — Sub-phase B doesn't add a
+gate at conversion time; a `null` PM on a freshly-converted project
+would surface immediately via the same "No PM assigned" warning state
+active projects already get everywhere else.
+
+**Choice — a dedicated `project_pm_history` table, not folding into
+`project_comms` or a notification's own persistence:** `project_comms`
+is specifically the *customer*-facing comms log (Batch 4 Sub-phase 0);
+this is an internal ownership record. A notification is the wrong
+vehicle for "audit log" on its own — it's per-recipient, and its
+purpose is alerting, not being a permanent, queryable record regardless
+of anyone's read state. The table is intentionally minimal
+(`previous_pm_user_id`/`new_pm_user_id`/`changed_by`/`changed_at`, no
+`reason` column) — a reassignment isn't inherently an exceptional event
+needing justification the way a gate override is; it's a routine
+operational change worth *recording*, not necessarily *explaining*.
+
+**Choice — two independent notification sends on reassignment, not one
+shared call:** the incoming PM and the outgoing PM (if any) read
+different messages (`isNewPm` flips the phrasing in
+`formatNotificationMessage`), and either leg is skipped entirely when it
+would just notify whoever performed the reassignment about their own
+action — the common case of an owner assigning themselves, or an owner
+handing a project to someone else without ever having held it, both
+correctly produce zero or one notification rather than a redundant
+self-notification.
+
+**Choice — `pm_user_id` exposed through `project_progress` (raw uuid,
+appended at the end of the view per the same `CREATE OR REPLACE VIEW`
+positional-column rule ADR-019 already established), names resolved in
+application code via `lib/team/queries.ts#listTeamMembers`/
+`listPmCandidates`, not joined in the view itself:** matches this
+codebase's existing convention everywhere else a person's name needs
+resolving from an id (crew names, blocker crew names) — the view stays
+a thin aggregate over `projects`, and name resolution (which needs the
+admin API for `auth.users` email fallback) stays in application code
+where that capability already lives.
+
+**Consequences:** New table `project_pm_history` (RLS: owner/pm
+select+insert, no update/delete — append-only from the application's
+own perspective). `project_progress` view gains `pm_user_id`. New
+`NotificationKind` `pm_reassigned`. `ProjectCard`'s `pmLabel` prop is
+optional and three-valued in effect: omitted (the pre-sale estimates
+list — no PM row at all), `null` (an active project genuinely has none
+— shown as a warning), or a real label. Full E2E suite green — 30
+passed, 2 intentionally skipped — including every pre-existing spec
+that creates a project through the unchanged "+ New project" flow,
+confirming the default-to-creator choice didn't require touching a
+single one of them.
+
+---
+
 ## ADR-038: Batch 4, Sub-phase A — stage-gate lifecycle engine, What's Next, notifications, gate nags, template management
 
 **Decision date:** 2026-07-06

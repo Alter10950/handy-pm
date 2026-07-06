@@ -4,6 +4,7 @@ import { listOrgAssignmentsInRange } from "@/lib/scheduler/queries";
 import { classifySpi, computeProjectSpi, type RiskTier } from "@/lib/scheduler/spi";
 import { createClient } from "@/lib/supabase/server";
 import type { BlockerCode, Tables } from "@/lib/supabase/database.types";
+import { listTeamMembers } from "@/lib/team/queries";
 
 export interface DashboardProject {
   projectId: string;
@@ -14,6 +15,7 @@ export interface DashboardProject {
   assignedCrewNames: string[];
   forecastFinish: string | null;
   deadline: string | null;
+  pmName: string | null;
 }
 
 // The office dashboard's main list — every active project with enough
@@ -47,6 +49,7 @@ export async function listActiveProjectsForDashboard(): Promise<
     { data: allRows, error: rowsError },
     assignmentsToday,
     { data: allEstimates, error: estimatesError },
+    teamMembers,
   ] = await Promise.all([
     supabase.from("targets").select("*").in("project_id", projectIds),
     supabase.from("rows").select("id, project_id").in("project_id", projectIds),
@@ -56,10 +59,14 @@ export async function listActiveProjectsForDashboard(): Promise<
       .select("project_id, forecast_finish, created_at")
       .in("project_id", projectIds)
       .order("created_at", { ascending: false }),
+    listTeamMembers(),
   ]);
   if (targetsError) throw targetsError;
   if (rowsError) throw rowsError;
   if (estimatesError) throw estimatesError;
+  const pmNameById = new Map(
+    teamMembers.map((m) => [m.id, m.fullName || m.email])
+  );
 
   const rowIds = allRows.map((r) => r.id);
   const { data: allInstalls, error: installsError } =
@@ -120,6 +127,7 @@ export async function listActiveProjectsForDashboard(): Promise<
       assignedCrewNames: [...(crewNamesByProject.get(p.project_id) ?? [])],
       forecastFinish: forecastByProject.get(p.project_id) ?? null,
       deadline: p.deadline,
+      pmName: p.pm_user_id ? (pmNameById.get(p.pm_user_id) ?? null) : null,
     };
   });
 }

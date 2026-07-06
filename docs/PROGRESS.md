@@ -227,6 +227,26 @@ shape as an earlier sub-phase's own zoom-fit finding). Full suite green:
 29 passed, 2 intentionally skipped, confirmed zero leftover test data in
 the shared org-wide gate template afterward.
 
+**Sub-phase B — PM-of-record accountability — done and verified live
+(2026-07-06, see ADR-039):** a PM of record is now required to create a
+real project — the form defaults to the signed-in creator (always valid,
+frictionless for the common case) rather than forcing an empty choice
+that would've also broken every pre-existing "create a project" E2E
+step. Shows everywhere: the project card, the Overview page (an inline
+reassign control for owner/pm, read-only otherwise), and a new PM column
+on the dashboard's project list — an active project missing one shows a
+warning-styled "No PM assigned," while the pre-sale estimates list
+correctly shows no PM row at all. Reassigning updates the DB, logs a new
+`project_pm_history` audit row (previous/new/changed-by), and sends up
+to two independent notifications (the incoming PM: "you're now the PM";
+the outgoing PM, if any and if not the same person making the change:
+"you're no longer the PM") — never a redundant self-notification when
+an owner assigns themselves or hands off a project they never held. New
+"My projects only" filter on `/app`. Full suite green: 30 passed, 2
+intentionally skipped — including every pre-existing spec that creates
+a project through the now-changed New Project form, none of which
+needed a single edit.
+
 **Batch 3 — ✅ COMPLETE (2026-07-06):** a large flagship push — full user
 management/org settings, Field and Scheduler taken to "flagship," a
 rules-based estimation engine, an exception-first dashboard + emailed
@@ -942,6 +962,36 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
       behavior end to end. Full suite green: 29 passed, 2 intentionally
       skipped; confirmed zero leftover test data in the shared org-wide
       gate template afterward.
+
+## Batch 4, Sub-phase B — PM-of-record accountability ✅ done (2026-07-06)
+
+- [x] `pm_user_id` required to create a real project — New Project
+      form's PM dropdown defaults to the signed-in creator (always a
+      valid owner/pm candidate); `createProject` server-validates
+      whatever's submitted.
+- [x] `reassignProjectPm` — updates `projects.pm_user_id`, inserts a
+      `project_pm_history` audit row (previous/new/changed_by), sends
+      up to two independent notifications (incoming PM / outgoing PM,
+      skipping either leg that would just notify the actor themselves).
+- [x] New `project_pm_history` table (owner/pm select+insert,
+      append-only) + `project_progress` view gains `pm_user_id`
+      (appended at the end, same positional-column rule as ADR-019).
+- [x] PM shows everywhere: project card (`PM: name` / warning-styled
+      "No PM assigned" for an active project missing one — no row at
+      all on the pre-sale estimates list), Overview page
+      (`PmAssignment` — inline reassign for owner/pm, read-only
+      otherwise), dashboard's project list (new PM column).
+- [x] "My projects only" filter on `/app` (`ProjectList`, client-side
+      toggle against the signed-in user's id).
+- [x] New `NotificationKind` `pm_reassigned`.
+- [x] `npm run lint`/`typecheck`/`build` all pass. New
+      `e2e/pm-of-record-flow.spec.ts` — confirms the default-to-creator
+      value actually submits, PM shows everywhere, reassignment updates
+      DB + logs history + notifies correctly (including the
+      no-self-notification cases), the "My projects only" filter
+      actually filters, dashboard shows the PM column. Full suite green:
+      30 passed, 2 intentionally skipped — every pre-existing spec that
+      creates a project through the changed form needed zero edits.
 
 ## Batch 3, Sub-phase 0 — Schema for estimating/readiness/versioning ✅ done (2026-07-06)
 
