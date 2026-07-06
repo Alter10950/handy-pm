@@ -11,6 +11,7 @@ export function MaterialStepper({
   material,
   required,
   installed,
+  installedToday,
   onLog,
 }: {
   rowId: string;
@@ -18,6 +19,7 @@ export function MaterialStepper({
   material: Tables<"materials">;
   required: number;
   installed: number;
+  installedToday: number;
   onLog: (
     rowId: string,
     rowLabel: string,
@@ -50,6 +52,12 @@ export function MaterialStepper({
           {installed} / {required} {material.unit}
         </span>
       </div>
+      {installedToday !== 0 ? (
+        <p className="text-xs font-medium text-primary">
+          Today: {installedToday > 0 ? "+" : ""}
+          {installedToday} {material.unit}
+        </p>
+      ) : null}
       <div className="flex items-center gap-2">
         <Button
           type="button"

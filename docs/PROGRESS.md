@@ -200,6 +200,32 @@ inputs for every role (blocked server-side, just not visually hidden);
 full UI role-awareness is deferred to sub-phase I's polish pass. Full
 suite green: 14 passed, 1 intentionally skipped.
 
+**Sub-phase B — Field to flagship — built and mostly verified live
+(2026-07-06, see ADR-028):** "My assignments today" on the top-level
+`/field` list (matched client-side by selected crew, same convention as
+day_logs/blockers); the crew picker now defaults to the signed-in
+user's own assigned crew (`profiles.crew_id`) when a device hasn't
+picked one yet. "Close the day" now opens a mandatory review screen
+(today's net installs per material, blocker count, times, note, photos)
+with "← Back to edit" / "Confirm & close day" — edit/resume and the
+day-summary confirmation compose into one flow rather than needing two
+separate features. End-of-day documentation photos (distinct from a
+blocker's own photo). An optional voice-to-note: the browser's own
+speech recognition transcribes locally (free, no server round-trip),
+then Claude cleans the transcript into a draft and flags a likely
+blocker code — the crew always reviews before anything saves. Found and
+fixed a real gap while building this: neither the packing-slip
+extraction route nor the new voice-note route had an explicit
+authentication check (voice-note had *none* at all, since it never
+touches Supabase) — both now use sub-phase A's `requireOrg()` helper.
+**One migration (`day_logs.photo_paths`) could not be applied this
+session** — a persistent Supabase-platform-side error (not a
+credentials or SQL problem; the same token applied three earlier
+migrations cleanly minutes before) — code was written defensively so
+nothing currently live broke, and the E2E coverage for that one feature
+is written but not yet run live; being retried, not silently dropped.
+Full suite otherwise green: 17 passed, 2 intentionally skipped.
+
 This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
 
 2. DB schema/RLS/storage/types
@@ -408,6 +434,14 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
       persist; a crew-role user in a genuinely separate browser context
       (not the shared owner storageState) is confirmed redirected away
       from every owner/pm/scheduler-gated page on direct navigation.
+- [x] `e2e/voice-note-flow.spec.ts` (2026-07-06) — the no-key and live
+      (AI cleanup + blocker-code flagging) paths, plus a 401 check for a
+      genuinely unauthenticated request (via plain `fetch()` — both
+      Playwright's `browser.newContext()` and `request.newContext()`
+      were found to inconsistently carry some valid session through in
+      this specific scenario, confirmed via a real cookie-less `curl` to
+      the same server that correctly got 401, so the server-side guard
+      itself is sound — a Playwright quirk, not a security bug).
 
 ## Phase 6 — Field/Crew PWA ✅ built (2026-07-03)
 
@@ -549,6 +583,43 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
       role-aware-rendering pass across every remaining screen (e.g. the
       Materials grid still shows editable inputs to every role — writes
       are blocked server-side, just not visually hidden yet).
+
+## Batch 3, Sub-phase B — Field to flagship ✅ mostly done (2026-07-06)
+
+- [x] "My assignments today" on `/field`, matched client-side by crew;
+      crew picker defaults to the signed-in user's own `profiles.crew_id`.
+- [x] Material stepper shows "Today: +N" alongside the cumulative total
+      (`listTodayInstalls`, net per crew).
+- [x] Day-close review screen (times, net installs, blocker count, note,
+      photos) with "← Back to edit" / "Confirm & close day" — edit/
+      resume and the day-summary confirmation as one flow.
+- [x] End-of-day documentation photos (`day_logs.photo_paths`, distinct
+      from a blocker's own photo) — code complete; **live E2E
+      verification pending** (see below).
+- [x] Voice-to-note: browser `SpeechRecognition` (feature-detected, no
+      dead button on unsupported browsers) transcribes locally; Claude
+      (`/api/field/voice-note`) cleans the transcript and flags a likely
+      blocker code; crew reviews before anything saves.
+- [x] Real gap found and fixed: neither the packing-slip extraction nor
+      the new voice-note route had an explicit auth check (voice-note
+      had none at all) — both now use `requireOrg()`.
+- [x] `npm run lint`/`typecheck`/`build` all pass.
+- [x] `e2e/field-flow.spec.ts` extended (day-summary review verified
+      against real data, back-to-edit round trip) and
+      `e2e/voice-note-flow.spec.ts` new (no-key error, 401 for a
+      genuinely unauthenticated request via plain `fetch()`, and —
+      gated on a real key — correct cleanup + blocker-code flagging).
+      Full suite green: 17 passed, 2 intentionally skipped.
+- [ ] **Blocked on a persistent Supabase-platform-side error, not a code
+      problem** (`supabase db push` and the Management API's own SQL
+      endpoint both failed identically across ~10 attempts over several
+      minutes — the same token applied 3 earlier migrations cleanly
+      minutes before): the `day_logs.photo_paths` migration hasn't
+      landed live yet, so the photo-attach E2E step is written but not
+      yet run for real. Code defends against the column not existing
+      (`?? []` at the one always-on call site) so nothing broke while
+      pending. Being retried; will confirm once the platform issue
+      clears.
 
 ## Phase 8 — Customer portal (not started)
 

@@ -27,17 +27,21 @@ export function BlockerForm({
   rowId,
   rowLabel,
   crewId,
+  initialCode = null,
+  initialNote = "",
   onClose,
 }: {
   projectId: string;
   rowId: string | null;
   rowLabel: string | null;
   crewId: string | null;
+  initialCode?: BlockerCode | null;
+  initialNote?: string;
   onClose: () => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [code, setCode] = useState<BlockerCode | null>(null);
-  const [note, setNote] = useState("");
+  const [code, setCode] = useState<BlockerCode | null>(initialCode);
+  const [note, setNote] = useState(initialNote);
   const [photo, setPhoto] = useState<File | null>(null);
   const [status, setStatus] = useState<"idle" | "saving" | "error">("idle");
   const [error, setError] = useState<string | null>(null);

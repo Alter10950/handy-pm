@@ -135,3 +135,70 @@ export async function closeDay(
     departedAt: new Date().toISOString(),
   });
 }
+
+// End-of-day documentation photos — distinct from blockers.photo_path
+// (one photo tied to one reported problem); these are general "here's
+// the work today" photos, so a day can have more than one. Same
+// find-or-create shape as upsertDayLog, reusing its own upsert logic by
+// reading the current array first (a plain read-modify-write, not a
+// Postgres array_append — fine for how infrequently one device adds a
+// photo, no realistic concurrent-write race for a single crew's own day).
+export async function addDayLogPhoto(
+  projectId: string,
+  crewId: string | null,
+  storagePath: string
+): Promise<void> {
+  const supabase = await createClient();
+  const workDate = new Date().toISOString().slice(0, 10);
+
+  let existing = supabase
+    .from("day_logs")
+    .select("id, photo_paths")
+    .eq("project_id", projectId)
+    .eq("work_date", workDate);
+  existing = crewId
+    ? existing.eq("crew_id", crewId)
+    : existing.is("crew_id", null);
+  const { data: found, error: findError } = await existing.maybeSingle();
+  if (findError) throw findError;
+
+  if (found) {
+    const { error } = await supabase
+      .from("day_logs")
+      .update({ photo_paths: [...found.photo_paths, storagePath] })
+      .eq("id", found.id);
+    if (error) throw error;
+  } else {
+    const { error } = await supabase.from("day_logs").insert({
+      project_id: projectId,
+      crew_id: crewId,
+      work_date: workDate,
+      photo_paths: [storagePath],
+    });
+    if (error) throw error;
+  }
+  revalidateField(projectId);
+}
+
+export async function removeDayLogPhoto(
+  dayLogId: string,
+  projectId: string,
+  storagePath: string
+): Promise<void> {
+  const supabase = await createClient();
+  const { data: found, error: findError } = await supabase
+    .from("day_logs")
+    .select("photo_paths")
+    .eq("id", dayLogId)
+    .single();
+  if (findError) throw findError;
+
+  const { error } = await supabase
+    .from("day_logs")
+    .update({
+      photo_paths: found.photo_paths.filter((path) => path !== storagePath),
+    })
+    .eq("id", dayLogId);
+  if (error) throw error;
+  revalidateField(projectId);
+}

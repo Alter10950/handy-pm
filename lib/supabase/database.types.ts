@@ -328,6 +328,7 @@ export type Database = {
           note: string | null
           offload_end: string | null
           offload_start: string | null
+          photo_paths: string[]
           project_id: string
           work_date: string
         }
@@ -343,6 +344,7 @@ export type Database = {
           note?: string | null
           offload_end?: string | null
           offload_start?: string | null
+          photo_paths?: string[]
           project_id: string
           work_date?: string
         }
@@ -358,6 +360,7 @@ export type Database = {
           note?: string | null
           offload_end?: string | null
           offload_start?: string | null
+          photo_paths?: string[]
           project_id?: string
           work_date?: string
         }

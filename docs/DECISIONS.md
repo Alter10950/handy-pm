@@ -5,6 +5,102 @@ Consequences.
 
 ---
 
+## ADR-028: Sub-phase B — Field to flagship: assignments-today, day-summary confirmation, voice-to-note via browser STT + Claude cleanup
+
+**Decision date:** 2026-07-06
+
+**Context:** Batch 3, sub-phase B: complete the crew field experience —
+"My assignments today," a mandatory day-summary review before closing
+the day (not an instant one-tap close), end-of-day documentation
+photos, and an optional voice-to-note feature that turns a spoken update
+into a clean, editable draft.
+
+**Choice — "My assignments today" reads `assignments` directly, matched
+client-side by crew, same as day_logs/blockers:** `listTodayAssignments()`
+fetches every crew's assignments for today, org-wide (a small dataset —
+one day, whichever projects have work scheduled). `FieldHome` filters to
+the selected `crewId` client-side, the same "server can't filter ahead
+of render since crew selection is client state" reasoning ADR-021
+already established for day_logs/blockers. Separately, `profiles.crew_id`
+(sub-phase A) now seeds `useCrewSelection`'s default — a device that's
+never picked a crew falls back to the *signed-in user's own* assigned
+crew rather than "no crew selected," still overridable per-device for a
+shared tablet logging as someone else's crew.
+
+**Choice — "edit/resume before final submit" + "day summary
+confirmation" compose into one flow: Close the day → review screen →
+confirm:** tapping "Close the day" no longer closes it — it transitions
+to a review screen (today's net install qty per row/material, blocker
+count, times, note, photos) with "← Back to edit" and "Confirm & close
+day." This satisfies both asks at once: the crew can back out and fix
+something (via the row's own material stepper's "Correct −N," not a
+raw edit to the append-only `installs` log) before the day is
+irreversibly marked closed, and the summary itself is the "day summary
+confirmation." `MaterialStepper` also gained a "Today: +N" line (reading
+a new `listTodayInstalls` query, net per crew) so the closeout figure
+is visible at the point of logging, not just at day's end.
+
+**Choice — voice-to-note: Web Speech API for transcription (client-side,
+free), Claude for cleanup only (gated on `ANTHROPIC_API_KEY`):** the
+Anthropic Messages API has no audio-input content block — "gate on
+ANTHROPIC_API_KEY" only makes sense if transcription itself happens
+elsewhere. `VoiceNoteRecorder` uses the browser's own
+`SpeechRecognition` (vendor-prefixed on some browsers, unsupported on
+others — feature-detected, and renders nothing at all when absent,
+rather than a button that always fails) to transcribe locally, then
+POSTs just the resulting text to `/api/field/voice-note`, which asks
+Claude (forced tool-use, same pattern as packing-slip extraction) to
+clean it into a concise note and flag a likely blocker code. The crew
+always sees a draft — "Use as today's note" / "Report as blocker
+instead" / "Discard" — before anything saves; nothing from the
+transcript reaches the database unreviewed. `BlockerForm` gained
+optional `initialCode`/`initialNote` props so the "report as blocker
+instead" path can hand off the AI's suggestion without a second typing
+pass.
+
+**Choice — a real, previously-latent auth gap found and fixed while
+building this: neither AI route checked who was calling it.** The
+packing-slip extraction route (ADR-025) was *indirectly* protected — an
+unauthenticated caller would eventually fail inside
+`getSignedPackingSlipUrl` (Storage RLS rejects the signed-URL request),
+but as an uncaught exception, not a clean response. The new voice-note
+route has *no* indirect protection at all — it never touches Supabase,
+so nothing stopped an unauthenticated caller from spending the
+`ANTHROPIC_API_KEY` quota. Both now call `requireOrg()` (any signed-in
+org member — crew should reach both) explicitly, wrapped to return a
+clean `401` instead of a raw exception, consistent with ADR-027's
+"server-side guards, not incidental protection" theme.
+
+**Choice — end-of-day photos are `day_logs.photo_paths text[]`, not a
+new one-to-many table:** distinct from `blockers.photo_path` (one photo
+tied to one reported problem) — these are general documentation, so a
+day can have more than one, but never more than a handful. A plain array
+column, read-modify-write on add/remove (no realistic concurrent-write
+race for one crew's own day), is simpler than a new table for something
+that's never queried independently of its day log.
+
+**Consequences — a genuine, transient external blocker, not a code
+problem:** the migration adding `day_logs.photo_paths`
+(`20260706105523_day_log_photos.sql`) could not be applied during this
+session — `supabase db push` and the Management API's own SQL endpoint
+both failed repeatedly with the same Supabase-platform-side error
+("OOM command not allowed... maxmemory", then a 504, alternating across
+roughly ten attempts spread over several minutes with real work
+happening between them), while the three earlier Batch 3 migrations
+applied cleanly through the identical mechanism minutes before. This
+was verified as a platform issue, not a mistake in the migration SQL
+itself or a credentials problem — the same access token authenticates
+every other CLI/Management API call correctly. The application code was
+written defensively against this (the Field project page reads
+`log.photo_paths ?? []` rather than assuming the column exists) so nothing
+currently live broke while this was pending, and `database.types.ts`
+was hand-patched ahead of the migration landing (ADR-010's established
+pattern for exactly this situation). The E2E test for this one feature
+(photo attach/remove, part of `field-flow.spec.ts`) is written and
+ready but could not be run live this session — flagged honestly rather
+than skipped silently. Retrying periodically; will confirm and finalize
+once the migration lands.
+
 ## ADR-027: Sub-phase A — shared requireRole guard, RPC for self-service name edit, Scheduler gated whole-page
 
 **Decision date:** 2026-07-06

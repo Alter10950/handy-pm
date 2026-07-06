@@ -369,9 +369,10 @@ phase filter that recomputes row count/rows complete/pct client-side
 from `row_progress`, the same shape `project_progress` aggregates — no
 new query for either tab's filter.
 
-## Field / crew app (Phase 6, 2026-07-03)
+## Field / crew app (Phase 6, 2026-07-03; taken to flagship 2026-07-06)
 
-`/field` (active projects, `app/(protected)/field/page.tsx`) →
+`/field` (active projects + "My assignments today,"
+`app/(protected)/field/page.tsx` → `components/field/field-home.tsx`) →
 `/field/[projectId]` (`app/(protected)/field/[projectId]/page.tsx`) fetch
 everything server-side in one `Promise.all` and hand it to
 `FieldWorkspace` (`components/field/field-workspace.tsx`), a single client
@@ -381,18 +382,24 @@ row detail ↔ day panel) rather than separate routes — same reasoning as
 taps a crew member expects to feel instant.
 
 - **Crew selection is a per-device `localStorage` preference, not an
-  identity.** `profiles` has no `crew_id` column and there's no
-  crew-management UI yet (`crews`/`crew_members` have existed in the
-  schema since Batch 1 — see Data model below — but Sub-phase C is what
-  builds CRUD for them). `useCrewSelection` (`use-crew-selection.ts`)
-  remembers "which crew this device is logging as" independent of the
-  signed-in user, matching a shared job-site phone better than a personal
-  login would. Every crew-scoped write is nullable and degrades cleanly
-  with no crew picked. Implemented with `useSyncExternalStore` (a
-  module-level pub-sub over `localStorage`), not `useState` + `useEffect`
-  — the latter is exactly the "read a browser-only value after mount and
-  mirror it into state" pattern ESLint's `react-hooks/set-state-in-effect`
-  rule flags. See ADR-021.
+  identity — but now defaults to the signed-in user's own crew.**
+  `useCrewSelection` (`use-crew-selection.ts`) remembers "which crew this
+  device is logging as" independent of the signed-in user, matching a
+  shared job-site phone better than a personal login would; every
+  crew-scoped write is nullable and degrades cleanly with no crew picked.
+  Implemented with `useSyncExternalStore` (a module-level pub-sub over
+  `localStorage`), not `useState` + `useEffect` — the latter is exactly
+  the "read a browser-only value after mount and mirror it into state"
+  pattern ESLint's `react-hooks/set-state-in-effect` rule flags. See
+  ADR-021. As of 2026-07-06 (`profiles.crew_id`, sub-phase A),
+  `useCrewSelection(defaultCrewId)` falls back to the caller's own
+  assigned crew when the device hasn't picked one yet — an explicit
+  device-local pick still always wins once one exists.
+- **"My assignments today"** (`field-home.tsx`, 2026-07-06) —
+  `listTodayAssignments()` fetches every crew's assignments for today,
+  org-wide (small dataset), and the client filters to the selected
+  `crewId`, same "server can't filter ahead of render" reasoning as
+  day_logs/blockers below.
 - **Material steppers** (`material-stepper.tsx`) show cumulative
   installed vs. required per material, with a qty input (+/− adjust it
   locally) and "Log +N" / "Correct −N" buttons that each record ONE
@@ -424,14 +431,51 @@ taps a crew member expects to feel instant.
   `createBlocker` records the row. Photos attach to blockers
   specifically — the schema has no separate "daily photo log" table, so
   this is what it actually supports rather than a speculative addition.
+  As of 2026-07-06, `BlockerForm` also takes optional `initialCode`/
+  `initialNote` — the voice-note "report as blocker instead" hand-off
+  (below) pre-fills these rather than making the crew re-type.
 - **Day log** (`day-log-panel.tsx`) — five progressive timestamps
   (arrived, offload start/end, install start/end) each a tap-to-mark-now
-  with a reset, a note, and "Close the day" (sets `departed_at`).
-  `upsertDayLog` (`lib/field/actions.ts`) is a hand-rolled
+  with a reset, a note, and (2026-07-06) end-of-day photos
+  (`day_logs.photo_paths text[]` — distinct from a blocker's own photo;
+  general documentation, so more than one is normal, unlike blockers'
+  single `photo_path`). `upsertDayLog`/`addDayLogPhoto`/
+  `removeDayLogPhoto` (`lib/field/actions.ts`) are hand-rolled
   find-or-update-or-insert, not a Postgres `ON CONFLICT` upsert:
   `day_logs`' `unique (project_id, crew_id, work_date)` doesn't catch
   "no crew picked" duplicates, since Postgres treats every `NULL` in a
   unique column as distinct from every other `NULL`.
+- **"Close the day" opens a review screen, not an instant close**
+  (2026-07-06) — times, today's net installs per row/material
+  (`listTodayInstalls`, filtered client-side to the selected crew, same
+  convention as day_logs/blockers), blocker count, note, and photos, with
+  "← Back to edit" / "Confirm & close day." Composes two asks into one
+  flow: "edit/resume before final submit" (fix a mis-logged qty via the
+  row's own material stepper's "Correct −N," never a raw edit to the
+  append-only `installs` log) and "a day-summary confirmation" (the
+  review screen itself). `MaterialStepper` also shows "Today: +N"
+  alongside the cumulative total, from the same `listTodayInstalls` data.
+- **Voice-to-note** (`voice-note-recorder.tsx`, 2026-07-06) — the
+  Anthropic Messages API has no audio-input content block, so
+  transcription happens entirely client-side via the browser's own
+  `SpeechRecognition` (vendor-prefixed on some browsers, unsupported on
+  others — feature-detected, the component renders nothing at all when
+  absent, rather than a button that always fails). Only the resulting
+  text is sent to `app/api/field/voice-note`, which asks Claude (forced
+  tool-use, same pattern as packing-slip extraction) to clean it into a
+  concise note and flag a likely `BlockerCode` if it describes a
+  stoppage. The crew always sees the draft first — "Use as today's
+  note" / "Report as blocker instead" / "Discard" — nothing from a
+  transcript reaches the database unreviewed.
+- **Both AI routes (`packing-slips/extract`, `field/voice-note`) now
+  call `requireOrg()` explicitly** (2026-07-06) — found while building
+  voice-note that neither had a real auth check: packing-slip was only
+  *indirectly* protected (an unauthenticated caller eventually fails
+  inside `getSignedPackingSlipUrl`, but as an uncaught exception, not a
+  clean response), and voice-note had *no* protection at all, since it
+  never touches Supabase — nothing stopped an anonymous caller from
+  spending the `ANTHROPIC_API_KEY` quota. Both now return a clean `401`
+  instead.
 - `lib/field/queries.ts`'s `getInstalledTotals` sums raw `installs` rows
   per (row, material) in JS rather than via a new aggregate view — one
   project's install history is small enough that this is simpler than
@@ -641,6 +685,25 @@ short:
   `.filter({hasText: ...})` locator once more than one crew existed on
   the page (same "matches every ancestor" class of bug as elsewhere in
   this list) — fixed by deleting the crew by name in `afterAll`.
+- `e2e/field-flow.spec.ts` extended (2026-07-06) — the day-close review
+  screen is asserted against real logged data (net install qty, blocker
+  count), not just that the screen appeared, plus a "← Back to edit"
+  round trip and a synthetic end-of-day photo attach (not yet run
+  live — see ADR-028); a second test confirms "My assignments today"
+  actually highlights a project a crew was assigned to today.
+- `e2e/voice-note-flow.spec.ts` (2026-07-06) — the browser-only
+  `SpeechRecognition` half can't be driven in headless Chromium (no real
+  microphone), so this tests the route it calls directly: a clean 500
+  with no key configured, and (gated on a real key) that the AI both
+  strips filler words and correctly flags a described stoppage as
+  `MISSING_MATERIAL`. Also asserts a `401` for a genuinely
+  unauthenticated request — found here that both `browser.newContext()`
+  and `request.newContext()` inconsistently carried *some* valid session
+  through to the server in this specific scenario (confirmed via a real,
+  cookie-less `curl` to the same running server immediately after, which
+  correctly got `401` — proving the server-side guard is sound, not the
+  test's premise); resolved by using plain Node `fetch()`, which has no
+  ambient cookie jar of any kind, for that one assertion.
 
 This suite is what caught ADR-016's env var bug — self-review and
 `next build` both stayed clean through Phases 3–5 because neither
@@ -681,6 +744,11 @@ order:
 10. `self_update_full_name.sql` (2026-07-06) — `update_own_full_name`
     RPC (see ADR-027 for why a narrow `security definer` function, not a
     broader RLS policy).
+11. `day_log_photos.sql` (2026-07-06) — `day_logs.photo_paths text[]`.
+    **Not yet applied live** as of this writing — a persistent
+    Supabase-platform-side error blocked `db push` this session (see
+    ADR-028); the app defends against the column not existing yet at its
+    one always-on read site.
 
 ### Tables
 

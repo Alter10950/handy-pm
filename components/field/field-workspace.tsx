@@ -9,7 +9,8 @@ import { MaterialStepper } from "@/components/field/material-stepper";
 import { useCrewSelection } from "@/components/field/use-crew-selection";
 import { useInstallLogger } from "@/components/field/use-install-logger";
 import { Button } from "@/components/ui/button";
-import type { Tables, Views } from "@/lib/supabase/database.types";
+import type { TodayInstall } from "@/lib/field/queries";
+import type { BlockerCode, Tables, Views } from "@/lib/supabase/database.types";
 
 type View = "rows" | "row" | "day";
 
@@ -19,28 +20,36 @@ export function FieldWorkspace({
   materials,
   rowMaterials,
   installedTotals,
+  todayInstalls,
   phases,
   crews,
   dayLogs,
   todayBlockers,
+  myCrewId,
+  dayLogPhotoUrls,
 }: {
   project: Tables<"projects">;
   rows: Views<"row_progress">[];
   materials: Tables<"materials">[];
   rowMaterials: Tables<"row_materials">[];
   installedTotals: Record<string, number>;
+  todayInstalls: TodayInstall[];
   phases: Tables<"phases">[];
   crews: Tables<"crews">[];
   dayLogs: Tables<"day_logs">[];
   todayBlockers: Tables<"blockers">[];
+  myCrewId: string | null;
+  dayLogPhotoUrls: Record<string, string>;
 }) {
-  const [crewId, setCrewId] = useCrewSelection();
+  const [crewId, setCrewId] = useCrewSelection(myCrewId);
   const { logDelta, pendingCount } = useInstallLogger(project.id, crewId);
   const [view, setView] = useState<View>("rows");
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
   const [blockerContext, setBlockerContext] = useState<{
     rowId: string | null;
     rowLabel: string | null;
+    initialNote?: string;
+    initialCode?: BlockerCode | null;
   } | null>(null);
 
   const materialsById = useMemo(
@@ -61,9 +70,52 @@ export function FieldWorkspace({
     return map;
   }, [rowMaterials]);
 
+  // My crew's net installs today, per (row, material) — the material
+  // stepper's "today" figure and the day-close summary both read from
+  // this same reduction rather than each filtering todayInstalls on
+  // their own.
+  const myTodayByRowMaterial = useMemo(() => {
+    const totals = new Map<string, number>();
+    for (const install of todayInstalls) {
+      if (install.crewId !== crewId) continue;
+      const key = `${install.rowId}:${install.materialId}`;
+      totals.set(key, (totals.get(key) ?? 0) + install.qty);
+    }
+    return totals;
+  }, [todayInstalls, crewId]);
+
   const myDayLog =
     dayLogs.find((log) => log.crew_id === crewId) ?? null;
+  const myTodayBlockers = useMemo(
+    () => todayBlockers.filter((b) => b.crew_id === crewId),
+    [todayBlockers, crewId]
+  );
   const selectedRow = rows.find((row) => row.row_id === selectedRowId) ?? null;
+
+  // Today's net qty per (row, material), resolved to display names — the
+  // day-close summary's review list.
+  const todaySummary = useMemo(() => {
+    const items: {
+      rowLabel: string;
+      materialName: string;
+      unit: string;
+      netQty: number;
+    }[] = [];
+    for (const [key, netQty] of myTodayByRowMaterial) {
+      if (netQty === 0) continue;
+      const [rowId, materialId] = key.split(":");
+      const row = rows.find((r) => r.row_id === rowId);
+      const material = materialsById.get(materialId);
+      if (!row || !material) continue;
+      items.push({
+        rowLabel: row.label,
+        materialName: material.name,
+        unit: material.unit,
+        netQty,
+      });
+    }
+    return items;
+  }, [myTodayByRowMaterial, rows, materialsById]);
 
   return (
     <div className="flex min-h-screen flex-col pb-8">
@@ -157,10 +209,10 @@ export function FieldWorkspace({
           >
             Report a blocker
           </Button>
-          {todayBlockers.length > 0 ? (
+          {myTodayBlockers.length > 0 ? (
             <p className="text-center text-xs text-muted-foreground">
-              {todayBlockers.length} blocker
-              {todayBlockers.length === 1 ? "" : "s"} logged today
+              {myTodayBlockers.length} blocker
+              {myTodayBlockers.length === 1 ? "" : "s"} logged today
             </p>
           ) : null}
         </div>
@@ -181,8 +233,9 @@ export function FieldWorkspace({
           {(rowMaterialsByRow.get(selectedRow.row_id) ?? []).map((rm) => {
             const material = materialsById.get(rm.material_id);
             if (!material) return null;
-            const installed =
-              installedTotals[`${selectedRow.row_id}:${rm.material_id}`] ?? 0;
+            const key = `${selectedRow.row_id}:${rm.material_id}`;
+            const installed = installedTotals[key] ?? 0;
+            const installedToday = myTodayByRowMaterial.get(key) ?? 0;
             return (
               <MaterialStepper
                 key={rm.material_id}
@@ -191,6 +244,7 @@ export function FieldWorkspace({
                 material={material}
                 required={rm.required_qty}
                 installed={installed}
+                installedToday={installedToday}
                 onLog={logDelta}
               />
             );
@@ -220,7 +274,18 @@ export function FieldWorkspace({
           projectId={project.id}
           crewId={crewId}
           dayLog={myDayLog}
+          photoUrls={dayLogPhotoUrls}
+          todaySummary={todaySummary}
+          todayBlockerCount={myTodayBlockers.length}
           onBack={() => setView("rows")}
+          onReportBlocker={(initialNote, initialCode) =>
+            setBlockerContext({
+              rowId: null,
+              rowLabel: null,
+              initialNote,
+              initialCode,
+            })
+          }
         />
       ) : null}
 
@@ -229,6 +294,8 @@ export function FieldWorkspace({
           projectId={project.id}
           rowId={blockerContext.rowId}
           rowLabel={blockerContext.rowLabel}
+          initialNote={blockerContext.initialNote}
+          initialCode={blockerContext.initialCode}
           crewId={crewId}
           onClose={() => setBlockerContext(null)}
         />

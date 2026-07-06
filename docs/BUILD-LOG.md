@@ -4,6 +4,81 @@ Engineering journal. Newest entries at top.
 
 ---
 
+## 2026-07-06 — Batch 3 sub-phase B: Field to flagship
+
+**What:** "My assignments today," a mandatory day-summary review before
+closing the day, end-of-day documentation photos, and an optional
+voice-to-note feature (browser speech-to-text + Claude cleanup). Full
+reasoning in `docs/DECISIONS.md` ADR-028; summary here.
+
+**Build:** `lib/field/queries.ts` gained `listTodayAssignments`,
+`listTodayInstalls`, `getMyCrewId`, `getSignedDailyPhotoUrls`.
+`useCrewSelection` now accepts a `defaultCrewId` (the signed-in user's
+own `profiles.crew_id` from sub-phase A), falling back to it only when
+no device-local pick exists yet. New `components/field/field-home.tsx`
+— the top-level `/field` list now highlights "My assignments today"
+above the general active-projects list, with its own crew picker.
+`MaterialStepper` shows a "Today: +N" line alongside the cumulative
+total. `DayLogPanel` reworked significantly: "Close the day" now opens
+a review screen (times, net installs today, blocker count, note,
+photos) with "← Back to edit" / "Confirm & close day," rather than
+closing immediately; gained photo attach/remove (uploads to the
+existing `daily-photos` bucket, recorded on a new `day_logs.photo_paths`
+array); gained `VoiceNoteRecorder` (`components/field/
+voice-note-recorder.tsx`, feature-detects `SpeechRecognition` and
+renders nothing when unsupported) wired to a new
+`app/api/field/voice-note` route (Claude cleans up the transcript,
+forced tool-use, flags a likely blocker code) — the crew always reviews
+the draft (accept as note / report as blocker / discard) before
+anything saves. `BlockerForm` gained optional `initialCode`/
+`initialNote` for that hand-off.
+
+**Real gap found and fixed:** neither new-ish AI route (packing-slip
+extraction, voice-note) had an explicit auth check. Packing-slip was
+*indirectly* protected (would eventually fail inside
+`getSignedPackingSlipUrl`, but as a raw exception); voice-note had
+*zero* protection, since it never touches Supabase at all — anyone,
+signed in or not, could have spent the `ANTHROPIC_API_KEY` quota. Both
+now call the sub-phase A `requireOrg()` helper explicitly, returning a
+clean 401 instead. Found this by asking "what actually stops an
+anonymous POST here" while writing the route, not by a test catching it
+— worth calling out since it's exactly the kind of gap ADR-027's audit
+was meant to close, and these two routes were added *after* that audit.
+
+**Blocked, honestly: one migration didn't apply this session.**
+`day_logs.photo_paths` (`20260706105523_day_log_photos.sql`) hit a
+persistent Supabase-platform-side error (`supabase db push` and the
+Management API's own SQL endpoint both failed identically, alternating
+between an "OOM... maxmemory" error and a 504, across roughly ten
+attempts spread over several minutes with real work in between) — the
+same access token applied three earlier Batch 3 migrations cleanly
+minutes before, so this isn't a credentials or SQL problem. Code was
+written defensively against the column not existing yet (`log.photo_paths
+?? []` at the one call site that runs unconditionally on every Field
+page load) so nothing currently live broke; `database.types.ts` was
+hand-patched ahead of the migration landing (ADR-010's pattern). Will
+retry and confirm once the platform issue clears — tracked, not
+silently dropped.
+
+**Verification:** `npm run lint`/`typecheck`/`build` all pass.
+`e2e/field-flow.spec.ts` extended: the day-summary review is asserted
+against real logged data (not just that a screen appeared), including a
+"← Back to edit" round trip; a photo-attach step is written and ready
+but not yet run live (see above). New `e2e/voice-note-flow.spec.ts` —
+the browser-only `SpeechRecognition` half isn't E2E-testable in headless
+Chromium (no real microphone), so this tests the route it calls
+directly: a clean 500 when no key is configured, a 401 for a genuinely
+unauthenticated request, and (gated on a real key) that the AI both
+cleans up filler words and correctly flags a described stoppage as a
+`MISSING_MATERIAL` blocker. Found a real Playwright quirk while writing
+the 401 test: both `browser.newContext()` and `request.newContext()`
+inconsistently carried *some* valid session through to the server (a
+genuinely cookie-less `curl` to the same running server, immediately
+after, correctly got 401 — proving the server-side guard itself is
+sound) — resolved by using plain Node `fetch()` for that one assertion,
+which has no ambient cookie jar of any kind. Full suite green: 17
+passed, 2 intentionally skipped.
+
 ## 2026-07-06 — Batch 3 sub-phase A: user management, org settings, role guards
 
 **What:** Complete user management (assign a team member to a crew),

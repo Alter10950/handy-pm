@@ -4,8 +4,11 @@ import { FieldWorkspace } from "@/components/field/field-workspace";
 import { listCrews } from "@/lib/crews/queries";
 import {
   getInstalledTotals,
+  getMyCrewId,
+  getSignedDailyPhotoUrls,
   listTodayDayLogs,
   listTodayBlockers,
+  listTodayInstalls,
 } from "@/lib/field/queries";
 import { listPhases } from "@/lib/phases/queries";
 import {
@@ -26,7 +29,7 @@ export default async function FieldProjectPage({
   const project = await getProject(projectId);
   if (!project) notFound();
 
-  const [rows, materials, phases, crews, dayLogs, blockers] =
+  const [rows, materials, phases, crews, dayLogs, blockers, myCrewId] =
     await Promise.all([
       listRowProgress(projectId),
       listMaterials(projectId),
@@ -34,11 +37,14 @@ export default async function FieldProjectPage({
       listCrews(),
       listTodayDayLogs(projectId),
       listTodayBlockers(projectId),
+      getMyCrewId(),
     ]);
   const rowMaterials = await listRowMaterials(rows.map((row) => row.row_id));
-  const installedTotals = await getInstalledTotals(
-    rows.map((row) => row.row_id)
-  );
+  const [installedTotals, todayInstalls, dayLogPhotoUrls] = await Promise.all([
+    getInstalledTotals(rows.map((row) => row.row_id)),
+    listTodayInstalls(rows.map((row) => row.row_id)),
+    getSignedDailyPhotoUrls(dayLogs.flatMap((log) => log.photo_paths ?? [])),
+  ]);
 
   return (
     <FieldWorkspace
@@ -47,10 +53,13 @@ export default async function FieldProjectPage({
       materials={materials}
       rowMaterials={rowMaterials}
       installedTotals={Object.fromEntries(installedTotals)}
+      todayInstalls={todayInstalls}
       phases={phases}
       crews={crews}
       dayLogs={dayLogs}
       todayBlockers={blockers}
+      myCrewId={myCrewId}
+      dayLogPhotoUrls={dayLogPhotoUrls}
     />
   );
 }

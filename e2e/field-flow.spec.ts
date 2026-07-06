@@ -176,7 +176,7 @@ test("field: pick project, select crew, log materials, report a blocker, offline
       .toBe(3); // the earlier +2 plus this +1
   });
 
-  await test.step("confirm day times and close the day", async () => {
+  await test.step("confirm day times, attach a photo, review the day summary, then close", async () => {
     await page.getByRole("button", { name: "Day" }).click();
     const arrivedRow = page.getByTestId("day-log-row-arrivedAt");
     await arrivedRow.getByRole("button", { name: "Mark now" }).click();
@@ -184,7 +184,44 @@ test("field: pick project, select crew, log materials, report a blocker, offline
       timeout: 10_000,
     });
 
+    // End-of-day photo — distinct from a blocker's photo (general
+    // documentation, not tied to a reported problem). Synthetic in-memory
+    // image, same technique as the packing-slip/logo upload tests.
+    const photoPage = await page.context().newPage();
+    await photoPage.setContent(
+      `<html><body style="margin:0;width:100px;height:100px;background:#3a3a3a;"></body></html>`
+    );
+    const photoBuffer = await photoPage.screenshot();
+    await photoPage.close();
+    await page.locator('input[type="file"][accept="image/*"]').setInputFiles({
+      name: "end-of-day.png",
+      mimeType: "image/png",
+      buffer: photoBuffer,
+    });
+    await expect(
+      page.getByRole("button", { name: "Remove photo" })
+    ).toBeVisible({ timeout: 15_000 });
+
+    // "Close the day" opens a review screen first (edit/resume before
+    // final submit) — it must NOT close immediately, and must show an
+    // accurate summary of what was actually logged today (3 total: the
+    // +2 from earlier, plus the +1 logged while offline), plus the photo
+    // just attached.
     await page.getByRole("button", { name: "Close the day" }).click();
+    await expect(
+      page.getByRole("heading", { name: "Review today & close" })
+    ).toBeVisible();
+    await expect(page.getByText("Row 1 — Bolt")).toBeVisible();
+    await expect(page.getByText("+3 ea")).toBeVisible();
+    await expect(page.getByText("1 reported today.")).toBeVisible();
+    await expect(page.getByAltText("End-of-day")).toBeVisible();
+
+    // Can still back out to edit before finalizing.
+    await page.getByRole("button", { name: "← Back to edit" }).click();
+    await expect(page.getByRole("button", { name: "Close the day" })).toBeVisible();
+
+    await page.getByRole("button", { name: "Close the day" }).click();
+    await page.getByRole("button", { name: "Confirm & close day" }).click();
     await expect(page.getByText(/Day closed/)).toBeVisible({
       timeout: 10_000,
     });
@@ -201,4 +238,59 @@ test("field: pick project, select crew, log materials, report a blocker, offline
       })
       .not.toBeNull();
   });
+});
+
+test("field: my assignments today are highlighted on the project list", async ({
+  page,
+}) => {
+  const admin = createAdminClient();
+  const projectName = `[E2E] Field assignments ${Date.now()}`;
+  const crewName = `[E2E] Assignment crew ${Date.now()}`;
+  let localProjectId: string | null = null;
+  let localCrewId: string | null = null;
+
+  try {
+    await test.step("create an active project and a crew, assign the crew to it today", async () => {
+      await page.goto("/app");
+      await page.getByRole("button", { name: "+ New project" }).click();
+      await page.locator("#name").fill(projectName);
+      await page.getByRole("button", { name: "Create project" }).click();
+      await page.waitForURL(/\/app\/project\/[^/]+$/);
+      localProjectId = /\/app\/project\/([^/]+)$/.exec(page.url())![1];
+
+      const { data: org } = await admin
+        .from("projects")
+        .select("org_id")
+        .eq("id", localProjectId)
+        .single();
+      const { data: crew, error } = await admin
+        .from("crews")
+        .insert({ org_id: org!.org_id, name: crewName })
+        .select("id")
+        .single();
+      if (error) throw error;
+      localCrewId = crew.id;
+
+      const today = new Date().toISOString().slice(0, 10);
+      const { error: assignError } = await admin.from("assignments").insert({
+        project_id: localProjectId,
+        crew_id: localCrewId,
+        row_id: null,
+        work_date: today,
+      });
+      if (assignError) throw assignError;
+    });
+
+    await test.step("selecting that crew on /field highlights it as today's assignment", async () => {
+      await page.goto("/field");
+      await page.locator("#home-crew-select").selectOption({ label: crewName });
+      await expect(page.getByText("My assignments today")).toBeVisible();
+      await expect(page.getByText(projectName)).toBeVisible();
+    });
+  } finally {
+    if (localProjectId) await deleteProjectCompletely(localProjectId);
+    if (localCrewId) {
+      await admin.from("crews").delete().eq("id", localCrewId);
+    }
+  }
 });

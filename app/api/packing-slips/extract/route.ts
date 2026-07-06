@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { requireOrg } from "@/lib/auth/session";
 import { getSignedPackingSlipUrl } from "@/lib/projects/queries";
 
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
@@ -48,6 +49,19 @@ function isToolUseBlock(
 }
 
 export async function POST(request: NextRequest) {
+  // Previously only indirectly gated — getSignedPackingSlipUrl below would
+  // eventually fail for an unauthenticated/wrong-org caller (Storage RLS
+  // rejects the signed-URL request), but as an uncaught exception, not a
+  // clean response. Explicit check, same as the voice-note route (ADR-027).
+  try {
+    await requireOrg();
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Not signed in." },
+      { status: 401 }
+    );
+  }
+
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return NextResponse.json(
