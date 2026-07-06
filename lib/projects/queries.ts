@@ -7,6 +7,10 @@ import type { Tables, Views } from "@/lib/supabase/database.types";
  * manually. Server-only (uses the cookie-based server Supabase client).
  */
 
+// Excludes draft (status='estimate') projects by default — those live on
+// their own /app/estimate list (lib/estimating/queries.ts#listEstimateProjects)
+// until someone converts one to a real project, the same way Field/Scheduler
+// already only ever query for status='active'.
 export async function listProjectsWithProgress(): Promise<
   Views<"project_progress">[]
 > {
@@ -14,6 +18,7 @@ export async function listProjectsWithProgress(): Promise<
   const { data, error } = await supabase
     .from("project_progress")
     .select("*")
+    .neq("status", "estimate")
     .order("created_at", { ascending: false });
   if (error) throw error;
   return data;

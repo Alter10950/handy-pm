@@ -4,8 +4,11 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireRole } from "@/lib/auth/session";
+import { laborUnitsFor } from "@/lib/estimating/labor";
+import { loadLaborStandardsMap } from "@/lib/estimating/queries";
 import { parseMaterialList } from "@/lib/projects/parse-material-list";
 import { createClient } from "@/lib/supabase/server";
+import type { MaterialCondition } from "@/lib/supabase/database.types";
 
 // Matches projects_insert/update/delete, materials_write, drawings_write,
 // and packing_slips_write RLS — all owner/pm only.
@@ -43,9 +46,12 @@ export async function addMaterial(projectId: string, name: string) {
   await requireRole(PROJECT_EDITORS);
 
   const supabase = await createClient();
-  const { error } = await supabase
-    .from("materials")
-    .insert({ project_id: projectId, name: trimmed });
+  const standards = await loadLaborStandardsMap();
+  const { error } = await supabase.from("materials").insert({
+    project_id: projectId,
+    name: trimmed,
+    labor_units: laborUnitsFor(standards, "general", null),
+  });
   if (error) throw error;
 
   revalidatePath(`/app/project/${projectId}`);
@@ -60,13 +66,36 @@ export async function updateMaterial(
     unit: string;
     total_needed: number;
     received: number;
+    task_key: string;
+    size: string | null;
+    profile: string | null;
+    capacity: string | null;
+    condition: MaterialCondition;
+    compatible_system: string | null;
   }>
 ) {
   await requireRole(PROJECT_EDITORS);
   const supabase = await createClient();
+
+  // task_key/size are the only two inputs to labor_units — recompute it
+  // whenever either changes so materials.labor_units never drifts out of
+  // sync with labor_standards. Every other field is a plain passthrough
+  // update with no extra read.
+  let fullPatch: typeof patch & { labor_units?: number } = patch;
+  if (patch.task_key !== undefined || patch.size !== undefined) {
+    const [standards, { data: current, error: currentError }] = await Promise.all([
+      loadLaborStandardsMap(),
+      supabase.from("materials").select("task_key, size").eq("id", materialId).single(),
+    ]);
+    if (currentError) throw currentError;
+    const taskKey = patch.task_key ?? current.task_key;
+    const size = patch.size !== undefined ? patch.size : current.size;
+    fullPatch = { ...patch, labor_units: laborUnitsFor(standards, taskKey, size) };
+  }
+
   const { error } = await supabase
     .from("materials")
-    .update(patch)
+    .update(fullPatch)
     .eq("id", materialId);
   if (error) throw error;
 
@@ -98,6 +127,7 @@ export async function pasteMaterialList(
   await requireRole(PROJECT_EDITORS);
 
   const supabase = await createClient();
+  const standards = await loadLaborStandardsMap();
 
   if (replaceExisting) {
     const { error: deleteError } = await supabase
@@ -107,12 +137,17 @@ export async function pasteMaterialList(
     if (deleteError) throw deleteError;
   }
 
+  // A plain "name, qty" paste line carries no task classification — every
+  // line lands as 'general' (the labor_standards catch-all) and can be
+  // reclassified afterward in the Materials grid, same as a manually
+  // added material.
   const { error } = await supabase.from("materials").insert(
     parsed.map((line) => ({
       project_id: projectId,
       name: line.name,
       total_needed: line.qty,
       received: line.qty,
+      labor_units: laborUnitsFor(standards, "general", null),
     }))
   );
   if (error) throw error;
@@ -121,21 +156,50 @@ export async function pasteMaterialList(
   revalidatePath(`/app/project/${projectId}/materials`);
 }
 
+// Every task_key the AI extraction prompt's own description vocabulary
+// covers — the prompt (app/api/packing-slips/extract/route.ts) explicitly
+// asks for one of these exact words, so a case-insensitive substring match
+// against the extracted description reliably classifies it without any
+// extra AI call. Falls back to 'general' for anything else (freight lines
+// are already filtered out upstream, so this is mostly genuine materials
+// the seeded task_key list doesn't have a specific bucket for yet).
+const DESCRIPTION_TASK_KEYWORDS: [string, string][] = [
+  ["upright", "upright"],
+  ["beam", "beam"],
+  ["wire deck", "wire_deck"],
+  ["row spacer", "row_spacer"],
+  ["end barrier", "end_barrier"],
+  ["post protector", "post_protector"],
+  ["anchor", "anchor"],
+];
+
+function inferTaskKeyFromDescription(description: string): string {
+  const lower = description.toLowerCase();
+  for (const [keyword, taskKey] of DESCRIPTION_TASK_KEYWORDS) {
+    if (lower.includes(keyword)) return taskKey;
+  }
+  return "general";
+}
+
 export async function confirmExtractedMaterials(
   projectId: string,
   items: { code: string; description: string; size: string; qty: number }[],
   replaceExisting: boolean
 ) {
-  // code/description/size are folded into one `name` — materials has no
-  // dedicated code/size column, and the composed name (e.g. "36SQ10 Beam
-  // 144\"") is what keeps two same-description-different-size lines (like
-  // two beam lengths) distinguishable in the grid.
+  // code/description/size are folded into one `name` for at-a-glance grid
+  // display and to keep two same-description-different-size lines (like
+  // two beam lengths) distinguishable — but size is ALSO stored in its own
+  // column now (Batch 3 sub-phase 0), and task_key is inferred from
+  // description, so labor_units computes size-aware instead of always
+  // falling back to the size-independent standard.
   const cleaned = items
     .map((item) => ({
       name: [item.code, item.description, item.size]
         .map((part) => part.trim())
         .filter(Boolean)
         .join(" "),
+      size: item.size.trim() || null,
+      taskKey: inferTaskKeyFromDescription(item.description),
       qty: Math.round(Number(item.qty)),
     }))
     .filter(
@@ -147,6 +211,7 @@ export async function confirmExtractedMaterials(
   await requireRole(PROJECT_EDITORS);
 
   const supabase = await createClient();
+  const standards = await loadLaborStandardsMap();
 
   if (replaceExisting) {
     const { error: deleteError } = await supabase
@@ -160,8 +225,11 @@ export async function confirmExtractedMaterials(
     cleaned.map((item) => ({
       project_id: projectId,
       name: item.name,
+      size: item.size,
+      task_key: item.taskKey,
       total_needed: item.qty,
       received: item.qty,
+      labor_units: laborUnitsFor(standards, item.taskKey, item.size),
     }))
   );
   if (error) throw error;

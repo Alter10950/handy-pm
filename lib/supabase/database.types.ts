@@ -24,7 +24,7 @@ export type Json =
   | Json[]
 
 export type ProfileRole = "owner" | "pm" | "scheduler" | "crew";
-export type ProjectStatus = "active" | "on_hold" | "complete";
+export type ProjectStatus = "estimate" | "active" | "on_hold" | "complete";
 export type DrawingRole = "reference" | "marking";
 export type BlockerCode =
   | "MISSING_MATERIAL"
@@ -655,6 +655,7 @@ export type Database = {
           project_id: string
           received: number
           size: string | null
+          task_key: string
           total_needed: number
           unit: string
         }
@@ -670,6 +671,7 @@ export type Database = {
           project_id: string
           received?: number
           size?: string | null
+          task_key?: string
           total_needed?: number
           unit?: string
         }
@@ -685,6 +687,7 @@ export type Database = {
           project_id?: string
           received?: number
           size?: string | null
+          task_key?: string
           total_needed?: number
           unit?: string
         }

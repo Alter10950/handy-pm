@@ -28,6 +28,7 @@ export function MaterialsGrid({
   rows,
   rowMaterials,
   highlightedRowId,
+  laborStandards,
 }: {
   projectId: string;
   materials: Tables<"materials">[];
@@ -35,6 +36,7 @@ export function MaterialsGrid({
   rows: GridRow[];
   rowMaterials: Tables<"row_materials">[];
   highlightedRowId: string | null;
+  laborStandards: Tables<"labor_standards">[];
 }) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -73,23 +75,27 @@ export function MaterialsGrid({
     });
   }
 
-  if (rows.length === 0) {
-    return (
-      <div className="rounded-lg border border-dashed border-border bg-card p-8 text-center text-muted-foreground">
-        Add rows on the Layout tab first — then each row shows up here as a
-        column to assign material into.
-      </div>
-    );
-  }
-
   return (
     <div className="flex flex-col gap-3">
+      {rows.length === 0 ? (
+        <div className="rounded-lg border border-dashed border-border bg-card p-4 text-sm text-muted-foreground">
+          No rows yet — add materials below now; assigning quantities to
+          specific rows becomes available once rows exist (Layout tab, for
+          projects that have one).
+        </div>
+      ) : null}
       <div className="max-h-[70vh] overflow-auto rounded-lg border border-border">
         <table className="border-separate border-spacing-0 text-xs">
           <thead>
             <tr>
               <th className="sticky left-0 top-0 z-30 min-w-40 border-b border-r border-border bg-muted p-2 text-left font-semibold text-muted-foreground">
                 Part
+              </th>
+              <th className="sticky top-0 z-20 min-w-28 border-b border-border bg-muted p-2 text-left font-semibold text-muted-foreground">
+                Task
+              </th>
+              <th className="sticky top-0 z-20 min-w-20 border-b border-border bg-muted p-2 text-left font-semibold text-muted-foreground">
+                Size
               </th>
               <th className="sticky top-0 z-20 border-b border-border bg-muted p-2 text-right font-semibold text-muted-foreground">
                 Needed
@@ -105,6 +111,12 @@ export function MaterialsGrid({
               </th>
               <th className="sticky top-0 z-20 border-b border-border bg-muted p-2 text-right font-semibold text-muted-foreground">
                 To order
+              </th>
+              <th
+                title="Standard hours to install one unit, from labor standards × size — feeds the Estimate tab"
+                className="sticky top-0 z-20 border-b border-border bg-muted p-2 text-right font-semibold text-muted-foreground"
+              >
+                Labor
               </th>
               {rows.map((row) => (
                 <th
@@ -136,9 +148,10 @@ export function MaterialsGrid({
               const assigned = recon?.assigned ?? 0;
 
               return (
-                <tr key={material.id}>
+                <tr key={material.id} data-testid={`material-row-${material.id}`}>
                   <td className="sticky left-0 z-10 border-b border-r border-border bg-card p-1.5">
                     <Input
+                      data-testid={`material-name-${material.id}`}
                       defaultValue={material.name}
                       onBlur={(event) => {
                         if (event.target.value !== material.name) {
@@ -154,7 +167,49 @@ export function MaterialsGrid({
                     />
                   </td>
                   <td className="border-b border-border p-1.5">
+                    <select
+                      data-testid={`material-task-${material.id}`}
+                      aria-label={`Task for ${material.name}`}
+                      defaultValue={material.task_key}
+                      onChange={(event) => {
+                        run(() =>
+                          updateMaterial(material.id, projectId, {
+                            task_key: event.target.value,
+                          })
+                        );
+                      }}
+                      disabled={isPending}
+                      className="h-8 w-full rounded-md border border-border bg-background px-1.5 text-xs text-foreground"
+                    >
+                      {laborStandards.map((standard) => (
+                        <option key={standard.task_key} value={standard.task_key}>
+                          {standard.task_key}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="border-b border-border p-1.5">
                     <Input
+                      data-testid={`material-size-${material.id}`}
+                      defaultValue={material.size ?? ""}
+                      placeholder="e.g. 96in"
+                      onBlur={(event) => {
+                        const value = event.target.value.trim() || null;
+                        if (value !== material.size) {
+                          run(() =>
+                            updateMaterial(material.id, projectId, {
+                              size: value,
+                            })
+                          );
+                        }
+                      }}
+                      disabled={isPending}
+                      className="h-8 w-20 text-left text-xs"
+                    />
+                  </td>
+                  <td className="border-b border-border p-1.5">
+                    <Input
+                      data-testid={`material-needed-${material.id}`}
                       type="number"
                       min={0}
                       defaultValue={material.total_needed}
@@ -177,6 +232,7 @@ export function MaterialsGrid({
                   </td>
                   <td className="border-b border-border p-1.5">
                     <Input
+                      data-testid={`material-received-${material.id}`}
                       type="number"
                       min={0}
                       defaultValue={material.received}
@@ -197,10 +253,14 @@ export function MaterialsGrid({
                       className="h-8 w-20 text-right text-xs"
                     />
                   </td>
-                  <td className="border-b border-border p-1.5 text-right tabular-nums text-muted-foreground">
+                  <td
+                    data-testid={`material-assigned-${material.id}`}
+                    className="border-b border-border p-1.5 text-right tabular-nums text-muted-foreground"
+                  >
                     {assigned}
                   </td>
                   <td
+                    data-testid={`material-left-${material.id}`}
                     className={cn(
                       "border-b border-border p-1.5 text-right tabular-nums",
                       left < 0
@@ -213,12 +273,19 @@ export function MaterialsGrid({
                     {left}
                   </td>
                   <td
+                    data-testid={`material-to-order-${material.id}`}
                     className={cn(
                       "border-b border-border p-1.5 text-right tabular-nums",
                       toOrder > 0 ? "text-destructive" : "text-success"
                     )}
                   >
                     {toOrder}
+                  </td>
+                  <td
+                    data-testid={`material-labor-${material.id}`}
+                    className="border-b border-border p-1.5 text-right tabular-nums text-muted-foreground"
+                  >
+                    {material.labor_units.toFixed(2)}
                   </td>
                   {rows.map((row) => {
                     const key = `${row.id}:${material.id}`;
@@ -227,6 +294,7 @@ export function MaterialsGrid({
                     return (
                       <td
                         key={row.id}
+                        data-testid={`material-qty-${material.id}-${row.id}`}
                         className={cn(
                           "border-b border-border bg-blue-500/5 p-1.5",
                           highlightedRowId === row.id && "bg-blue-500/20"

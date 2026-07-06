@@ -1,5 +1,12 @@
+import { getCompanyRatesByTaskKey } from "@/lib/estimating/queries";
+import { resolveRate, type CrewRateLookup } from "@/lib/estimating/labor";
 import { createClient } from "@/lib/supabase/server";
 import type { Tables, Views } from "@/lib/supabase/database.types";
+
+// resolveRate is called here with crewId=null (project-level, not
+// per-crew), so its crewRates lookup is never actually consulted — a
+// shared empty Map avoids reallocating one on every reduce iteration.
+const EMPTY_CREW_RATES = new Map<string, Map<string, CrewRateLookup>>();
 
 export async function listAssignments(
   projectId: string
@@ -138,31 +145,45 @@ export async function getProjectWithSchedule(
   return data;
 }
 
-// Remaining labor units for a project — assigned-minus-installed per
-// material (same "remaining" as listRemainingByMaterial), weighted by
-// materials.labor_units. Feeds the calendar's capacity view; the real
-// per-crew learned-rate conversion is sub-phase D's job (labor_units
-// defaults to 1, i.e. "one standard hour," until then).
+// Remaining ACTUAL crew-hours for a project — assigned-minus-installed per
+// material (same "remaining" as listRemainingByMaterial), grouped by
+// task_key and converted from standard labor units (1 = 1 standard hour)
+// to real hours via the company-wide blended crew_rates for that task_key.
+// Sub-phase D's own upgrade of what was a flat "labor_units read 1:1 as
+// hours" placeholder (ADR-029) — this is a per-PROJECT blended figure, not
+// per-crew, because getProjectDailyLaborLoad is computed once per project
+// before the calendar knows which specific crew a given cell belongs to;
+// see ADR-030 for why that's an intentional, documented simplification
+// rather than a per-crew-accurate capacity check. Falls back to the
+// standard pace (1.0) per task_key wherever no crew has any install
+// history yet — identical to the pre-sub-phase-D numbers until then.
 export async function getProjectRemainingLaborUnits(
   projectId: string
 ): Promise<number> {
   const supabase = await createClient();
-  const [{ data: materials, error: materialsError }, { data: reconciliation, error: reconError }] =
+  const [{ data: materials, error: materialsError }, { data: reconciliation, error: reconError }, companyRates] =
     await Promise.all([
-      supabase.from("materials").select("id, labor_units").eq("project_id", projectId),
+      supabase
+        .from("materials")
+        .select("id, task_key, labor_units")
+        .eq("project_id", projectId),
       supabase
         .from("material_reconciliation")
         .select("material_id, assigned, installed")
         .eq("project_id", projectId),
+      getCompanyRatesByTaskKey(),
     ]);
   if (materialsError) throw materialsError;
   if (reconError) throw reconError;
 
-  const laborUnitsByMaterial = new Map(materials.map((m) => [m.id, m.labor_units]));
+  const materialById = new Map(materials.map((m) => [m.id, m]));
   return reconciliation.reduce((sum, row) => {
-    const laborUnits = laborUnitsByMaterial.get(row.material_id) ?? 1;
+    const material = materialById.get(row.material_id);
+    if (!material) return sum;
     const remaining = Math.max(0, row.assigned - row.installed);
-    return sum + remaining * laborUnits;
+    const standardUnits = remaining * material.labor_units;
+    const { unitsPerHour } = resolveRate(material.task_key, null, EMPTY_CREW_RATES, companyRates);
+    return sum + standardUnits / unitsPerHour;
   }, 0);
 }
 

@@ -225,6 +225,39 @@ extraction route nor the new voice-note route had an explicit
 authentication check (voice-note had *none* at all, since it never
 touches Supabase) — both now use sub-phase A's `requireOrg()` helper.
 
+**Sub-phase D — Estimation brain — done and verified live (2026-07-06,
+see ADR-030):** materials now carry a `task_key` and size-aware
+`labor_units` (auto-recomputed from `labor_standards` on every add/edit/
+paste/AI-confirm — no manual override needed). `recomputeCrewRates`
+learns each crew's real efficiency per task from install history
+(90-day rolling window, blocked days excluded, hours allocated
+proportional to output since day-logs don't break down by task) into
+the `crew_rates` table that's existed since Phase 2 but was never
+populated until now. A three-tier rate fallback (crew → company blend →
+standard 1.0 pace) powers a per-project Estimate tab (full-scope +
+remaining-to-finish hours, crew-days, forecast finish, a coverage-based
+confidence heuristic) with an interactive what-if tool (crew count/
+specific crews) and a save-to-history action, plus an optional AI
+"explain this estimate" assistant (hidden outright, not just
+error-prone, when `ANTHROPIC_API_KEY` is unset). A company estimating
+screen (`/app/estimate`) reuses the real `projects`/`materials` tables
+via a new `'estimate'` project status — paste a future job's material
+list, see days and a forecast, convert to a real active project with
+one click, all through the existing Materials-tab pipeline rather than
+a parallel data model. Sub-phase C's capacity-view placeholder
+(`materials.labor_units` read 1:1 as hours) is now upgraded in place to
+real company-wide rates — zero changes needed to the calendar/Gantt
+components themselves. Found and fixed a real pre-existing bug via
+dogfooding: the Materials tab fully blocked adding materials on any
+project with zero rows (fine before, since real projects always marked
+a drawing first — a hard blocker for a pre-sale draft that never has
+rows at all). New `e2e/estimating-flow.spec.ts` (draft → classify →
+forecast → save → convert → appears on the real Projects list; labor
+standards + crew-rates panels). Adding Task/Size/Labor columns to the
+materials grid shifted an existing test's positional indices — fixed by
+adding `data-testid`s throughout and rewriting `project-flow.spec.ts` to
+use them. Full suite green: 20 passed, 2 intentionally skipped.
+
 **Sub-phase C — Scheduler to flagship — done and verified live
 (2026-07-06, see ADR-029):** a crew calendar across every active
 project (`/scheduler/calendar`, a crew-×-day grid — the existing
@@ -648,6 +681,42 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
       warning, remove — all confirmed against the DB) and an extension
       to `e2e/scheduler-flow.spec.ts` (Timeline + per-crew SPI render
       from real data). Full suite green: 18 passed, 2 intentionally
+      skipped.
+
+## Batch 3, Sub-phase D — Estimation brain ✅ done (2026-07-06)
+
+- [x] Materials carry `task_key` + size-aware `labor_units`, recomputed
+      automatically on add/edit/paste/AI-confirm (no manual override
+      field) — `materials-grid.tsx` gained Task/Size/Labor columns.
+- [x] `recomputeCrewRates` learns `crew_rates.units_per_hour` per crew
+      per task from real install history — 90-day rolling window,
+      blocked days excluded, hours allocated proportional to that day's
+      labor-unit output (day-logs have no per-task time breakdown).
+- [x] Three-tier rate resolution (crew-specific, once sampled enough →
+      company-wide blend → standard 1.0 pace) feeds both the per-project
+      estimate and the scheduler's capacity view.
+- [x] Per-project Estimate tab: full-scope + remaining-to-finish hours,
+      crew-days, forecast finish date, a coverage-based confidence
+      heuristic, an interactive what-if tool (crew count / specific
+      crews), save-to-history, optional AI "explain this estimate"
+      (hidden, not just erroring, when `ANTHROPIC_API_KEY` is unset).
+- [x] Company estimating screen (`/app/estimate`): paste a future job's
+      material list against a real project with a new `'estimate'`
+      status, see days + forecast, convert to active with one click —
+      reuses the existing Materials-tab pipeline, no parallel model.
+- [x] Labor standards editor + crew rates panel (with a "recompute from
+      install history" action) on the estimating screen.
+- [x] Sub-phase C's capacity-view placeholder upgraded in place to real
+      learned rates — zero changes to the calendar/Gantt UI components.
+- [x] Bug fix (found via dogfooding, pre-existing): Materials tab no
+      longer blocks adding materials on a project with zero rows.
+- [x] `npm run lint`/`typecheck`/`build` all pass.
+- [x] New `e2e/estimating-flow.spec.ts` (draft → paste → classify →
+      forecast → what-if → save → convert → shows on the real Projects
+      list; labor standards + crew-rates panels). Fixed a real regression
+      the new grid columns caused in `project-flow.spec.ts` (positional
+      indices shifted) by adding `data-testid`s throughout instead of
+      just renumbering. Full suite green: 20 passed, 2 intentionally
       skipped.
 
 ## Phase 8 — Customer portal (not started)

@@ -576,9 +576,12 @@ instead of holding a wide window client-side).
   "remaining" definition — spread across its remaining scheduled days)
   divided by however many crews share that project on that day (same
   "no rule specified, split evenly" reasoning as `generateTargets`).
-  `labor_units` defaults to `1`, read as "one standard hour," so this is
-  an explicit, honest placeholder until sub-phase D's learned per-crew
-  rates replace the flat 1:1 assumption — see ADR-029.
+  As of sub-phase D, this figure is real actual-hours-needed (standard
+  labor units converted via the company-wide blended `crew_rates` for
+  each material's `task_key`, falling back to the standard 1.0 pace
+  wherever no crew has install history yet), not the flat 1:1
+  placeholder this originally shipped with — see ADR-030. No changes
+  were needed to this component or its props to pick that up.
 - **Per-crew SPI** (`components/scheduler/crew-performance-panel.tsx`,
   shown on the per-project `SchedulerWorkspace`, not the cross-project
   calendar) — same even-split attribution, applied to `targets` (still
@@ -592,6 +595,91 @@ instead of holding a wide window client-side).
   (a whole-project assignment counts toward every phase that has any
   row); phases have no date columns of their own. A phase with no
   assignments yet has no bar at all, not a zero-width placeholder.
+
+## Estimation brain (Batch 3, Sub-phase D, 2026-07-06)
+
+`lib/estimating/` — `labor.ts` (pure math, no I/O), `queries.ts` (reads,
+including the one `computeProjectEstimate` function everything else
+calls), `actions.ts` (writes: `recomputeCrewRates`, `saveProjectEstimate`,
+`createEstimateProject`, `convertEstimateToActive`, plus the read-only
+`computeEstimatePreview` the what-if tool calls directly, same
+"Server Action as a callable read" pattern as `checkDoubleBooking`).
+Full design reasoning in `docs/DECISIONS.md` ADR-030.
+
+- **Labor units are standard hours.** `labor_standards.base_labor_units`
+  is hours-per-unit at a baseline pace; `materials.labor_units =
+  base_labor_units × size_factor` (via `computeLaborUnits`/
+  `parseLeadingNumber` — only `per_ft_height`/`per_linear_ft` unit bases
+  scale with size, a leading numeric token pulled from the free-text
+  `size` field). This makes `crew_rates.units_per_hour` a clean
+  efficiency multiplier relative to standard pace (1.0 = standard),
+  computed automatically whenever a material's `task_key`/`size` changes
+  (`lib/projects/actions.ts#updateMaterial`, and at insert time for
+  `addMaterial`/`pasteMaterialList`/`confirmExtractedMaterials` — the
+  last of these also infers `task_key` from the packing-slip AI
+  extraction's own constrained description vocabulary and persists
+  `size` to its own column instead of only folding it into `name`).
+- **Three-tier rate resolution** (`resolveRate`): a crew's own
+  `crew_rates` row (once `samples ≥ MIN_SAMPLES_FOR_CREW_RATE`, 3) →
+  a company-wide blend across every crew's rates for that `task_key`
+  (`getCompanyRatesByTaskKey`, samples-weighted, derived from the
+  already-learned `crew_rates` table — cheap, no raw-history joins at
+  read time) → the standard pace of `1.0` if nobody has any data yet.
+- **`recomputeCrewRates`** is the one place that touches raw
+  `installs`/`day_logs`/`blockers` history (90-day rolling window).
+  `day_logs` records one time range per (crew, project, day) with no
+  per-task breakdown, so each day's hours are allocated across whatever
+  task_keys were actually installed that day, weighted by each one's
+  share of that day's labor-unit output — the same proportional-
+  attribution reasoning ADR-022/029 already used twice. Any (crew,
+  project, date) with a blocker logged is excluded entirely before this
+  allocation runs. A full recompute from the event log every time it's
+  invoked (a button on `/app/estimate`), not an incremental running
+  average — matches this codebase's general preference for auditable
+  recomputation (`project_estimates` itself: insert, never mutate).
+- **`computeProjectEstimate(projectId, {crewCount?, crewIds?})`** —
+  full-scope labor units (`total_needed × labor_units`, works even with
+  zero rows) and remaining-to-finish (`total_needed − installed`,
+  deliberately NOT the scheduler's `assigned − installed` figure — see
+  ADR-030 for why these two "remaining" concepts must stay separate),
+  grouped by `task_key`, each converted to hours via the three-tier
+  rate (blended across every selected crew if any are picked).
+  `forecastFinishDate` walks forward from a start date crediting
+  `crewCount` crew-days on each of the org's `default_working_days`
+  until the needed crew-days are covered — deliberately NOT a simulation
+  of a project's existing partial schedule, an intentional
+  simplification for what's fundamentally a speculative "what if" tool.
+  `computeConfidence` is a coverage heuristic (how much of the remaining
+  labor rests on a real, sufficiently-sampled rate vs. the un-sampled
+  standard guess), not a statistical confidence interval.
+- **Estimate tab** (`/app/project/[id]/estimate`, on every project
+  regardless of status) — `ProjectEstimatePanel` renders the initial
+  server-computed estimate, then calls `computeEstimatePreview` directly
+  on every what-if tweak (crew count, or toggling specific crews — which
+  locks the count to the picked crews and uses their own rates instead
+  of the company blend). "Save this estimate" inserts a `project_estimates`
+  row (append-only, latest-by-`created_at` is "current," same pattern as
+  `installs`). "Explain this estimate" POSTs the already-computed
+  estimate JSON to `/api/estimates/explain` (`ANTHROPIC_API_KEY`-gated,
+  same Anthropic Messages API call shape as the packing-slip/voice-note
+  routes) — the AI explains the given numbers, never recomputes them.
+  Unlike those two routes, the button itself doesn't render at all when
+  the key isn't configured (computed server-side, passed down as a
+  prop) rather than rendering and erroring on click.
+- **Company estimating screen** (`/app/estimate`, owner/pm/scheduler —
+  matches `labor_standards`/`crew_rates` RLS, not the owner/pm-only
+  `/app/settings`) — a list of draft projects (`status = 'estimate'`),
+  `LaborStandardsEditor`, and `CrewRatesPanel` (with the "recompute"
+  button). "+ New estimate" creates a real `projects` row with
+  `status = 'estimate'` and redirects straight to its Materials tab —
+  paste a material list there exactly like a real project, classify
+  each line's `task_key`/`size` in the grid, then read its Estimate tab.
+  `listProjectsWithProgress` excludes `'estimate'` so it doesn't show on
+  the main `/app` list; `ConvertEstimateButton` is a one-column status
+  flip (a plain form action, not a client-side try/catch — it
+  `redirect()`s, which a wrapped handler would incorrectly intercept).
+  `ProjectTabs` hides Layout/Progress for `'estimate'`-status projects
+  (no drawing, no install progress to show) but always keeps Estimate.
 
 ## Packing-slip AI extraction (Sub-phase F, 2026-07-03)
 
@@ -627,12 +715,18 @@ via `fetch()` — no `@anthropic-ai/sdk` dependency for one call site.
   uploaded. "Replace the current list" mirrors `PasteMaterialsDialog`.
 - **Save:** `confirmExtractedMaterials` (`lib/projects/actions.ts`)
   composes one `name` string per line — `[code, description,
-  size].filter(Boolean).join(" ")` — since `materials` has no dedicated
-  code/size column; this is also what keeps two lines sharing a product
-  code but differing in size (e.g. two beam lengths) distinguishable as
-  separate rows. Otherwise identical to `pasteMaterialList`: qty writes
-  to both `total_needed` and `received`, an optional delete-first
-  "replace" flag. See ADR-025 for the full reasoning.
+  size].filter(Boolean).join(" ")` — which is what keeps two lines
+  sharing a product code but differing in size (e.g. two beam lengths)
+  distinguishable as separate rows. As of Batch 3 sub-phase D, `size` is
+  ALSO persisted to its own `materials.size` column (previously folded
+  into `name` only) and `task_key` is inferred from the extraction's own
+  constrained description vocabulary (`inferTaskKeyFromDescription` —
+  a case-insensitive keyword match, no extra AI call), so labor-unit
+  computation is size-aware for packing-slip-confirmed materials too.
+  Otherwise identical to `pasteMaterialList`: qty writes to both
+  `total_needed` and `received`, an optional delete-first "replace"
+  flag. See ADR-025 for the extraction reasoning, ADR-030 for the
+  labor-unit side.
 
 ## Testing
 
@@ -769,6 +863,27 @@ short:
   `data-testid="crew-performance-panel"` rather than a `hasText` div
   locator, avoiding the "matches every ancestor" bug class documented
   elsewhere in this list.
+- `e2e/estimating-flow.spec.ts` (2026-07-06) — drafts an estimate,
+  pastes a material list, classifies one line as `beam` with a size and
+  waits (via an admin-client poll, not a UI timing guess) for that write
+  to land before the next edit — the two go through the same
+  "read-current-then-recompute" path in `updateMaterial`, so firing them
+  back-to-back without waiting would race — then confirms the Labor
+  column recomputes to the expected value. Confirms the Estimate tab's
+  stats/breakdown/history, exercises the what-if crew-count input,
+  saves an estimate, converts the draft to active, and confirms it
+  moves from the estimating list to the real Projects list. A second
+  test exercises the labor-standards editor and the "recompute crew
+  rates" button. Adding Task/Size/Labor columns to the materials grid
+  shifted `project-flow.spec.ts`'s positional `td`/`input` indices — a
+  real regression this spec's own author (not a coincidence) caused;
+  fixed by adding `data-testid`s to every materials-grid cell
+  (`material-name-`, `material-task-`, `material-size-`,
+  `material-needed-`, `material-received-`, `material-assigned-`,
+  `material-left-`, `material-to-order-`, `material-labor-`,
+  `material-qty-{materialId}-{rowId}`) and rewriting that test to use
+  them instead of raw indices, so the next column addition won't repeat
+  this.
 
 This suite is what caught ADR-016's env var bug — self-review and
 `next build` both stayed clean through Phases 3–5 because neither
@@ -813,6 +928,14 @@ order:
     Initially blocked by a transient Supabase-platform-side error (see
     ADR-028); applied cleanly once the platform issue cleared later the
     same day, confirmed via a live E2E run.
+12. `estimation_brain.sql` (2026-07-06) — `materials.task_key text`
+    (free text, no CHECK — app-enforced against `labor_standards`, same
+    relationship `crew_rates.task_key` already has); `projects.status`
+    CHECK gains `'estimate'` as a fourth value, for pre-sale draft
+    projects (see ADR-030). Everything else the estimation engine needed
+    (`materials.labor_units`/`.size`, `crew_rates`, `labor_standards`,
+    `project_estimates`, `projects.planned_days`) already existed from
+    earlier migrations.
 
 ### Tables
 
@@ -824,11 +947,11 @@ transitively via `project_id` → `projects.org_id` or `crew_id` →
 | ---------------------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `organizations`                          | —                             | Tenant boundary. One per Handy Equip-style deployment (see auth bootstrap below); multi-org support exists in the schema but isn't exercised yet. `address`/`logo_path`/`default_working_days` added 2026-07-06 (Org Settings) — was read-only for every role until then. |
 | `profiles`                               | `org_id` (nullable)           | One row per `auth.users`, `role` ∈ `owner`/`pm`/`scheduler`/`crew`. `crew_id` (nullable, 2026-07-06) — a user's home crew, assigned from `/app/team`.                                                                                        |
-| `projects`                               | `org_id`                      | A racking-install job. `status` ∈ `active`/`on_hold`/`complete`. `planned_days` (Scheduler target math) and `mark_drawing_id` (the one markable page — see below) added 2026-07-03.                                                         |
+| `projects`                               | `org_id`                      | A racking-install job. `status` ∈ `estimate`/`active`/`on_hold`/`complete` (`estimate` added 2026-07-06 for pre-sale drafts on the company estimating screen — see ADR-030). `planned_days` (Scheduler target math) and `mark_drawing_id` (the one markable page — see below) added 2026-07-03.                                                         |
 | `crews` / `crew_members`                 | `org_id` / via `crews`        | Install crews and their members (Scheduler sub-phase).                                                                                                                                                                                      |
 | `drawings`                               | `project_id`                  | One row per rendered page (`page_index` 0-based) of an uploaded layout PDF/image. `storage_path` points into the private `drawings` bucket. `role` ∈ `reference`/`marking` — see below.                                                     |
 | `packing_slips`                          | `project_id`                  | Uploaded packing-slip files; `parsed` reserved for future OCR/extraction.                                                                                                                                                                   |
-| `materials`                              | `project_id`                  | The job's material catalog — `total_needed` (job total) and `received` (from packing slips) live here; per-row requirements live in `row_materials`. `size`/`labor_units` (2026-07-03) and `profile`/`capacity`/`condition`/`compatible_system` (2026-07-06, richer identity for the estimating/receiving work) added since. |
+| `materials`                              | `project_id`                  | The job's material catalog — `total_needed` (job total) and `received` (from packing slips) live here; per-row requirements live in `row_materials`. `size`/`labor_units` (2026-07-03) and `profile`/`capacity`/`condition`/`compatible_system` (2026-07-06, richer identity for the estimating/receiving work) added since. `task_key` (2026-07-06) classifies a material against `labor_standards`, so `labor_units` computes size-aware instead of resting at its bare default — see ADR-030. |
 | `material_receipts`                      | via `materials`                | Append-only receiving event log (2026-07-06) — `status` ∈ `ordered`/`received`/`verified`/`staged`/`short`/`damaged`/`wrong`, each row a fact ("N units reached this status"), not a single mutable state. `materials.received` stays the fast-read aggregate; a receiving check-in (sub-phase F) keeps both in sync. |
 | `rows`                                   | `project_id` (+ `drawing_id`) | A marked rack section on a drawing page. `x/y/w/h` are **normalized 0..1** fractions of the drawing's rendered size, so marks stay correct at any zoom/display size. `phase_id` (nullable, 2026-07-03); `materials_ready`/`area_accessible`/`drawing_approved` readiness inputs (2026-07-06) — `crew_assigned` is deliberately NOT a column here, it's derived in `row_progress` from `assignments`.                                |
 | `row_materials`                          | via `rows`                    | Required qty of a material for a specific row. `unique(row_id, material_id)`.                                                                                                                                                               |
@@ -836,10 +959,10 @@ transitively via `project_id` → `projects.org_id` or `crew_id` →
 | `phases`                                 | `project_id`                  | A named, colored grouping of rows — `color` renders on the drawing, `sort_order` controls legend/list order.                                                                                                                                |
 | `blockers`                               | `project_id`                  | A logged reason work stopped — `code` is one of 10 fixed values, plus note/photo. `resolved_at` null until cleared.                                                                                                                         |
 | `day_logs`                               | `project_id`                  | One row per crew/project/day (`unique(project_id, crew_id, work_date)`), filled in progressively and updated (not re-inserted) as the day closes out.                                                                                       |
-| `assignments` / `targets` / `crew_rates` | `project_id` / `crew_id`      | Scheduling. Created in Phase 2 so FKs were clean from day one; built out by the Scheduler sub-phase.                                                                                                                                        |
+| `assignments` / `targets` / `crew_rates` | `project_id` / `crew_id`      | Scheduling. Created in Phase 2 so FKs were clean from day one; built out by the Scheduler sub-phase. `crew_rates` (`crew_id`, `task_key`, `units_per_hour`, `samples`) sat unused until Batch 3 sub-phase D's `recomputeCrewRates` started actually learning and reading it — see ADR-030. |
 | `project_schedule`                       | `project_id`                  | Presence of a row = a scheduled working day (`unique(project_id, work_date)`) — a date range can be picked and specific days skipped without a separate flag.                                                                               |
 | `drawing_versions`                       | `project_id`                  | Upload history for a page (2026-07-06) — `drawings` stays the current pointer per page (rows.drawing_id keeps referencing it; same `id` across re-uploads), this is the parallel version/approval history. `approved_for_install` gates whether a version is considered safe to mark/install against. |
-| `labor_standards`                        | `org_id`                       | Size-normalized labor baseline (2026-07-06) — `base_labor_units` (hours/unit at a standard pace) per `task_key`, seeded with reasonable defaults per org. Feeds the estimation engine (sub-phase D); `crew_rates` (existing) then scales per-crew relative to this baseline. |
+| `labor_standards`                        | `org_id`                       | Size-normalized labor baseline (2026-07-06) — `base_labor_units` (hours/unit at a standard pace) per `task_key`, seeded with reasonable defaults per org, editable from `/app/estimate`. Feeds `materials.labor_units` computation directly and `crew_rates`' standard-pace fallback (1.0) indirectly — see ADR-030. |
 | `project_estimates`                      | `project_id`                  | Append-only estimate log (2026-07-06), like `installs` — recomputing inserts a new row rather than overwriting, so an estimate's history over a project's life isn't lost. Latest row = current estimate.                                   |
 | `notifications`                          | `org_id` (+ `user_id`)         | Per-user in-app inbox (2026-07-06) — `select`/`update`/`delete` are strictly own-row (`user_id = auth.uid()`), unlike every other table here which is org-wide-readable; `insert` is org-scoped only, since a Server Action running as the caller creates notifications addressed to *other* org members. |
 | `share_tokens`                           | `project_id`                  | Customer portal tokens (Phase 8). Not publicly RLS-readable — see below.                                                                                                                                                                    |

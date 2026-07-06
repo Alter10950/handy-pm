@@ -4,6 +4,77 @@ Engineering journal. Newest entries at top.
 
 ---
 
+## 2026-07-06 — Batch 3 sub-phase D: Estimation brain
+
+**What:** Materials convert to size-normalized labor units; crews' real
+install history feeds learned per-task efficiency rates; a per-project
+estimate (labor units → hours → crew-days → forecast finish +
+confidence) with an interactive what-if tool and a save-to-history
+action; a company estimating screen for pre-sale material lists; an
+optional AI "explain this estimate" assistant. Full reasoning in
+`docs/DECISIONS.md` ADR-030; summary here.
+
+**Build:** One migration (`20260706115120_estimation_brain.sql`) —
+`materials.task_key` (free text, app-enforced against `labor_standards`)
+and a fourth `projects.status` value, `'estimate'`. Everything else
+(`materials.labor_units`/`.size`, `crew_rates`, `labor_standards`,
+`project_estimates`, `projects.planned_days`) already existed, seeded in
+earlier sub-phases specifically for this one. Types regenerated +
+re-patched (the usual two categories: literal unions, non-null view
+columns) — diff against the prior commit is exactly the new column plus
+`ProjectStatus` gaining `'estimate'`, confirmed via `git diff`.
+
+New `lib/estimating/`: `labor.ts` (pure — `computeLaborUnits`,
+`resolveRate`'s three-tier crew→company→standard fallback,
+`forecastFinishDate`'s working-day walk, `computeConfidence`'s coverage
+heuristic), `queries.ts` (`computeProjectEstimate`, the one function
+both the server-rendered Estimate tab and the client what-if tool call),
+`actions.ts` (`recomputeCrewRates` — the actual "learn from history"
+job, `saveProjectEstimate`, `createEstimateProject`,
+`convertEstimateToActive`). New `lib/dates.ts` (`addDays`/`todayIso`) —
+a third copy of date math already duplicated in `crew-calendar.tsx` and
+`calendar/page.tsx` was one copy too many; the two existing ones are
+untouched, only new code uses the shared version.
+
+`lib/projects/actions.ts`'s material mutations (`addMaterial`,
+`updateMaterial`, `pasteMaterialList`, `confirmExtractedMaterials`) all
+now compute `labor_units` from `labor_standards` at write time instead
+of resting on the bare column default. Packing-slip confirmation also
+infers `task_key` from the AI extraction's own constrained description
+vocabulary and persists `size` to its own column. `MaterialsGrid` gained
+Task/Size/Labor columns.
+
+New UI: `/app/estimate` (draft list, labor-standards editor, crew-rates
+panel with a "recompute" button), `/app/project/[id]/estimate` (the
+what-if panel, breakdown table, save + AI explain), a "Convert to active
+project" button + status-aware `ProjectTabs` (Layout/Progress hidden for
+drafts). `lib/scheduler/queries.ts#getProjectRemainingLaborUnits`
+upgraded in place to apply real company-wide rates instead of the
+sub-phase C 1:1 placeholder — no changes to the calendar/Gantt
+components themselves, per ADR-029's own stated plan.
+
+**Bug found via dogfooding:** `MaterialsGrid` fully replaced its
+contents (including "Add material"/paste controls) with a placeholder
+whenever a project had zero rows — blocking the exact "paste a material
+list before there's a drawing" flow this sub-phase's estimating screen
+needed. Fixed to only suppress the row-assignment columns, not the
+whole grid.
+
+**Verification:** `npm run lint`/`typecheck`/`build` all pass. New
+`e2e/estimating-flow.spec.ts` — drafts an estimate, pastes materials,
+classifies one as `beam` with a size and confirms the Labor column
+recomputes to the expected value, confirms the Estimate tab's stats/
+breakdown/history, exercises the what-if crew-count input, saves an
+estimate, converts to active, and confirms it moves from the estimating
+list to the main Projects list. A second test exercises the labor
+standards editor and the "recompute crew rates" button against real
+(if sparse) data. Adding the Task/Size/Labor columns shifted
+`project-flow.spec.ts`'s positional `td`/`input` indices — a real
+regression in an existing test, not a new one; fixed by adding
+`data-testid`s to every materials-grid cell and rewriting that test to
+use them instead of raw indices, so the next column addition won't
+repeat this. Full suite green: 20 passed, 2 intentionally skipped.
+
 ## 2026-07-06 — Batch 3 sub-phase C: Scheduler to flagship
 
 **What:** A crew calendar across every active project (not just one

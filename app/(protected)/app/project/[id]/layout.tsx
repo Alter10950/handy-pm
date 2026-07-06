@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { ConvertEstimateButton } from "@/components/estimating/convert-estimate-button";
 import { ProjectStatusBadge } from "@/components/projects/project-status-badge";
 import { ProjectTabs } from "@/components/projects/project-tabs";
 import { getProject } from "@/lib/projects/queries";
@@ -21,10 +22,15 @@ export default async function ProjectLayout({
         <h1 className="text-2xl font-bold tracking-tight text-foreground">
           {project.name}
         </h1>
-        <ProjectStatusBadge status={project.status} />
+        <div className="flex items-center gap-3">
+          <ProjectStatusBadge status={project.status} />
+          {project.status === "estimate" ? (
+            <ConvertEstimateButton projectId={project.id} />
+          ) : null}
+        </div>
       </div>
 
-      <ProjectTabs projectId={project.id} />
+      <ProjectTabs projectId={project.id} status={project.status} />
 
       {children}
     </div>

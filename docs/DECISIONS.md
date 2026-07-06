@@ -5,6 +5,153 @@ Consequences.
 
 ---
 
+## ADR-030: Sub-phase D — estimation brain: labor units as standard hours, three-tier crew rates, estimate-status projects
+
+**Decision date:** 2026-07-06
+
+**Context:** Batch 3, sub-phase D: convert materials to labor units by
+size, learn per-crew rates from install history, produce a per-project
+estimate (hours → crew-days → forecast finish + confidence) that feeds
+the scheduler, a what-if tool, a company estimating screen for
+pre-sale material lists, and an optional AI "explain this estimate"
+assistant. `materials.labor_units`, `materials.size`, `crew_rates`, and
+`projects.planned_days` already existed (Phase 2 / Batch 3 sub-phase 0),
+seeded specifically so this sub-phase would only need new application
+logic, not new columns for the core model.
+
+**Choice — 1 labor unit ≡ 1 hour at standard pace:** `labor_standards
+.base_labor_units` is defined as hours-per-unit at a baseline pace, so a
+material's `labor_units` (`base_labor_units × size factor`) is literally
+"how many hours this takes at standard pace." This makes
+`crew_rates.units_per_hour` a clean efficiency *multiplier* relative to
+standard (1.0 = exactly standard, 1.2 = 20% faster) instead of an
+arbitrary unit needing its own calibration table, and makes the
+un-sampled fallback for a brand-new crew an honest, explainable `1.0`
+rather than a guess.
+
+**Choice — three-tier rate resolution, not a flat fallback:** for a given
+task_key, `resolveRate` tries (1) that specific crew's own
+`crew_rates` row, but only once it has `MIN_SAMPLES_FOR_CREW_RATE` (3)
+sampled days — otherwise a brand-new crew's first noisy day would swing
+its rate wildly; (2) a company-wide rate, samples-weighted across every
+crew's `crew_rates` rows for that task_key — reflects the org's actual
+historical pace, which may differ from the seeded standard; (3) the
+standard pace of `1.0` if literally nobody has installed that task_key
+yet. The company-wide figure is derived from `crew_rates` itself (cheap,
+already-learned data), not recomputed from raw installs on every read —
+only the explicit "Recompute crew rates" action touches the raw
+install/day-log history.
+
+**Choice — crew-rate learning allocates a day's hours across task_keys
+proportional to that day's labor-unit output, and excludes blocked
+days:** `day_logs` records one arrival/install/departure time range per
+(crew, project, day) — it has no per-task breakdown, since a crew mixes
+tasks within a day. `recomputeCrewRates` allocates each day's
+`install_end − install_start` hours across whichever task_keys were
+actually installed that day, weighted by each task_key's own share of
+that day's total labor units (the same "no finer-grained data exists,
+attribute proportionally to output" reasoning already used three times
+this batch — ADR-022's target split, ADR-029's capacity/SPI splits).
+Days with any blocker logged for that (crew, project, date) are excluded
+entirely from the learning set: a blocked day's near-zero output would
+otherwise read as terrible productivity and drag the average down
+unfairly, not reflect the crew's real pace. A fixed 90-day trailing
+window ("rolling" = re-run periodically over the last N days, not an
+exponential decay) — recomputed fresh from the event log each time
+(full recompute, not an incremental EMA update), matching this
+codebase's existing preference for auditable recomputation over
+hand-maintained running aggregates (`project_estimates` itself is the
+same pattern: insert a new row, never mutate the last one).
+
+**Choice — size parsing takes the leading number, nothing fancier:**
+`parseLeadingNumber` pulls the first numeric token out of a free-text
+`size` field ("96in" → 96, "10' 6\"" → 10) and only applies it for
+unit_basis values that actually scale with size (`per_ft_height`,
+`per_linear_ft`); a size that doesn't parse, or a `per_each`/`per_piece`
+basis, falls back to the base labor units unscaled. A full
+feet-and-inches dimensional parser is real scope this sub-phase doesn't
+need — every seeded task_key only ever needs a single linear number, and
+silently falling back to "size-independent" is safer than guessing wrong
+on an unparseable string.
+
+**Choice — two deliberately different "remaining" figures, not one
+shared function:** the scheduler's `getProjectRemainingLaborUnits`
+(sub-phase C) answers "how much of what's already been mapped onto
+specific rows still needs installing" (`assigned − installed`) — the
+right question for day-to-day capacity planning, since only
+row-assigned work is schedulable. The estimating brain's own
+`getProjectLaborUnitsByTaskKey` answers "how much of the whole project's
+scope is left" (`total_needed − installed`) — the right question for a
+forecast-to-finish, and the ONLY sensible one for a pre-sale draft
+estimate that has no rows at all yet (its `assigned` is always 0). These
+converge once every material is fully row-assigned and diverge early in
+a project's life; conflating them would have made one of the two
+consumers wrong.
+
+**Choice — sub-phase C's capacity placeholder is now upgraded to real
+rates, but stays a per-project blend, not per-crew:** per ADR-029's own
+stated consequence, `getProjectDailyLaborLoad`'s internals now convert
+standard labor units to actual hours via `getCompanyRatesByTaskKey`
+before the calendar ever sees the number — no change to
+`CrewCalendar`'s props or the capacity-cell UI. This is deliberately a
+per-*project* blended rate, not a per-crew-accurate one: the calendar
+computes `laborLoadByProject` once per project, before it's known which
+specific crew a given day's cell belongs to (crews are assigned
+per-day, the load figure isn't). A true per-crew-adjusted capacity
+number is a reasonable future refinement, out of scope here specifically
+to honor "no UI changes" — documented, not silently approximated.
+
+**Choice — a pre-sale draft reuses the real `projects`/`materials`
+tables via a fourth status, not a parallel data model:** `projects
+.status` gains `'estimate'` (alongside `active`/`on_hold`/`complete`).
+The company estimating screen (`/app/estimate`) is just: create a
+project with `status = 'estimate'`, paste its material list on the
+existing Materials tab (now task_key/size-aware), and read its
+Estimate tab — reusing the entire existing paste/grid/reconciliation
+pipeline instead of inventing a separate "draft estimate" shape.
+`listProjectsWithProgress` excludes `'estimate'` by default (mirrors
+Field/Scheduler already querying `status = 'active'` only); converting
+is a one-column status flip with no data migration, since it was always
+a real `projects` row. A draft's `ProjectTabs` hides Layout/Progress
+(no drawing, no install progress to show) but keeps Estimate — which is
+also shown on every *active* project, since a live forecast-to-finish is
+useful well past the pre-sale stage.
+
+**Choice — "explain this estimate" is hidden outright when
+`ANTHROPIC_API_KEY` is unset, a small deviation from the packing-slip/
+voice-note precedent:** those two AI features always render their
+button and surface a clean 500 from the route if unconfigured (simplest
+at the time, and the button already exists for other reasons in both
+cases). Here the explain button is a purely additive, secondary
+affordance with no other reason to exist on the page — computing
+`Boolean(process.env.ANTHROPIC_API_KEY)` server-side and passing it down
+avoids ever showing a control that can only fail, matching
+`voice-note-recorder.tsx`'s "render `null` when unsupported" posture
+just gated server-side instead of by browser feature detection.
+
+**Bug found via dogfooding, not part of the original brief:**
+`MaterialsGrid` unconditionally replaced its ENTIRE contents (table,
+"+ Add material", "Paste from packing slip") with an "add rows first"
+placeholder whenever a project had zero rows — harmless before, since
+every real project always marked a drawing before touching Materials in
+practice, but a hard blocker for this sub-phase's whole "paste a
+material list before there's a drawing" use case. Fixed by only
+suppressing the row-assignment *columns* (which correctly render empty
+when `rows = []`) and turning the placeholder into a small informational
+note above the table rather than a replacement for it.
+
+**Consequences:** every material now carries a `task_key` (defaults to
+`'general'`) and a size-aware `labor_units`, kept in sync automatically
+by `updateMaterial`/`pasteMaterialList`/`confirmExtractedMaterials`
+rather than a manual override field. Packing-slip AI extraction now
+also infers `task_key` from its own already-constrained description
+vocabulary (no extra AI call) and persists `size` to its own column
+(previously folded into `name` only). `crew_rates` and `labor_standards`
+— both schema since Phase 2 / Batch 3 sub-phase 0 — are finally read
+and written by real application code. The scheduler's capacity view
+silently gets more accurate as crew history accumulates, with zero
+migration needed on the calendar/Gantt/SPI components themselves.
+
 ## ADR-029: Sub-phase C — cross-project crew calendar (native HTML5 DnD), interim labor-unit capacity, phase-inferred Gantt
 
 **Decision date:** 2026-07-06

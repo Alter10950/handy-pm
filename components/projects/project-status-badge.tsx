@@ -2,12 +2,14 @@ import { cn } from "@/lib/utils";
 import type { ProjectStatus } from "@/lib/supabase/database.types";
 
 const STATUS_LABEL: Record<ProjectStatus, string> = {
+  estimate: "Estimate",
   active: "Active",
   on_hold: "On hold",
   complete: "Complete",
 };
 
 const STATUS_CLASS: Record<ProjectStatus, string> = {
+  estimate: "bg-purple-500/15 text-purple-400",
   active: "bg-primary/15 text-primary",
   on_hold: "bg-warning/15 text-warning",
   complete: "bg-success/15 text-success",

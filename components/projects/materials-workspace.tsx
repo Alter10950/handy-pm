@@ -27,6 +27,7 @@ export function MaterialsWorkspace({
   reconciliation,
   rowMaterials,
   phases,
+  laborStandards,
 }: {
   projectId: string;
   pages: MaterialsPage[];
@@ -35,6 +36,7 @@ export function MaterialsWorkspace({
   reconciliation: Views<"material_reconciliation">[];
   rowMaterials: Tables<"row_materials">[];
   phases: Tables<"phases">[];
+  laborStandards: Tables<"labor_standards">[];
 }) {
   const [activePageIndex, setActivePageIndex] = useState(0);
   const [highlightedRowId, setHighlightedRowId] = useState<string | null>(null);
@@ -196,6 +198,7 @@ export function MaterialsWorkspace({
         rows={gridRows}
         rowMaterials={rowMaterials}
         highlightedRowId={highlightedRowId}
+        laborStandards={laborStandards}
       />
     </div>
   );

@@ -26,7 +26,10 @@ export function SiteHeader({
   const navLinks = [
     ...BASE_NAV_LINKS,
     ...(role === "owner" || role === "pm" || role === "scheduler"
-      ? [{ href: "/scheduler", label: "Scheduler" }]
+      ? [
+          { href: "/scheduler", label: "Scheduler" },
+          { href: "/app/estimate", label: "Estimating" },
+        ]
       : []),
     ...(role === "owner" || role === "pm"
       ? [

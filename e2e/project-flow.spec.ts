@@ -89,46 +89,67 @@ test("create project, mark rows, assign materials, verify reconciliation", async
     // tr" matches both and doubles the count.
     const rows = page.locator("table").first().locator("tbody tr");
     await expect(rows).toHaveCount(2);
-    await expect(rows.nth(0).locator("input").nth(0)).toHaveValue("Bolt");
-    await expect(rows.nth(1).locator("input").nth(0)).toHaveValue("Bracket");
+    await expect(
+      rows.nth(0).locator('[data-testid^="material-name-"]')
+    ).toHaveValue("Bolt");
+    await expect(
+      rows.nth(1).locator('[data-testid^="material-name-"]')
+    ).toHaveValue("Bracket");
   });
 
   await test.step("assign quantities in the grid", async () => {
-    // Scoped to the first table: the materials grid. The Reconciliation
-    // card below it also renders a <table>, so an unscoped "table tbody
-    // tr" matches both and doubles the count.
+    // Scoped to the first table: the materials grid, and from there by
+    // data-testid rather than positional index/order — column count and
+    // order here isn't this test's concern (materials-grid.tsx owns that),
+    // and a testid survives future columns being added (Task/Size/Labor
+    // already were, since Batch 3 sub-phase D).
     const rows = page.locator("table").first().locator("tbody tr");
+    const bolt = rows.nth(0);
+    const bracket = rows.nth(1);
 
-    // Bolt (row 0): fully assign across all 3 rows (10 each = 30 = needed).
-    const boltInputs = rows.nth(0).locator("input");
-    for (const index of [3, 4, 5]) {
-      await boltInputs.nth(index).fill("10");
-      await boltInputs.nth(index).blur();
+    // Bolt: fully assign across all 3 rows (10 each = 30 = needed). Scoped
+    // to the qty-cell testid subset (one per actual project row) rather
+    // than a flat input index, so unrelated column additions elsewhere in
+    // the row (Task/Size/Labor) can't shift which input this hits.
+    const boltQtyCells = bolt.locator('[data-testid^="material-qty-"]');
+    for (let i = 0; i < (await boltQtyCells.count()); i += 1) {
+      await boltQtyCells.nth(i).locator("input").fill("10");
+      await boltQtyCells.nth(i).locator("input").blur();
     }
 
-    // Bracket (row 1): partially assign (only rows 1 & 2, 5 each = 10 of 15
+    // Bracket: partially assign (only rows 1 & 2, 5 each = 10 of 15
     // needed) and drop received below needed, to exercise both the "left"
     // and "to order" flags.
-    const bracketInputs = rows.nth(1).locator("input");
-    await bracketInputs.nth(2).fill("5"); // received
-    await bracketInputs.nth(2).blur();
-    await bracketInputs.nth(3).fill("5"); // row 1 qty
-    await bracketInputs.nth(3).blur();
-    await bracketInputs.nth(4).fill("5"); // row 2 qty
-    await bracketInputs.nth(4).blur();
+    await bracket.locator('[data-testid^="material-received-"]').fill("5");
+    await bracket.locator('[data-testid^="material-received-"]').blur();
+    const bracketQtyCells = bracket.locator('[data-testid^="material-qty-"]');
+    await bracketQtyCells.nth(0).locator("input").fill("5");
+    await bracketQtyCells.nth(0).locator("input").blur();
+    await bracketQtyCells.nth(1).locator("input").fill("5");
+    await bracketQtyCells.nth(1).locator("input").blur();
 
     // Assigned/Left/To-order are plain read-only cells, not inputs, so
     // waiting on their text confirms the Server Action + revalidation
     // round-trip actually landed before we assert on it.
-    await expect(rows.nth(0).locator("td").nth(3)).toHaveText("30", {
-      timeout: 10_000,
-    }); // Bolt assigned
-    await expect(rows.nth(0).locator("td").nth(4)).toHaveText("0"); // Bolt left
-    await expect(rows.nth(0).locator("td").nth(5)).toHaveText("0"); // Bolt to order
+    await expect(
+      bolt.locator('[data-testid^="material-assigned-"]')
+    ).toHaveText("30", { timeout: 10_000 });
+    await expect(bolt.locator('[data-testid^="material-left-"]')).toHaveText(
+      "0"
+    );
+    await expect(
+      bolt.locator('[data-testid^="material-to-order-"]')
+    ).toHaveText("0");
 
-    await expect(rows.nth(1).locator("td").nth(3)).toHaveText("10"); // Bracket assigned
-    await expect(rows.nth(1).locator("td").nth(4)).toHaveText("5"); // Bracket left
-    await expect(rows.nth(1).locator("td").nth(5)).toHaveText("10"); // Bracket to order
+    await expect(
+      bracket.locator('[data-testid^="material-assigned-"]')
+    ).toHaveText("10");
+    await expect(
+      bracket.locator('[data-testid^="material-left-"]')
+    ).toHaveText("5");
+    await expect(
+      bracket.locator('[data-testid^="material-to-order-"]')
+    ).toHaveText("10");
   });
 
   await test.step("verify reconciliation card", async () => {
