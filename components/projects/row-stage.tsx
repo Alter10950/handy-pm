@@ -138,14 +138,24 @@ function applyResize(origin: Box, handle: HandleId, dx: number, dy: number): Box
  * `(clientX - rect.left) / rect.width` yields the same 0..1 fraction at
  * any zoom/pan — the transform cancels out of the ratio automatically.
  *
- * Direct-manipulation model (no separate draw/edit/select tools): a plain
- * drag on empty space draws a new row; a plain drag on a selected row's
- * body moves the whole current selection together; shift/ctrl-click
- * toggles selection membership; shift-drag on empty space marquee-selects.
- * A single-selected row shows 8 resize handles. Persistence and undo/redo
+ * Modeless, context-driven pointer model — no draw/edit/select/hand mode
+ * buttons anywhere: a plain left-drag on empty space draws a new row; a
+ * plain left-click on a row selects it (drag-without-releasing moves the
+ * whole current selection together); shift/ctrl-click toggles selection
+ * membership; shift-drag on empty space marquee-selects. A single-selected
+ * row shows 8 resize handles. Panning is ALWAYS available, at the highest
+ * input priority, two ways: holding Space turns a left-drag into a pan
+ * instead of draw/select/move (checked via `shouldPan`), and the middle
+ * mouse button always pans regardless of what's under the cursor or any
+ * modifier (`event.button === 1`, checked before anything else in every
+ * pointerdown handler here) — a pan gesture must never move/resize/draw a
+ * row, and a row drag must never pan the canvas. Persistence and undo/redo
  * bookkeeping both live one level up, in RowMarkingWorkspace — this
  * component only reports what happened (before/after geometry), never
- * calls a Server Action directly.
+ * calls a Server Action directly. `onMoveRows`/`onResizeRow` return the
+ * underlying persist promise so this component can keep showing the
+ * dropped position immediately (local-first) and only revert on failure —
+ * see the draftGeometries reconciliation effect below.
  */
 export function RowStage({
   imageUrl,
@@ -156,7 +166,6 @@ export function RowStage({
   phases,
   hiddenPhaseIds,
   readOnly,
-  isPanMode,
   onDrawBox,
   onSelectSingle,
   onToggleRowSelection,
@@ -165,6 +174,7 @@ export function RowStage({
   onMarqueeSelect,
   onClearSelection,
   onNudgeRows,
+  onMoveFailed,
 }: {
   imageUrl: string;
   baseWidth: number;
@@ -179,15 +189,15 @@ export function RowStage({
   // happen to already be on it (there normally aren't any: new rows can
   // only be drawn on the marking page going forward).
   readOnly: boolean;
-  isPanMode: boolean;
   onDrawBox: (box: Box) => void;
   onSelectSingle: (id: string) => void;
   onToggleRowSelection: (id: string) => void;
-  onMoveRows: (changes: GeometryChange[]) => void;
-  onResizeRow: (change: GeometryChange) => void;
+  onMoveRows: (changes: GeometryChange[]) => Promise<void>;
+  onResizeRow: (change: GeometryChange) => Promise<void>;
   onMarqueeSelect: (ids: string[]) => void;
   onClearSelection: () => void;
   onNudgeRows: (changes: GeometryChange[]) => void;
+  onMoveFailed: () => void;
 }) {
   const stageRef = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<DragState | null>(null);
@@ -218,7 +228,65 @@ export function RowStage({
     zoomPanRef.current = { zoom, panX, panY, setPanZoom };
   });
 
-  const shouldPan = isPanMode || spaceHeld;
+  // Space held turns a LEFT-drag into a pan (checked at pointerdown time,
+  // alongside the button). The middle mouse button pans unconditionally —
+  // that's checked directly via event.button, not folded into this flag.
+  const shouldPan = spaceHeld;
+
+  // The row's currently-DISPLAYED geometry (a pending optimistic draft if
+  // one exists, else its last server-confirmed value) — starting a new
+  // drag/resize/nudge from this rather than straight from `row` keeps a
+  // rapid second interaction correct even while the first one's persist
+  // is still in flight and hasn't reconciled yet (see the effect below).
+  function currentGeometry(row: StageRow): Box {
+    const draft = draftGeometries?.get(row.id);
+    return draft ?? { x: row.x, y: row.y, w: row.w, h: row.h };
+  }
+
+  // Local-first persistence: a move/resize's dropped position is kept in
+  // draftGeometries (not cleared on pointerUp), so the row visually STAYS
+  // where it was dropped instead of reverting to the stale `rows` prop
+  // until the round trip completes. Once the server-confirmed `rows` prop
+  // actually matches a pending draft, the draft quietly steps aside (zero
+  // visual difference, since they're equal) — this is what "ignores the
+  // echo of your own write" means here: there's no separate realtime
+  // subscription in this app to race against, only this one-shot
+  // router.refresh() re-fetch, so matching by value is exactly as correct
+  // as matching by a client mutation id would be, without needing to
+  // plumb one through. A FAILED persist clears its own entry immediately
+  // (see handlePointerUp) instead of waiting for this reconciliation.
+  //
+  // Reconciled during render via React's own documented "adjust state
+  // when a prop changes" pattern (react.dev/reference/react/useState —
+  // "Storing information from previous renders"): a piece of STATE (not a
+  // ref — refs can't be read during render under the newer compiler-
+  // compatible lint rules) remembers the previous `rows` reference, and a
+  // conditional setState call during render corrects draftGeometries
+  // before this render ever paints. Not a useEffect: an effect would
+  // commit the still-stale draft to the screen first and only correct it
+  // a frame later, a real (if brief) flicker.
+  const [priorRows, setPriorRows] = useState(rows);
+  if (priorRows !== rows) {
+    setPriorRows(rows);
+    if (draftGeometries && draftGeometries.size > 0) {
+      let changed = false;
+      const next = new Map(draftGeometries);
+      for (const row of rows) {
+        const draft = next.get(row.id);
+        if (
+          draft &&
+          draft.x === row.x &&
+          draft.y === row.y &&
+          draft.w === row.w &&
+          draft.h === row.h
+        ) {
+          next.delete(row.id);
+          changed = true;
+        }
+      }
+      if (changed) setDraftGeometries(next);
+    }
+  }
 
   useEffect(() => {
     function handleGlobalKeyDown(event: KeyboardEvent) {
@@ -386,7 +454,7 @@ export function RowStage({
       .filter((r): r is StageRow => Boolean(r))
       .map((r) => ({
         rowId: r.id,
-        geometry: { x: r.x, y: r.y, w: r.w, h: r.h },
+        geometry: currentGeometry(r),
       }));
 
     setDrag({
@@ -406,6 +474,11 @@ export function RowStage({
     row: StageRow,
     handle: HandleId
   ) {
+    // Highest-priority rule: a pan gesture must never resize a row. Middle
+    // button (and anything but plain left) is deliberately NOT stopped
+    // here — falling through without stopPropagation lets it bubble to
+    // handleStagePointerDown, which pans.
+    if (event.button !== 0) return;
     event.stopPropagation();
     const rect = stageRect();
     if (!rect) return;
@@ -418,7 +491,7 @@ export function RowStage({
       stageHeight: rect.height,
       resizeRowId: row.id,
       resizeHandle: handle,
-      resizeOrigin: { x: row.x, y: row.y, w: row.w, h: row.h },
+      resizeOrigin: currentGeometry(row),
       moved: false,
     });
   }
@@ -427,6 +500,9 @@ export function RowStage({
     event: React.PointerEvent<HTMLDivElement>,
     row: StageRow
   ) {
+    // Same highest-priority pan rule as beginResize: let a non-left button
+    // (middle-mouse pan, in practice) bubble to the stage untouched.
+    if (event.button !== 0) return;
     if (shouldPan) return; // let it bubble to the stage-level pan handler
     if (readOnly) return;
 
@@ -507,6 +583,21 @@ export function RowStage({
     }
   }
 
+  // Drops a set of pending rowIds' optimistic draft on a failed persist —
+  // the reconciliation effect above only clears a draft on a CONFIRMED
+  // matching value, so a failure needs its own explicit revert, plus a
+  // toast (the caller, RowMarkingWorkspace, already surfaces the error
+  // banner from the same rejected promise).
+  function revertDraft(rowIds: string[]) {
+    setDraftGeometries((prev) => {
+      if (!prev) return prev;
+      const next = new Map(prev);
+      for (const id of rowIds) next.delete(id);
+      return next;
+    });
+    onMoveFailed();
+  }
+
   function handlePointerUp() {
     if (!drag) return;
 
@@ -514,6 +605,10 @@ export function RowStage({
       const box = drag.currentBox;
       if (drag.moved && box && box.w > 0.01 && box.h > 0.01) {
         onDrawBox(box);
+      } else if (!drag.moved) {
+        // A plain click (no drag at all) on empty space deselects —
+        // mirrors the marquee branch's own no-op-click behavior below.
+        onClearSelection();
       }
     } else if (drag.mode === "marquee") {
       const box = drag.currentBox;
@@ -532,14 +627,25 @@ export function RowStage({
           before: origin.geometry,
           after: draftGeometries.get(origin.rowId) ?? origin.geometry,
         }));
-        onMoveRows(changes);
+        // Local-first: draftGeometries is NOT cleared below for this case
+        // (see the early return), so the row(s) stay showing the dropped
+        // position immediately. Only a failed persist reverts it.
+        const movedIds = changes.map((c) => c.rowId);
+        onMoveRows(changes).catch(() => revertDraft(movedIds));
+        setDrag(null);
+        return;
       } else if (drag.deferredSelectRowId) {
         onSelectSingle(drag.deferredSelectRowId);
       }
     } else if (drag.mode === "resize" && drag.resizeRowId && drag.resizeOrigin) {
       const after = draftGeometries?.get(drag.resizeRowId);
       if (after) {
-        onResizeRow({ rowId: drag.resizeRowId, before: drag.resizeOrigin, after });
+        const resizeRowId = drag.resizeRowId;
+        onResizeRow({ rowId: resizeRowId, before: drag.resizeOrigin, after }).catch(
+          () => revertDraft([resizeRowId])
+        );
+        setDrag(null);
+        return;
       }
     }
 
@@ -548,6 +654,14 @@ export function RowStage({
   }
 
   function handleStagePointerDown(event: React.PointerEvent<HTMLDivElement>) {
+    // Highest priority, unconditionally: the middle mouse button always
+    // pans, regardless of readOnly/shouldPan/anything under the cursor.
+    if (event.button === 1) {
+      event.preventDefault(); // stop the browser's own middle-click autoscroll
+      beginPanDrag(event);
+      return;
+    }
+    if (event.button !== 0) return; // ignore right-click etc.
     if (shouldPan) {
       beginPanDrag(event);
       return;

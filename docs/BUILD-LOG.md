@@ -4,6 +4,76 @@ Engineering journal. Newest entries at top.
 
 ---
 
+## 2026-07-06 — Layout editor interaction rework: modeless model, pan priority, snap-back fix
+
+**What:** A user-requested interaction/UX-only rework of the row-marking
+canvas — no data model, undo/redo, bulk-action, or coordinate changes.
+Full reasoning in `docs/DECISIONS.md` ADR-031; summary here.
+
+**Build:** Discovered the direct-manipulation model itself (drag draws,
+click selects, drag-on-selected-row moves, shift-click/shift-drag
+multi-select/marquee, 8 resize handles) was already built in an earlier
+session — only the Pan (Hand icon) toggle button remained as an actual
+"mode." Removed it entirely from `row-marking-workspace.tsx`'s toolbar
+(and the now-unused `isPanMode` state/prop) in favor of two
+always-available panning inputs: Space-held (existing, unchanged) and a
+new middle-mouse button, checked first in every pointerdown handler
+(row body, resize handle) via `event.button !== 0` — a non-primary
+button returns immediately without `stopPropagation()`, letting it
+bubble to the stage's own handler, which pans regardless of what's
+under the cursor. Fixed the actual reported bug (row snaps back on drop,
+then teleports once the round trip lands): `handlePointerUp` no longer
+clears the optimistic `draftGeometries` on a successful move/resize —
+the row now stays showing the dropped position immediately, reconciled
+away only once the server-confirmed `rows` prop actually matches it, or
+reverted immediately (plus a toast) if the persist rejects. `onMoveRows`/
+`onResizeRow` now return the underlying persist promise instead of
+firing-and-forgetting, so `RowStage` can react to failure.
+
+**A `currentGeometry(row)` helper** feeds `beginRowMove`/`beginResize`'s
+origin computation instead of reading the raw `rows` prop directly — a
+second drag/resize starting on a row whose first move is still
+persisting (draft showing, prop not caught up yet) would otherwise
+silently compute its delta from the stale pre-first-move position.
+
+**Also fixed:** a plain click on empty space now deselects (previously
+only a shift-click-without-drag did — a real, if minor, pre-existing
+gap found while implementing this), and Escape deselects (new, per the
+request).
+
+**A real ESLint surprise:** the reconciliation logic (drop a pending
+optimistic draft once `rows` confirms it) hit TWO of this Next 16/React
+19 setup's newer, compiler-aligned `eslint-plugin-react-hooks` rules —
+first `react-hooks/set-state-in-effect` (a `useEffect` calling
+`setState` directly, even conditionally, is now an error, not just
+discouraged), then, after switching to a ref-based "remember the
+previous prop" comparison, `react-hooks/refs` (reading a ref's
+`.current` during render is now ALSO an error — the classic
+`getDerivedStateFromProps`-via-ref workaround is no longer allowed).
+Landed on React's own currently-documented pattern instead: store the
+previous prop value in *state* (not a ref) and call `setState`
+conditionally during render when it differs — the one mechanism the
+newer rules still sanction for this exact "adjust state when a prop
+changes" shape.
+
+**Verification:** `npm run lint`/`typecheck`/`build` all pass — the
+existing `e2e/row-workspace.spec.ts` (draw, zoom accuracy, select,
+copy, move, resize, nudge, phase, undo/redo, reload persistence) stayed
+green throughout with no changes needed, confirming nothing already
+working regressed. New `e2e/layout-interaction-flow.spec.ts` covers
+what's actually new: no mode-toggle buttons render at all, a plain
+click and Escape both deselect, shift-drag marquee selects multiple,
+middle-mouse-button pan over a row leaves its DB geometry untouched
+while visibly shifting its on-screen position, and — the core fix — a
+dragged row's on-screen position is already correct immediately after
+drop (no wait, no poll) and stays exactly there once the write is
+confirmed server-side, with no intermediate jump either way. One test
+bug caught and fixed while writing it: an "empty space" click target
+computed relative to the outer viewport landed outside the actual
+(smaller, letterboxed) stage rectangle and hit nothing at all — fixed
+by computing it relative to the drawing image's own bounding box
+instead. Full suite green: 21 passed, 2 intentionally skipped.
+
 ## 2026-07-06 — Batch 3 sub-phase D: Estimation brain
 
 **What:** Materials convert to size-normalized labor units; crews' real

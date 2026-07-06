@@ -367,8 +367,9 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
 - [x] Sequential auto-naming, immediate persistence, multi-page aware.
 - [x] Row fill % + hazard indicator for unassigned rows.
 - [x] Zoom (wheel/ctrl+wheel/pinch toward cursor, +/−/Fit buttons) + pan
-      (Hand toggle, space-drag, two-finger touch) + Fullscreen — a pure
-      view transform, row coordinates stay normalized 0..1 in the DB.
+      (middle-mouse button or space-drag — no toggle button, see below —
+      plus two-finger touch) + Fullscreen — a pure view transform, row
+      coordinates stay normalized 0..1 in the DB.
 - [x] Multi-select: set materials or set/create a phase for the whole
       selection in one action (`RowCommandPanel` + `BulkMaterialsPanel` /
       `PhasePicker`).
@@ -387,6 +388,19 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
       rework's E2E pass caught (resize-handle clip boundary, Ctrl+Z
       focus loss after Delete, non-deterministic row paint order — all
       three in ADR-020) are all exercised by the E2E suite.
+- [x] **Interaction rework, 2026-07-06 (see ADR-031):** removed the last
+      remaining mode button (Pan/Hand toggle) — panning is now always
+      available via the middle mouse button (highest input priority,
+      works even over a row) or holding Space, never a mode you switch
+      into. Fixed a real bug: a moved/resized row visibly snapped back
+      to its old position on drop, then jumped to the new one once the
+      network round trip landed — local-first optimistic geometry now
+      stays showing the dropped position immediately, reconciled
+      against the server-confirmed value (or reverted + toasted on
+      failure) instead of clearing eagerly. Also: plain click on empty
+      space and Escape both now deselect (a real UX gap, and a new
+      request, respectively). New `e2e/layout-interaction-flow.spec.ts`;
+      `e2e/row-workspace.spec.ts` stayed green throughout, unmodified.
 
 ## Phase 5 — Materials × rows grid + reconciliation + reference drawing ✅ built (2026-07-02)
 

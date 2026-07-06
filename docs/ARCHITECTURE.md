@@ -155,7 +155,7 @@ render each PDF page (capped at 15 pages) or a plain image onto a
 the browser client, then calls a Server Action once just to insert the
 `drawings`/`packing_slips` row and revalidate. See ADR-012 and ADR-013.
 
-## Drawing marking (Phase 4; reworked into one direct-manipulation canvas + undo/redo, multi-page 2026-07-03)
+## Drawing marking (Phase 4; reworked into one direct-manipulation canvas + undo/redo, multi-page 2026-07-03; interaction/pan/snap-back rework 2026-07-06)
 
 `/app/project/[id]/mark` renders `RowMarkingWorkspace`
 (`components/projects/row-marking-workspace.tsx`), which owns selection
@@ -177,7 +177,18 @@ state, undo/redo, fullscreen state, the active page, and orchestrates:
   tracking even if the cursor leaves the element. Geometry updates
   render from local "draft" state during a drag and only call back to
   the parent (to persist) on `pointerup` — never on every `pointermove`.
-  Arrow keys nudge the current selection by a small zoom-aware
+  As of the 2026-07-06 rework (ADR-031), that draft state is ALSO local-
+  first on drop: it's no longer cleared immediately on a successful
+  `pointerup`, so the row keeps showing the dropped position with zero
+  visual snap-back while the persist is in flight, reconciling away only
+  once the server-confirmed `rows` prop actually matches it (or
+  reverting + toasting on a failed persist — `onMoveRows`/`onResizeRow`
+  now return the underlying persist promise instead of firing-and-
+  forgetting, specifically so `RowStage` can react to failure). Starting
+  a new drag/resize reads its origin from `currentGeometry(row)` (draft-
+  or-row), not the raw prop, so a second interaction on the same row
+  while its first move is still persisting is computed from the right
+  starting point. Arrow keys nudge the current selection by a small zoom-aware
   screen-pixel step (Shift = 8x). Row fill orientation (does the
   progress bar fill bottom-to-top or left-to-right?) is decided by
   comparing **rendered pixel** dimensions
@@ -215,8 +226,17 @@ state, undo/redo, fullscreen state, the active page, and orchestrates:
   scroll/pinch — React's `onWheel`/`onTouch*` props are passive by
   default and silently ignore `preventDefault()`. Two-finger touch
   drives combined pinch-zoom + pan via native `touchstart/move/end`.
-  Holding Space or the Pan toggle engages pan regardless of what's
-  selected (ignored while typing in a field).
+  Panning is always available, never a mode: holding Space turns a
+  left-drag into a pan (checked at pointerdown time, ignored while
+  typing in a field), and — since the 2026-07-06 rework, replacing the
+  Pan/Hand toggle button that used to be the only way to pan without
+  Space — the middle mouse button always pans regardless of what's under
+  the cursor, at the highest priority. Every pointerdown handler on a
+  row body or resize handle checks `event.button !== 0` first and
+  returns without `stopPropagation()` for a non-primary button, letting
+  it bubble untouched to the stage's own handler (the same bubbling
+  technique the pre-existing Space-held check already used) — a pan
+  gesture can never be hijacked into moving/resizing/drawing a row.
 - **Fullscreen** — unchanged: `RowMarkingWorkspace`'s root (toolbar +
   stage, not just the stage) is the `requestFullscreen()` target, so the
   toolbar/undo/zoom controls stay reachable. Listens for
@@ -884,6 +904,22 @@ short:
   `material-qty-{materialId}-{rowId}`) and rewriting that test to use
   them instead of raw indices, so the next column addition won't repeat
   this.
+- `e2e/layout-interaction-flow.spec.ts` (2026-07-06) — scoped to what the
+  interaction rework (ADR-031) actually changed, not a re-test of
+  `row-workspace.spec.ts`'s existing draw/select/resize/undo-redo
+  coverage (confirmed still green, unmodified, throughout this rework):
+  no mode-toggle buttons render; a plain click and Escape both deselect;
+  a shift-drag marquee selects multiple rows at once; a middle-mouse-
+  button drag directly over a row leaves its DB geometry completely
+  unchanged while visibly shifting its on-screen position (proving the
+  canvas panned, not the row); and — the actual bug fix — a dragged
+  row's on-screen position is already correct immediately after drop
+  (no wait, no poll) and stays exactly there once the write is confirmed
+  server-side. Caught one bug in the test itself while writing it: an
+  "empty space" click computed relative to the outer viewport landed
+  outside the actual (smaller, letterboxed) stage rectangle and hit
+  nothing — fixed by computing it relative to the drawing image's own
+  bounding box instead.
 
 This suite is what caught ADR-016's env var bug — self-review and
 `next build` both stayed clean through Phases 3–5 because neither

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Hand, Maximize, Minimize, Redo2, Undo2 } from "lucide-react";
+import { Maximize, Minimize, Redo2, Undo2 } from "lucide-react";
 import {
   useEffect,
   useMemo,
@@ -109,7 +109,6 @@ export function RowMarkingWorkspace({
   const [activePageIndex, setActivePageIndex] = useState(0);
   const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set());
   const [hiddenPhaseIds, setHiddenPhaseIds] = useState<Set<string>>(new Set());
-  const [isPanMode, setIsPanMode] = useState(false);
   const [autoRowsDialogOpen, setAutoRowsDialogOpen] = useState(false);
   const [gridPending, setGridPending] = useState<GridPending | null>(null);
   const [activeCommand, setActiveCommand] = useState<ActiveCommand>(null);
@@ -156,16 +155,31 @@ export function RowMarkingWorkspace({
     }
   }
 
-  function runAction(fn: () => Promise<void>) {
+  // Returns the underlying persist promise (not just fire-and-forget) so a
+  // caller that needs to react to success/failure itself can — e.g.
+  // RowStage reverting an optimistic move/resize on failure. The
+  // transition still owns router.refresh()/setError() exactly as before;
+  // a second .catch() on the same promise elsewhere doesn't interfere
+  // with (or suppress) this one.
+  function runAction(fn: () => Promise<void>): Promise<void> {
     setError(null);
+    const promise = fn();
     startTransition(async () => {
       try {
-        await fn();
+        await promise;
         router.refresh();
       } catch (err) {
         setError(err instanceof Error ? err.message : "Could not save.");
       }
     });
+    return promise;
+  }
+
+  // The error banner (setError, inside runAction above) already carries
+  // the actual message — this is just the quick, ephemeral "something
+  // reverted" pulse RowStage triggers right where the user was looking.
+  function handleMoveFailed() {
+    setToastMessage("Couldn't save — move reverted.");
   }
 
   function handleSetMarkingPage() {
@@ -219,6 +233,11 @@ export function RowMarkingWorkspace({
     ) {
       event.preventDefault();
       handleDeleteSelection();
+      return;
+    }
+    if (event.key === "Escape" && selectedRowIds.size > 0) {
+      event.preventDefault();
+      handleClearSelection();
     }
   }
 
@@ -295,9 +314,14 @@ export function RowMarkingWorkspace({
     });
   }
 
-  function handleMoveRows(changes: GeometryChange[]) {
-    if (changes.length === 0) return;
-    runAction(async () => {
+  // Returns the persist promise — RowStage awaits it to know when to
+  // revert its local-first optimistic position on failure (see its own
+  // docstring). Success needs no signal back: the row is already showing
+  // the right position, and router.refresh() (inside runAction) will
+  // confirm it via fresh props shortly after.
+  function handleMoveRows(changes: GeometryChange[]): Promise<void> {
+    if (changes.length === 0) return Promise.resolve();
+    return runAction(async () => {
       await Promise.all(
         changes.map((c) => updateRowGeometry(c.rowId, projectId, c.after))
       );
@@ -317,8 +341,8 @@ export function RowMarkingWorkspace({
     });
   }
 
-  function handleResizeRow(change: GeometryChange) {
-    runAction(async () => {
+  function handleResizeRow(change: GeometryChange): Promise<void> {
+    return runAction(async () => {
       await updateRowGeometry(change.rowId, projectId, change.after);
       undoStack.push({
         label: "Resize",
@@ -602,16 +626,6 @@ export function RowMarkingWorkspace({
         >
           ▦ Auto rows
         </Button>
-        <Button
-          type="button"
-          size="icon-sm"
-          variant={isPanMode ? "default" : "outline"}
-          onClick={() => setIsPanMode((prev) => !prev)}
-          aria-label="Pan mode"
-          title="Pan mode"
-        >
-          <Hand />
-        </Button>
         <div className="mx-1 h-5 w-px bg-border" />
         <Button
           type="button"
@@ -655,8 +669,7 @@ export function RowMarkingWorkspace({
       <p className="text-xs text-muted-foreground">
         {gridPending
           ? "Drag a box over the rack area to split it."
-          : "Click a row to select it (shift/ctrl-click for more, shift-drag to marquee) · drag empty space to draw · drag a selected row to move · arrow keys nudge."}
-        {" · "}Scroll/pinch to zoom, hold Space or use Pan to pan.
+          : "Drag empty space to draw, click a row to select and drag its handles to resize · shift-click/shift-drag for multiple · middle-click or hold Space to pan, scroll/pinch to zoom · arrow keys nudge, Esc deselects."}
       </p>
 
       {phases.length > 0 ? (
@@ -692,7 +705,6 @@ export function RowMarkingWorkspace({
             phases={phases}
             hiddenPhaseIds={hiddenPhaseIds}
             readOnly={!isMarkingPage}
-            isPanMode={isPanMode}
             onDrawBox={handleDrawBox}
             onSelectSingle={(id) => {
               setSelectedRowIds(new Set([id]));
@@ -704,6 +716,7 @@ export function RowMarkingWorkspace({
             onMarqueeSelect={handleMarqueeSelect}
             onClearSelection={handleClearSelection}
             onNudgeRows={handleNudgeRows}
+            onMoveFailed={handleMoveFailed}
           />
         </div>
       ) : null}
