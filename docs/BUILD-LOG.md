@@ -4,6 +4,51 @@ Engineering journal. Newest entries at top.
 
 ---
 
+## 2026-07-06 — Live-validated packing-slip extraction; received Batch 3 credentials
+
+**What:** The user provided `ANTHROPIC_API_KEY`, `SUPABASE_ACCESS_TOKEN`,
+and `RESEND_API_KEY` (all written straight to `.env.local`, never echoed
+back in chat). With the Anthropic key now live, re-ran
+`e2e/packing-slip-extract-flow.spec.ts`'s previously-skipped live test —
+this is the batch-2 item that had been sitting in the NEEDS-YOU list.
+
+**Found and fixed a real test bug (not an app bug) while validating:**
+the first run's content assertions all passed *vacuously* — every review-
+table cell is a real `<input>`, and an `<input>`'s current value is never
+part of its `innerText`/`textContent` (no text node; the value is
+rendered by the browser's own form-control widget). `allInnerTexts()` was
+silently reading empty strings the whole time, so `not.toContain
+("freight")` trivially passed on nothing. Switched to reading each field
+via `inputValue()`. A second locator bug surfaced once that was fixed:
+the post-confirm check assumed `page.locator("table").first()` was
+`MaterialsGrid`, but this test's project has no rows (never visited the
+Layout tab), so `MaterialsGrid` renders its "add rows first" empty state
+(no table at all) and `.first()` fell through to `ReconciliationCard`'s
+always-present summary table instead. Added `data-testid=
+"reconciliation-table"` (this codebase's established fix for exactly
+this class of ambiguity) and asserted against that directly — its cells
+are plain text, actually simpler to read than the grid's inputs would
+have been.
+
+**Result — the feature itself is excellent:** with correct assertions,
+the live test passes cleanly. All 4 line items extracted correctly, the
+two `36SQ10` beam lines kept their distinct sizes (144"/96", not merged
+into one), the freight line was correctly excluded, and the saved
+`materials` rows matched exactly. Validating against the user's actual
+real-world packing slip was offered and explicitly deferred by their own
+choice (not blocked on anything) — can be revisited anytime.
+
+**Batch 3 kickoff:** the same message that prompted re-validation also
+opened Batch 3 (a large, multi-sub-phase flagship push) and pre-supplied
+all three credentials it needs up front, per CLAUDE.md rule 7's
+"prefer a one-time token" guidance. Noted for the record: `Supabase
+projects list` confirmed the access token was NOT already persisted from
+Batch 2 (the CLI reported "Access token not provided") — this time it's
+saved directly in `.env.local` as `SUPABASE_ACCESS_TOKEN`, which the CLI
+reads automatically, so this should be the last time this specific token
+needs to be requested. Batch 3's own sub-phases are logged separately as
+they land.
+
 ## 2026-07-03 — Sub-phase F: Packing-slip AI extraction
 
 **What:** Batch 2's sub-phase F, the batch's last sub-phase. A server

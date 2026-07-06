@@ -1,6 +1,6 @@
 import path from "node:path";
 
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
 import { deleteProjectCompletely } from "./helpers/cleanup";
 
@@ -12,6 +12,31 @@ let projectId: string | null = null;
 test.afterAll(async () => {
   if (projectId) await deleteProjectCompletely(projectId);
 });
+
+// Every cell in the review table is a real <input>, and an <input>'s
+// current value is never part of its innerText/textContent (there's no
+// text node — the value is rendered by the browser's own form-control
+// widget) — allInnerTexts() on these rows silently returns empty strings.
+// Read each row's actual field values via inputValue() instead.
+async function readReviewRows(table: Locator): Promise<
+  { code: string; description: string; size: string; qty: string }[]
+> {
+  const rows = table.locator("tbody tr");
+  const count = await rows.count();
+  const result: { code: string; description: string; size: string; qty: string }[] =
+    [];
+  for (let i = 0; i < count; i++) {
+    const inputs = rows.nth(i).locator("input");
+    const [code, description, size, qty] = await Promise.all([
+      inputs.nth(0).inputValue(),
+      inputs.nth(1).inputValue(),
+      inputs.nth(2).inputValue(),
+      inputs.nth(3).inputValue(),
+    ]);
+    result.push({ code, description, size, qty });
+  }
+  return result;
+}
 
 async function createProjectOnMaterialsTab(page: Page): Promise<string> {
   await page.goto("/app");
@@ -123,28 +148,44 @@ test("packing slip AI extraction: extracts line items, keeps distinct sizes, ski
     timeout: 90_000,
   });
 
-  const rowTexts = await table.locator("tbody tr").allInnerTexts();
-  const fullText = rowTexts.join(" | ").toLowerCase();
-  expect(fullText).not.toContain("freight");
-
-  const beamRows = rowTexts.filter((text) => text.toLowerCase().includes("beam"));
-  expect(beamRows).toHaveLength(2);
-  expect(beamRows.some((text) => text.includes("144"))).toBe(true);
-  expect(beamRows.some((text) => text.includes("96"))).toBe(true);
-
-  expect(rowTexts.some((text) => /wire deck/i.test(text) && text.includes("46"))).toBe(
-    true
-  );
+  const rows = await readReviewRows(table);
   expect(
-    rowTexts.some((text) => /upright/i.test(text) && text.includes("24"))
+    rows.some(
+      (r) =>
+        r.description.toLowerCase().includes("freight") ||
+        r.code.toLowerCase().includes("freight")
+    )
+  ).toBe(false);
+
+  const beamRows = rows.filter((r) => r.description.toLowerCase().includes("beam"));
+  expect(beamRows).toHaveLength(2);
+  expect(beamRows.some((r) => r.size.includes("144"))).toBe(true);
+  expect(beamRows.some((r) => r.size.includes("96"))).toBe(true);
+  // The two beam lines share one product code but differ in size — the
+  // real-slip scenario this test stands in for (36SQ10 at two lengths).
+  expect(new Set(beamRows.map((r) => r.size)).size).toBe(2);
+
+  expect(
+    rows.some((r) => /wire deck/i.test(r.description) && r.size.includes("46"))
+  ).toBe(true);
+  expect(
+    rows.some((r) => /upright/i.test(r.description) && r.size.includes("24"))
   ).toBe(true);
 
   await page.getByRole("button", { name: /Add \d+ materials?/ }).click();
   await expect(page.getByTestId("extract-review-table")).not.toBeVisible();
 
-  const gridRows = page.locator("table").first().locator("tbody tr");
-  await expect(gridRows).toHaveCount(4);
-  const gridText = (await gridRows.allInnerTexts()).join(" | ").toLowerCase();
-  expect(gridText).toContain("144");
-  expect(gridText).toContain("96");
+  // This test's project has no rows (never visited the Layout tab), so
+  // MaterialsGrid renders its "add rows first" empty state rather than a
+  // table — the reconciliation card is what's always present once
+  // materials exist, so it's what confirms the save actually happened.
+  const reconciliationRows = page
+    .getByTestId("reconciliation-table")
+    .locator("tbody tr");
+  await expect(reconciliationRows).toHaveCount(4);
+  const savedNames = await reconciliationRows
+    .locator("td:first-child")
+    .evaluateAll((cells) => cells.map((el) => el.textContent ?? ""));
+  expect(savedNames.some((name) => name.includes("144"))).toBe(true);
+  expect(savedNames.some((name) => name.includes("96"))).toBe(true);
 });

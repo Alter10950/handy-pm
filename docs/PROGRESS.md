@@ -136,10 +136,11 @@ keeps two same-code-different-size lines (like the real slip's two
 colliding into one. `npm run lint`/`typecheck`/`build` all pass. New
 `e2e/packing-slip-extract-flow.spec.ts` has two mutually-exclusive
 tests keyed on whether `ANTHROPIC_API_KEY` is configured — one always
-runs — but **live validation against the real packing slip (42"x24'
-upright, two 36SQ10 beam sizes, 42"x46" wire deck, spacers/barriers/
-protectors/two anchor types) is still pending the user providing that
-key.** This is the batch's one remaining NEEDS-YOU item.
+runs. **Update 2026-07-06:** the user provided the key; the live test
+passed cleanly (correct code/description/size/qty for all 4 lines, the
+two `36SQ10` beam lines kept distinct at 144"/96", freight correctly
+skipped). Validation against the user's actual real-world packing slip
+is deferred by their own choice, not blocked on anything.
 
 This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
 
@@ -417,11 +418,20 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
       extraction against a synthetic in-memory packing-slip image and
       checks distinct sizes survive + non-material lines are skipped
       (skipped unless `ANTHROPIC_API_KEY` is configured).
-- [ ] **Live validation against the user's real packing slip** (42"x24'
-      upright, two 36SQ10 beam sizes at 144"/96", 42"x46" wire deck, row
-      spacers, end barriers, post protectors, two anchor types — all
-      sizes preserved) — blocked on the user providing `ANTHROPIC_API_KEY`.
-      See the batch's NEEDS-YOU list.
+- [x] **Live-validated (2026-07-06)** — the user provided
+      `ANTHROPIC_API_KEY`; the gated E2E test ran for real against the
+      synthetic packing-slip image and passed: all 4 lines extracted
+      correctly, the two `36SQ10` beam lines kept their distinct sizes
+      (144"/96", not merged), the freight line was correctly skipped, and
+      the saved materials matched exactly. Found and fixed a test-only
+      bug while validating (not an app bug): `allInnerTexts()` on the
+      review table read nothing, since every cell is a real `<input>`
+      and an input's value is never part of `innerText`/`textContent` —
+      switched to `inputValue()` per field. Validation against the
+      user's actual real-world packing slip (42"x24' upright, wire deck,
+      spacers/barriers/protectors, two anchor types) is deferred by the
+      user's own choice, not blocked on anything — can be revisited
+      anytime by pointing the route at that file.
 
 ## Phase 8 — Customer portal (not started)
 
