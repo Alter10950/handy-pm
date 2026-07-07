@@ -17,6 +17,7 @@ import {
   listRowMaterials,
   listRowProgress,
 } from "@/lib/projects/queries";
+import { listScopeItems } from "@/lib/scope/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +30,7 @@ export default async function FieldProjectPage({
   const project = await getProject(projectId);
   if (!project) notFound();
 
-  const [rows, materials, phases, crews, dayLogs, blockers, myCrewId] =
+  const [rows, materials, phases, crews, dayLogs, blockers, myCrewId, scopeItems] =
     await Promise.all([
       listRowProgress(projectId),
       listMaterials(projectId),
@@ -38,6 +39,7 @@ export default async function FieldProjectPage({
       listTodayDayLogs(projectId),
       listTodayBlockers(projectId),
       getMyCrewId(),
+      listScopeItems(projectId),
     ]);
   const rowMaterials = await listRowMaterials(rows.map((row) => row.row_id));
   const [installedTotals, todayInstalls, dayLogPhotoUrls] = await Promise.all([
@@ -60,6 +62,7 @@ export default async function FieldProjectPage({
       todayBlockers={blockers}
       myCrewId={myCrewId}
       dayLogPhotoUrls={dayLogPhotoUrls}
+      scopeItems={scopeItems}
     />
   );
 }

@@ -116,23 +116,39 @@ export interface ProjectLaborUnits {
 // draft with no rows at all, where assigned is always 0).
 // material_reconciliation.installed is already capped at assigned <=
 // total_needed, so total_needed - installed can never go negative.
+//
+// scope_items (Batch 4 Sub-phase C) fold into the same two maps, keyed
+// by work_type — a bucket disjoint from materials' own task_keys (scope
+// items have no task_key of their own, only work_type). A scope item has
+// no "qty installed" concept, only a done/partial/not-started status
+// (scope_item_progress's own latest-logged-update column) — so its full
+// labor_units always counts toward totalByTaskKey, and counts toward
+// remainingByTaskKey unless status is 'done'.
 export async function getProjectLaborUnitsByTaskKey(
   projectId: string
 ): Promise<ProjectLaborUnits> {
   const supabase = await createClient();
-  const [{ data: materials, error: materialsError }, { data: reconciliation, error: reconError }] =
-    await Promise.all([
-      supabase
-        .from("materials")
-        .select("id, task_key, labor_units, total_needed")
-        .eq("project_id", projectId),
-      supabase
-        .from("material_reconciliation")
-        .select("material_id, installed")
-        .eq("project_id", projectId),
-    ]);
+  const [
+    { data: materials, error: materialsError },
+    { data: reconciliation, error: reconError },
+    { data: scopeItems, error: scopeError },
+  ] = await Promise.all([
+    supabase
+      .from("materials")
+      .select("id, task_key, labor_units, total_needed")
+      .eq("project_id", projectId),
+    supabase
+      .from("material_reconciliation")
+      .select("material_id, installed")
+      .eq("project_id", projectId),
+    supabase
+      .from("scope_item_progress")
+      .select("work_type, labor_units, status")
+      .eq("project_id", projectId),
+  ]);
   if (materialsError) throw materialsError;
   if (reconError) throw reconError;
+  if (scopeError) throw scopeError;
 
   const installedByMaterial = new Map(reconciliation.map((r) => [r.material_id, r.installed]));
 
@@ -152,6 +168,21 @@ export async function getProjectLaborUnitsByTaskKey(
       (remainingByTaskKey.get(material.task_key) ?? 0) + remainingQty * material.labor_units
     );
   }
+
+  for (const item of scopeItems) {
+    if (!item.work_type || !item.labor_units) continue;
+    totalByTaskKey.set(
+      item.work_type,
+      (totalByTaskKey.get(item.work_type) ?? 0) + item.labor_units
+    );
+    if (item.status !== "done") {
+      remainingByTaskKey.set(
+        item.work_type,
+        (remainingByTaskKey.get(item.work_type) ?? 0) + item.labor_units
+      );
+    }
+  }
+
   return { totalByTaskKey, remainingByTaskKey };
 }
 

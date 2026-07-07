@@ -67,6 +67,7 @@ export type ScopeWorkType =
   | "repair"
   | "other";
 export type ScopeSource = "handoff" | "estimate" | "change_order";
+export type ScopeItemStatus = "partial" | "done";
 export type ChangeOrderReason =
   | "scope_missed"
   | "customer_request"
@@ -1871,6 +1872,51 @@ export type Database = {
           },
         ]
       }
+      scope_item_updates: {
+        Row: {
+          id: string
+          logged_at: string
+          logged_by: string | null
+          note: string | null
+          photo_path: string | null
+          scope_item_id: string
+          status: ScopeItemStatus
+        }
+        Insert: {
+          id?: string
+          logged_at?: string
+          logged_by?: string | null
+          note?: string | null
+          photo_path?: string | null
+          scope_item_id: string
+          status: ScopeItemStatus
+        }
+        Update: {
+          id?: string
+          logged_at?: string
+          logged_by?: string | null
+          note?: string | null
+          photo_path?: string | null
+          scope_item_id?: string
+          status?: ScopeItemStatus
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scope_item_updates_scope_item_id_fkey"
+            columns: ["scope_item_id"]
+            isOneToOne: false
+            referencedRelation: "scope_item_progress"
+            referencedColumns: ["scope_item_id"]
+          },
+          {
+            foreignKeyName: "scope_item_updates_scope_item_id_fkey"
+            columns: ["scope_item_id"]
+            isOneToOne: false
+            referencedRelation: "scope_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       share_tokens: {
         Row: {
           created_at: string
@@ -2097,6 +2143,71 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      scope_item_progress: {
+        Row: {
+          change_order_id: string | null
+          created_at: string
+          description: string
+          labor_units: number | null
+          logged_at: string | null
+          logged_by: string | null
+          note: string | null
+          phase_id: string | null
+          photo_path: string | null
+          project_id: string
+          qty: number | null
+          row_id: string | null
+          scope_item_id: string
+          source: ScopeSource
+          status: ScopeItemStatus | null
+          unit: string | null
+          work_type: ScopeWorkType
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scope_items_change_order_id_fkey"
+            columns: ["change_order_id"]
+            isOneToOne: false
+            referencedRelation: "change_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scope_items_phase_id_fkey"
+            columns: ["phase_id"]
+            isOneToOne: false
+            referencedRelation: "phases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scope_items_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "project_progress"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "scope_items_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scope_items_row_id_fkey"
+            columns: ["row_id"]
+            isOneToOne: false
+            referencedRelation: "row_progress"
+            referencedColumns: ["row_id"]
+          },
+          {
+            foreignKeyName: "scope_items_row_id_fkey"
+            columns: ["row_id"]
+            isOneToOne: false
+            referencedRelation: "rows"
             referencedColumns: ["id"]
           },
         ]

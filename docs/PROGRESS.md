@@ -247,6 +247,31 @@ intentionally skipped — including every pre-existing spec that creates
 a project through the now-changed New Project form, none of which
 needed a single edit.
 
+**Sub-phase C — Scope-of-work builder (non-install work) — done and
+verified live (2026-07-06, see ADR-040):** a new Scope tab
+(add/edit/remove teardown, level changes, relocation, repair — with
+qty/unit, a labor-hours suggestion from `labor_standards`, and an
+attach-to-a-row/phase/or-project-level choice), visible even on pre-sale
+draft estimates so a quote's hours can account for known non-install
+work from the start. `labor_standards` gained 5 new seeded rows for
+these work types — previously install-only, so there was nothing to
+suggest from. Anyone (crew included) can log progress
+(partial/done + note + optional photo) via a new append-only
+`scope_item_updates` log, from either the office Scope tab or a new
+"Scope" view in the Field app — mirroring `installs`/`blockers`'s own
+event-sourced shape specifically so crew never needs write access to
+the office-only `scope_items` fields themselves. Both the Estimate
+tab's hours and the Scheduler's remaining-labor figure now fold scope
+items in as their own work-type-keyed bucket, reusing the exact same
+rate-resolution logic materials already use. Found and fixed a real
+regression in `field-flow.spec.ts` (rebuilding the Field header's
+Rows/Day toggle silently removed a shortcut reachable from within a
+row's own detail screen) and worked through a debugging detour where
+two plausible component fixes changed nothing, before finding the real
+bug was an unscoped E2E assertion substring-matching button labels
+instead of the status it meant to check. Full suite green: 31 passed, 2
+intentionally skipped.
+
 **Batch 3 — ✅ COMPLETE (2026-07-06):** a large flagship push — full user
 management/org settings, Field and Scheduler taken to "flagship," a
 rules-based estimation engine, an exception-first dashboard + emailed
@@ -992,6 +1017,48 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
       actually filters, dashboard shows the PM column. Full suite green:
       30 passed, 2 intentionally skipped — every pre-existing spec that
       creates a project through the changed form needed zero edits.
+
+## Batch 4, Sub-phase C — Scope-of-work builder (non-install work) ✅ done (2026-07-06)
+
+- [x] `scope_item_updates` (new append-only log, mirrors installs/
+      blockers/day_logs) + `scope_item_progress` (view exposing each
+      item's latest logged status) + `org_id_of_scope_item` RLS helper
+      — crew can report progress without ever needing write access to
+      `scope_items`' own owner/pm-only fields.
+- [x] `labor_standards` gained 5 new seeded rows (teardown/
+      remove_levels/add_levels/relocate/repair) — previously install-only.
+- [x] Scope tab (`ScopeWorkspace`) — owner/pm add/edit/remove items
+      (work type, description, qty/unit, a labor-hours suggestion button
+      from labor_standards, attach to a row/phase/or project-level);
+      visible even for pre-sale `estimate`-status projects, unlike
+      Layout/Receiving/Progress/Portal.
+- [x] Anyone can log progress (partial/done + note + optional photo)
+      from the office Scope tab or a new "Scope" view in the Field app
+      (reachable from the rows list and from within a row's own detail
+      screen).
+- [x] `getProjectLaborUnitsByTaskKey` (estimator) and
+      `getProjectRemainingLaborUnits` (scheduler) both fold scope items
+      in as their own work-type-keyed bucket alongside materials'
+      task_key buckets — same resolveRate logic, no parallel calculation.
+      A `done` item stops counting toward "remaining"; nothing scales by
+      qty (a scope item's full labor_units always applies once).
+- [x] Found and fixed a real regression: rebuilding the Field header's
+      Rows/Day toggle into a Scope/Day pair silently removed a shortcut
+      (reaching Day from within a row's own detail screen) that
+      `field-flow.spec.ts` depended on.
+- [x] Found and fixed a genuine debugging detour: the Field
+      scope-progress card appeared permanently stuck after "Mark done."
+      Two plausible component fixes changed nothing (a real tell the
+      diagnosis was wrong) — the actual bug was an unscoped E2E
+      `getByText("Done")` substring-matching "Mark done"/"Photo + mark
+      done" button labels. Fixed with `{ exact: true }`; kept the two
+      component simplifications anyway since they make the Field and
+      office versions consistent.
+- [x] `npm run lint`/`typecheck`/`build` all pass. New
+      `e2e/scope-of-work-flow.spec.ts` — labor suggestion math, Estimate
+      tab bucket appears, office partial-log, Field done-log, estimator
+      excludes it once done. Full suite green: 31 passed, 2 intentionally
+      skipped.
 
 ## Batch 3, Sub-phase 0 — Schema for estimating/readiness/versioning ✅ done (2026-07-06)
 

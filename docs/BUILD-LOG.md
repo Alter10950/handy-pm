@@ -4,6 +4,71 @@ Engineering journal. Newest entries at top.
 
 ---
 
+## 2026-07-06 — Batch 4 Sub-phase C: scope-of-work builder (non-install work)
+
+**What:** iBuy's first failure — "teardown/level-change work was never
+scoped" — made structurally impossible: a Scope tab on `scope_items`
+(schema-only since Sub-phase 0), wired into the Estimate tab's hours and
+the Scheduler's capacity math, plus a Field-app way to mark progress.
+Full reasoning in `docs/DECISIONS.md` ADR-040; summary here.
+
+**Build:** `scope_item_updates` (new append-only log table, mirroring
+`installs`/`blockers`/`day_logs`'s own shape — crew can report progress
+without ever touching `scope_items`' own office-only fields) +
+`scope_item_progress` (a view exposing each item's latest logged
+status, same "event log summarized by a view" convention as
+`row_progress`). `labor_standards` gained 5 new seeded rows
+(teardown/remove_levels/add_levels/relocate/repair) — previously
+install-only, so "labor units suggested from labor standards" had
+nothing to suggest for non-install work. The Scope tab
+(`components/scope/scope-workspace.tsx`) lets owner/pm add/edit/remove
+items (work type, description, qty/unit, a labor-hours suggestion
+button, attach to a row, a phase, or leave project-level) and lets
+anyone log progress (partial/done, note, optional photo). Both the
+Estimate tab's hours (`getProjectLaborUnitsByTaskKey`) and the
+Scheduler's remaining-labor figure (`getProjectRemainingLaborUnits`)
+now fold scope items in as their own `work_type`-keyed bucket alongside
+materials' `task_key` buckets — reusing the exact same rate-resolution
+logic, not a parallel calculation. New "Scope" view in the Field app
+(reachable from the rows list and from within a row's own detail
+screen), so crew can mark non-install work done/partial without a
+desktop.
+
+**A debugging detour worth remembering:** the Field scope-progress
+card looked stuck after clicking "Mark done" — status never updated,
+buttons stayed rendered and disabled. Two rounds of plausible-looking
+component fixes (adding `router.refresh()`, then removing a local
+status-override state to match the office version's simpler pattern)
+changed *nothing* about the symptom — the tell that the diagnosis was
+wrong. The dev server's request log showed the Server Action completing
+in under 200ms every time; a temporary debug marker confirmed the
+underlying prop updated correctly. The actual bug was in the test:
+`getByText("Done")` (no `exact: true`) case-insensitively substring-matches
+"Mark done" and "Photo + mark done" too, which stay rendered
+(disabled) during a transition's brief pending window. One `{ exact:
+true }` fixed it. Kept the two component simplifications anyway, since
+they make the Field and office versions consistent — just not because
+they were ever the actual fix.
+
+**Also found and fixed:** restructuring the Field header's single
+Rows/Day toggle into a Scope/Day pair broke `e2e/field-flow.spec.ts`
+with a full 60-second timeout — the original toggle was reachable from
+*any* view including a specific row's own detail screen (a deliberate
+shortcut to close out the day without detouring back through the rows
+list), and the rebuild only showed it from the rows list. Fixed by
+restoring that reachability alongside the new Scope button.
+
+**Verified:** `npm run lint`/`typecheck`/`build` all green. New
+`e2e/scope-of-work-flow.spec.ts` — add a project-level teardown item,
+confirm the labor suggestion (0.15 base × qty 4 = 0.6), confirm it's a
+new bucket in the Estimate tab's breakdown, log partial with a note
+from the office Scope tab, confirm the Field app shows the same item
+and can mark it done, confirm the estimator no longer counts it once
+done. Full suite green: 31 passed, 2 intentionally skipped — including
+the field-flow.spec.ts regression fix.
+
+---
+
 ## 2026-07-06 — Batch 4 Sub-phase B: PM-of-record accountability
 
 **What:** iBuy's second failure — "no one owned the job" — made

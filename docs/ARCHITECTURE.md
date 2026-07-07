@@ -1324,6 +1324,82 @@ appears, reassignable with an audit trail, and filterable.
   `project.pm_user_id === currentUserId`. No new query — the full list
   (with `pm_user_id`) was already being fetched for card rendering.
 
+## Scope-of-work builder (Batch 4, Sub-phase C, 2026-07-06)
+
+Builds the Scope tab on `scope_items` (schema-only since Sub-phase 0)
+and wires non-install work into the estimator and scheduler.
+
+- **Field progress as an append-only log, not mutable columns:**
+  `scope_items_write` RLS is owner/pm only (work_type/description/qty/
+  labor_units are office-decided); crew needs to report progress but
+  must never touch those fields, and Postgres RLS can't restrict
+  individual columns within one UPDATE policy without a trigger. New
+  `scope_item_updates` (`scope_item_id`, `status` ∈ `partial`/`done`,
+  `note`, `photo_path`, `logged_by`, `logged_at`) sidesteps this
+  entirely — crew always inserts an entirely new row, never touches an
+  existing one — mirroring `installs`/`material_receipts`/`day_logs`'s
+  own event-sourced shape. `scope_item_progress` (a view, `left join
+  lateral` selecting each item's most-recently-logged update) gives
+  every consumer (Scope tab, Field app, estimator, scheduler) a
+  convenient "current status" read — same convention as
+  `row_progress`/`project_progress`. `org_id_of_scope_item` mirrors the
+  existing `org_id_of_row`-style join-through-parent RLS helper.
+- **`labor_standards` extended for non-install work** — 5 new seeded
+  rows (`teardown`/`remove_levels`/`add_levels`/`relocate`/`repair`,
+  `20260707160000_scope_labor_standards.sql`), keyed identically to
+  `scope_items.work_type` so `lib/estimating/labor.ts#laborUnitsFor`'s
+  existing `task_key` lookup (with its own "general" fallback) works
+  unchanged for scope items — no new lookup code needed. The Scope
+  tab's "Suggested: N hrs" is a dismissible hint (`baseLaborUnits *
+  qty`, click to fill), not an auto-overwrite like materials'
+  labor_units — non-install work is more judgment-based per job.
+- **Estimator and scheduler both fold scope items in as a
+  `work_type`-keyed bucket:** `lib/estimating/
+  queries.ts#getProjectLaborUnitsByTaskKey` and `lib/scheduler/
+  queries.ts#getProjectRemainingLaborUnits` both already reduced
+  materials into a `Map<string, number>` keyed by `task_key`; extending
+  the same reduce with `scope_item_progress.work_type` as the key reuses
+  100% of the existing `resolveRate` rate-resolution logic (crew rate →
+  company blend → standard-pace fallback) for free. A scope item's full
+  `labor_units` counts once toward `total` always, and toward
+  `remaining` unless `status = 'done'` — no "qty installed so far"
+  concept applies to non-install work the way it does to materials.
+- **Scope tab visible even for `estimate`-status projects** — unlike
+  Layout/Receiving/Progress/Portal (execution-only, hidden pre-sale),
+  scope-of-work needs to be capturable *before* a job is sold, so a
+  draft estimate's hours can account for known non-install work from
+  the start. Project-level items (no row/phase attachment) work fine
+  before any rows exist.
+- **Field app gains a "Scope" view** (`components/field/
+  field-scope-panel.tsx`), reachable from the rows list and from within
+  a specific row's own detail screen — mirrors the office Scope tab's
+  photo-attach pattern (`BlockerForm`'s client-upload-then-Server-Action
+  shape) for "Photo + mark done."
+- **A debugging detour, not a real component bug:** the Field
+  scope-progress card appeared to get stuck mid-transition after "Mark
+  done" (status never updated, buttons stayed rendered+disabled). Two
+  plausible-looking component fixes (adding `router.refresh()`, then
+  removing a local `justLogged` status-override state to match the
+  office `ScopeItemRow`'s simpler prop-only pattern) changed nothing —
+  the tell the diagnosis was wrong. The dev server's own request log
+  showed the Server Action completing in under 200ms every time; a
+  temporary debug marker confirmed the prop updated correctly. The real
+  bug was in the E2E test: an unscoped `getByText("Done")` (no `exact:
+  true`) case-insensitively substring-matches "Mark done" and "Photo +
+  mark done," which correctly remain rendered (disabled) during a
+  transition's brief pending window. Fixed with `{ exact: true }`. Kept
+  the two component changes anyway — not because they were the actual
+  fix, but because they remove an unexplained asymmetry between two
+  components doing the same job.
+- **A real regression, found and fixed in the same work:**
+  restructuring the Field header's single Rows/Day toggle into a
+  Scope/Day pair initially only showed the new pair when `view ===
+  "rows"`, silently removing the pre-existing shortcut of reaching Day
+  directly from within a row's own detail screen (`view === "row"`) —
+  broke `e2e/field-flow.spec.ts` with a full 60-second timeout, not a
+  quick failure. Fixed by showing the pair whenever `view` is `"rows"`
+  *or* `"row"`.
+
 ## Testing
 
 `npm run test:e2e` (`npm run seed && playwright test`) runs a Playwright
@@ -1759,7 +1835,8 @@ transitively via `project_id` → `projects.org_id` or `crew_id` →
 | `approved_photos`                        | `project_id`                  | Customer-visible photo curation (2026-07-06) — keyed by the photo's own `storage_path` (`unique(project_id, storage_path)`), sourced from either `day_logs.photo_paths` or `blockers.photo_path`. Nothing is customer-visible until explicitly approved here; see Customer portal section below. |
 | `gate_templates` / `gate_template_stages` / `gate_template_items` | `org_id` / via `gate_templates` / via `gate_template_stages` | Batch 4 (2026-07-06) — a reusable, org-editable 8-stage checklist definition (`handoff`/`scope`/`schedule`/`materials`/`mobilize`/`execute`/`punch`/`closeout`). Exactly one `is_default` template per org (partial unique index, same convention as "exactly one marking page"). Copied per-project at creation (sub-phase A) so later per-project edits never mutate the template. Seeded with a verbatim 29-item starter checklist — see ADR-037. |
 | `project_stages` / `project_gate_items`  | `project_id` / via `project_stages` | Batch 4 (2026-07-06) — the actual per-project copy of the above. `project_stages.status` ∈ `locked`/`active`/`complete`/`overridden` (one enum, not separate booleans) + `overridden_by`/`override_reason` when a gate is overridden. `project_gate_items.done`/`done_by`/`done_at` + optional `photo_path`/`signoff_user_id`/`due_date`, plus `position` (int, added in a Sub-phase A follow-up migration — see that section for why: no ordering column originally existed, and ordering by `created_at` wasn't reliable for bulk-inserted rows). The stage-gate lifecycle UI (stepper, What's Next, template management, gate nags) is Sub-phase A — built and live; see that section. |
-| `scope_items`                            | `project_id` (+ optional `row_id`/`phase_id`) | Batch 4 (2026-07-06) — work beyond install (`work_type` ∈ `install`/`teardown`/`remove_levels`/`add_levels`/`relocate`/`repair`/`other`) — the category of work an earlier real project ("iBuy") lost two weeks to leaving unscoped. `source` ∈ `handoff`/`estimate`/`change_order` tracks where an item came from; `change_order_id` links one added via a CO. |
+| `scope_items`                            | `project_id` (+ optional `row_id`/`phase_id`) | Batch 4 (2026-07-06) — work beyond install (`work_type` ∈ `install`/`teardown`/`remove_levels`/`add_levels`/`relocate`/`repair`/`other`) — the category of work an earlier real project ("iBuy") lost two weeks to leaving unscoped. `source` ∈ `handoff`/`estimate`/`change_order` tracks where an item came from; `change_order_id` links one added via a CO. Built out in Sub-phase C: a Scope tab (owner/pm CRUD) + field progress tracking (below) + folded into the estimator/scheduler's own labor-hours math. |
+| `scope_item_updates` / `scope_item_progress` | via `scope_items` | Sub-phase C (2026-07-06) — an append-only progress log (`status` ∈ `partial`/`done`, `note`, `photo_path`, `logged_by`) any org member can insert (crew included — mirrors `installs`/`blockers`), never updates an existing row; `scope_item_progress` is the latest-update-per-item view every consumer actually reads. |
 | `handoff_surveys`                        | `project_id` (unique)          | Batch 4 (2026-07-06) — the sales→ops handoff: site conditions, `constraints` (jsonb: live_warehouse/access_notes/forklift_onsite/working_hours/floor_condition/permits_needed), `photo_paths` (same array convention as `day_logs`), and dual estimator+PM sign-off columns/timestamps. One row per project. |
 | `change_orders`                          | `project_id`                  | Batch 4 (2026-07-06) — numbered per project (`unique(project_id, number)`), `reason`/`status` enums, `labor_units`/`added_days`/`price`, customer-approval tracking (`customer_approved_via`/`_at`/`_approver_name`). |
 | `project_comms`                          | `project_id`                  | Batch 4 (2026-07-06) — an auditable log of everything the customer was told (`kind` ∈ `milestone`/`weekly_report`/`manual`/`schedule_change`, `channel` ∈ `email`/`portal`/`logged_call`/`logged_other`). The push channel — the customer portal (Batch 3) stays the pull channel. |

@@ -5,14 +5,16 @@ import { useMemo, useState } from "react";
 
 import { BlockerForm } from "@/components/field/blocker-form";
 import { DayLogPanel } from "@/components/field/day-log-panel";
+import { FieldScopePanel } from "@/components/field/field-scope-panel";
 import { MaterialStepper } from "@/components/field/material-stepper";
 import { useCrewSelection } from "@/components/field/use-crew-selection";
 import { useInstallLogger } from "@/components/field/use-install-logger";
 import { Button } from "@/components/ui/button";
 import type { TodayInstall } from "@/lib/field/queries";
+import type { ScopeItemProgressRow } from "@/lib/scope/shared";
 import type { BlockerCode, Tables, Views } from "@/lib/supabase/database.types";
 
-type View = "rows" | "row" | "day";
+type View = "rows" | "row" | "day" | "scope";
 
 export function FieldWorkspace({
   project,
@@ -27,6 +29,7 @@ export function FieldWorkspace({
   todayBlockers,
   myCrewId,
   dayLogPhotoUrls,
+  scopeItems,
 }: {
   project: Tables<"projects">;
   rows: Views<"row_progress">[];
@@ -40,6 +43,7 @@ export function FieldWorkspace({
   todayBlockers: Tables<"blockers">[];
   myCrewId: string | null;
   dayLogPhotoUrls: Record<string, string>;
+  scopeItems: ScopeItemProgressRow[];
 }) {
   const [crewId, setCrewId] = useCrewSelection(myCrewId);
   const { logDelta, pendingCount } = useInstallLogger(project.id, crewId);
@@ -126,13 +130,37 @@ export function FieldWorkspace({
         <span className="truncate font-medium text-foreground">
           {project.name}
         </span>
-        <button
-          type="button"
-          onClick={() => setView(view === "day" ? "rows" : "day")}
-          className="text-sm font-medium text-primary"
-        >
-          {view === "day" ? "Rows" : "Day"}
-        </button>
+        {view === "rows" || view === "row" ? (
+          // Reachable from a specific row's own detail screen too, not
+          // just the rows list — restores the pre-existing shortcut of
+          // jumping straight to Day (or now Scope) without detouring
+          // back through "Rows" first. view === "row" additionally has
+          // its own "← Rows" back button in the body.
+          <div className="flex shrink-0 items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setView("scope")}
+              className="text-sm font-medium text-primary"
+            >
+              Scope
+            </button>
+            <button
+              type="button"
+              onClick={() => setView("day")}
+              className="text-sm font-medium text-primary"
+            >
+              Day
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setView("rows")}
+            className="shrink-0 text-sm font-medium text-primary"
+          >
+            Rows
+          </button>
+        )}
       </div>
 
       {pendingCount > 0 ? (
@@ -267,6 +295,10 @@ export function FieldWorkspace({
             Report a blocker for this row
           </Button>
         </div>
+      ) : null}
+
+      {view === "scope" ? (
+        <FieldScopePanel projectId={project.id} items={scopeItems} />
       ) : null}
 
       {view === "day" ? (

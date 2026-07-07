@@ -5,6 +5,125 @@ Consequences.
 
 ---
 
+## ADR-040: Batch 4, Sub-phase C — scope-of-work builder (non-install work)
+
+**Decision date:** 2026-07-06
+
+**Context:** iBuy's first failure was "teardown/level-change work was never
+scoped." Sub-phase C builds the Scope tab on top of Sub-phase 0's
+`scope_items` schema, wires it into the Estimate tab's hours and the
+Scheduler's capacity math (so non-install work actually counts, not just
+gets logged and ignored), and gives the Field app a way to mark it
+done/partial with a note and photo.
+
+**Choice — field progress as an append-only `scope_item_updates` log, not
+mutable columns on `scope_items` itself:** `scope_items_write` RLS is
+owner/pm only (work_type/description/qty/labor_units are office-decided
+content); crew needs to report progress but must not be able to touch
+those fields, and Postgres RLS can't restrict individual columns within
+one UPDATE policy without a trigger. An insert-only log sidesteps this
+entirely — crew always supplies an entirely new row, never touches an
+existing one — mirroring `installs`/`material_receipts`/`day_logs`'s own
+established event-sourced shape in this schema, not inventing a new one.
+A `scope_item_progress` view (latest update per item, via
+`left join lateral ... order by logged_at desc limit 1`) gives every
+consumer a convenient "current status" read, same convention as
+`row_progress`/`project_progress`.
+
+**Choice — seed `labor_standards` for the 5 non-install `work_type`s,
+keyed identically to `scope_items.work_type`:** `labor_standards` was
+seeded install-only (Batch 3) — nothing existed for
+teardown/remove_levels/add_levels/relocate/repair, so "labor_units
+suggested from labor_standards" (this sub-phase's own brief) had
+nothing to suggest from. Reused `work_type` as the lookup key directly
+rather than inventing a parallel `task_key` mapping — `lib/estimating/
+labor.ts#laborUnitsFor`'s existing `task_key` lookup (with its own
+"general" fallback) works unchanged for scope items with zero new code.
+The suggestion itself is a dismissible hint (a "Suggested: N hrs" button
+next to the field), not an auto-overwrite — unlike materials (where
+labor_units is always auto-recomputed, no override), non-install work is
+inherently more judgment-based per job, so the office should be able to
+type their own number without a suggestion fighting them.
+
+**Choice — scope items fold into the estimator/scheduler as their own
+`work_type`-keyed bucket, disjoint from materials' `task_key` buckets,
+not scaled by qty:** `getProjectLaborUnitsByTaskKey` (estimator) and
+`getProjectRemainingLaborUnits` (scheduler) both already reduce
+materials into a `Map<string, number>` keyed by `task_key`; scope items
+have no `task_key`; extending the same reduce with `work_type` as the
+key was the smallest change that reuses 100% of the existing
+`resolveRate` rate-resolution logic (crew rate → company blend →
+standard-pace fallback) for free. A scope item's full `labor_units`
+counts once — no "qty installed so far" concept exists for it, only a
+done/not-done status — so `total` always includes it and `remaining`
+excludes it once (and only once) `scope_item_progress.status = 'done'`.
+
+**Choice — the Scope tab is visible even for pre-sale `estimate`-status
+projects, unlike Layout/Receiving/Progress/Portal:** those four are
+execution-only concerns with nothing to show pre-sale (no rows, no
+install progress). Scope-of-work is different — the whole reason
+`getProjectLaborUnitsByTaskKey` needed extending is so a *draft
+estimate's* hours account for known non-install work from the start
+(e.g. "this quote needs to include a 3-day teardown"), not just after
+conversion to a real project. Project-level items (no row/phase
+attachment) work fine before any rows exist yet.
+
+**Real bug found while building the Field integration, and the lesson
+it reinforces:** the Field app's scope-progress card appeared to get
+permanently stuck mid-transition after "Mark done" — status never
+flipped, buttons stayed rendered and disabled, seemingly forever. Two
+plausible-looking fixes (adding a `router.refresh()` call, then
+removing a local `justLogged` status override to match the office-side
+`ScopeItemRow`'s simpler prop-only pattern exactly) each failed to
+change the symptom at all — a strong signal the diagnosis itself was
+wrong, not the fix. The dev server's own request log showed the
+`logScopeItemProgress` Server Action completing successfully in under
+200ms every time; a temporary debug marker rendering the raw
+`item.status` value confirmed the prop *did* update correctly. The
+actual bug was in the E2E test, not the component: an unscoped
+`getByText("Done")`/`getByText("Partial")` — case-insensitive substring
+matching by default — also matches the "Mark done" and "Photo + mark
+done" buttons' own labels, which (correctly) remain rendered and
+disabled for the brief pending window `useTransition` shows before a
+transition commits. Fixed by adding `{ exact: true }` to both
+assertions, the real fix all along. Kept the `router.refresh()`
+addition and the `justLogged` removal anyway — not because they were
+the fix, but because they make the Field version consistent with the
+office version's already-proven, simpler pattern (props + refresh, no
+local shadow state) rather than reverting to an unexplained asymmetry
+between two components doing the same job.
+
+**Real regression found and fixed in the same work:** restructuring the
+Field header's single Rows/Day toggle button into a Scope/Day pair
+broke `e2e/field-flow.spec.ts` (a 60-second timeout, not a quick
+failure) — the original toggle was reachable from *any* non-"day" view
+including a specific row's own detail screen (`view === "row"`), a
+deliberate shortcut to jump straight to closing out the day without
+detouring back through the rows list first. The rebuild only showed the
+new Scope/Day pair when `view === "rows"`, silently removing that
+shortcut. Fixed by showing the pair whenever `view` is `"rows"` *or*
+`"row"`, restoring the original reachability while adding Scope
+alongside it.
+
+**Consequences:** New migrations: `20260707150000_scope_item_progress.sql`
+(`scope_item_updates` table + `scope_item_progress` view +
+`org_id_of_scope_item` helper), `20260707160000_scope_labor_standards.sql`
+(5 new `labor_standards` rows per org). New modules: `lib/scope/
+{shared,queries,actions}.ts`, `components/scope/scope-workspace.tsx`,
+`components/field/field-scope-panel.tsx`. `lib/estimating/
+queries.ts#getProjectLaborUnitsByTaskKey` and `lib/scheduler/
+queries.ts#getProjectRemainingLaborUnits` both extended with an
+identical shape (batch-fetch `scope_item_progress`, fold into the same
+maps by `work_type`, skip `done` items for "remaining"). New "Scope" tab
+on `project-tabs.tsx` (visible for both `estimate` and non-estimate
+projects) and a new "Scope" view in the Field app's header (reachable
+from the rows list and from within a row's own detail screen). Full E2E
+suite green: 31 passed, 2 intentionally skipped, including a fix for a
+genuine pre-existing-test regression this sub-phase's own header change
+caused.
+
+---
+
 ## ADR-039: Batch 4, Sub-phase B — PM-of-record accountability
 
 **Decision date:** 2026-07-06

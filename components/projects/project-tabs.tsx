@@ -28,6 +28,11 @@ export function ProjectTabs({
       ? [{ href: `${base}/mark`, label: "Layout" }]
       : []),
     { href: `${base}/materials`, label: "Materials" },
+    // Visible even pre-sale (unlike Layout/Progress/Portal, which are
+    // execution-only) — the whole point of capturing non-install work
+    // here is so a draft estimate's hours account for it from the
+    // start (Batch 4 Sub-phase C), not just after conversion to active.
+    { href: `${base}/scope`, label: "Scope" },
     ...(status !== "estimate"
       ? [
           { href: `${base}/receiving`, label: "Receiving" },

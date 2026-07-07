@@ -157,27 +157,42 @@ export async function getProjectWithSchedule(
 // rather than a per-crew-accurate capacity check. Falls back to the
 // standard pace (1.0) per task_key wherever no crew has any install
 // history yet — identical to the pre-sub-phase-D numbers until then.
+// scope_items (Batch 4 Sub-phase C) fold into the same remaining-hours
+// figure — a not-yet-'done' item's full labor_units, resolved through
+// the same resolveRate(work_type, ...) path materials use (work_type
+// doubles as the task_key here; labor_standards was seeded with
+// matching keys — see 20260707160000_scope_labor_standards.sql). No
+// "assigned vs installed" concept for scope items, only done/not-done.
 export async function getProjectRemainingLaborUnits(
   projectId: string
 ): Promise<number> {
   const supabase = await createClient();
-  const [{ data: materials, error: materialsError }, { data: reconciliation, error: reconError }, companyRates] =
-    await Promise.all([
-      supabase
-        .from("materials")
-        .select("id, task_key, labor_units")
-        .eq("project_id", projectId),
-      supabase
-        .from("material_reconciliation")
-        .select("material_id, assigned, installed")
-        .eq("project_id", projectId),
-      getCompanyRatesByTaskKey(),
-    ]);
+  const [
+    { data: materials, error: materialsError },
+    { data: reconciliation, error: reconError },
+    { data: scopeItems, error: scopeError },
+    companyRates,
+  ] = await Promise.all([
+    supabase
+      .from("materials")
+      .select("id, task_key, labor_units")
+      .eq("project_id", projectId),
+    supabase
+      .from("material_reconciliation")
+      .select("material_id, assigned, installed")
+      .eq("project_id", projectId),
+    supabase
+      .from("scope_item_progress")
+      .select("work_type, labor_units, status")
+      .eq("project_id", projectId),
+    getCompanyRatesByTaskKey(),
+  ]);
   if (materialsError) throw materialsError;
   if (reconError) throw reconError;
+  if (scopeError) throw scopeError;
 
   const materialById = new Map(materials.map((m) => [m.id, m]));
-  return reconciliation.reduce((sum, row) => {
+  const materialsHours = reconciliation.reduce((sum, row) => {
     const material = materialById.get(row.material_id);
     if (!material) return sum;
     const remaining = Math.max(0, row.assigned - row.installed);
@@ -185,6 +200,14 @@ export async function getProjectRemainingLaborUnits(
     const { unitsPerHour } = resolveRate(material.task_key, null, EMPTY_CREW_RATES, companyRates);
     return sum + standardUnits / unitsPerHour;
   }, 0);
+
+  const scopeHours = scopeItems.reduce((sum, item) => {
+    if (!item.work_type || !item.labor_units || item.status === "done") return sum;
+    const { unitsPerHour } = resolveRate(item.work_type, null, EMPTY_CREW_RATES, companyRates);
+    return sum + item.labor_units / unitsPerHour;
+  }, 0);
+
+  return materialsHours + scopeHours;
 }
 
 // A project's remaining labor, spread evenly across its remaining
