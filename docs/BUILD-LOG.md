@@ -4,6 +4,61 @@ Engineering journal. Newest entries at top.
 
 ---
 
+## 2026-07-06 — Batch 4 Sub-phase I: closeout autopsy
+
+**What:** the feedback loop — estimated vs actual across every
+dimension, generated at closeout, feeding the estimation brain so the
+next bid is sharper than the last. Full reasoning in
+`docs/DECISIONS.md` ADR-046; summary here.
+
+**Build:** `generateAutopsy` computes days (distinct install dates),
+productive hours (summed day-log install windows), labor units
+(installs × per-unit labor + completed scope items), material variance
+(reconciliation rows verbatim), approved COs (count + added days), and
+blocker impact (distinct affected days, total AND per code — one new
+`blocker_breakdown` jsonb column). The estimated side is the ORIGINAL
+estimate (deal-time snapshot, else the FIRST saved estimate) — judging
+against the latest would grade the test after erasing the wrong
+answers. Verdicts (under/on/over ± signed %, ±10% band) compute at
+render, never stored. Generation triggers `recomputeCrewRates()` (the
+rolling window already weights recent actuals highest) and auto-ticks
+the seeded "Autopsy generated" closeout item; `listLaborStandardDivergence`
+flags seeds the learned rates say are wrong (company-blended rate vs
+the 1.0 units/hour definition, ≥3-sample trust bar) on a new
+"Estimate accuracy" section of /app/estimate — every autopsied
+project's variance in one table, right above the labor-standards
+editor the flags tell you to adjust. The AutopsyPanel lives on the
+Progress tab (owner/pm), the closeout PDF gains the
+estimated-vs-actual section, "Email to owners" sends the summary, and
+an optional AI narrative (bare-fetch forced-tool route, gated
+owner/pm since it reads office-only data) drafts max 5 candid lines
+into an editable box — numbers are the source of truth, the human
+saves what they actually want kept.
+
+**Found while building:** a `"use server"` file can't re-export even a
+TYPE — `export type { AutopsyRow }` crashed at runtime with
+`ReferenceError: AutopsyRow is not defined` (the actions transform
+emits runtime re-exports for every export name). And react-pdf's
+`<Image>` is raster-only: an SVG behind a marking-drawing row blows up
+the closeout PDF with "Font family not registered" — impossible via
+real uploads (the client re-encodes to JPEG), only admin-fabricated
+test fixtures hit it.
+
+**Verified:** `npm run lint`/`typecheck`/`build` all green. New
+`e2e/autopsy-flow.spec.ts` fabricates a finished project with exact
+known ground truth (10d/20lu estimated vs 12d/24lu/24h actual, 3
+blocker days across 2 codes, one approved CO at +1.5d) and asserts the
+stored numbers to the decimal, the "20% over estimate" verdicts
+rendered, the gate item tick, a LIVE AI narrative draft + save, the
+owner-email path (Resend's sandbox rejection accepted as proof the
+full path executed — domain verification remains the standing
+NEEDS-YOU), the PDF, and the company view's +20% row. Full suite
+green: 38 passed, 3 intentionally skipped (one project-flow timing
+flake under load re-ran green standalone and in the confirming full
+re-run); zero leftover test data.
+
+---
+
 ## 2026-07-06 — Batch 4 Sub-phase H: customer communication plan
 
 **What:** the push channel — iBuy's customer discovering slips instead

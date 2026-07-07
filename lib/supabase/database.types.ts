@@ -1341,6 +1341,7 @@ export type Database = {
           actual_days: number | null
           actual_labor_hours: number | null
           actual_labor_units: number | null
+          blocker_breakdown: Json
           blocker_days: number
           change_order_count: number
           change_order_days: number
@@ -1357,6 +1358,7 @@ export type Database = {
           actual_days?: number | null
           actual_labor_hours?: number | null
           actual_labor_units?: number | null
+          blocker_breakdown?: Json
           blocker_days?: number
           change_order_count?: number
           change_order_days?: number
@@ -1373,6 +1375,7 @@ export type Database = {
           actual_days?: number | null
           actual_labor_hours?: number | null
           actual_labor_units?: number | null
+          blocker_breakdown?: Json
           blocker_days?: number
           change_order_count?: number
           change_order_days?: number

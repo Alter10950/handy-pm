@@ -300,6 +300,21 @@ session, not just the seeded owner playing both parts. Full suite green:
 33 passed, 3 intentionally skipped; confirmed zero leftover test data
 (including `handoff_surveys` rows) afterward.
 
+**Sub-phase I — closeout autopsy — done and verified live (2026-07-06,
+see ADR-046):** every job now ends by grading its own estimate.
+Generated at closeout (and auto-ticking that stage's checklist item):
+original-estimate vs actual across days on site, productive hours, and
+labor units — each with an under/on/over verdict — plus material
+variance, change-order impact, and blocker days broken down by code.
+Generation re-runs the crew-rate learner so actuals immediately sharpen
+future estimates, and a company "Estimate accuracy" view on
+/app/estimate trends every autopsied project's variance and flags
+labor-standard seeds the learned rates contradict. Renders in-app, as a
+closeout-PDF section, and as an optional owner email; an optional AI
+narrative (5 candid lines, numbers as source of truth) drafts into an
+editable box the PM saves deliberately. Full suite green: 38 passed, 3
+intentionally skipped.
+
 **Sub-phase H — customer communication plan — done and verified live
 (2026-07-06, see ADR-045):** slips get communicated, not discovered.
 Auto milestone emails fire from the real events (schedule confirmed,
@@ -1241,6 +1256,44 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
       actually runs in this environment). Full suite green: 33 passed, 3
       intentionally skipped; confirmed zero leftover test data (projects,
       auth users, and `handoff_surveys` rows all back to zero) afterward.
+
+## Batch 4, Sub-phase I — Closeout autopsy ✅ done (2026-07-06)
+
+- [x] `generateAutopsy` — estimated (ORIGINAL estimate snapshot, else
+      first saved estimate) vs actual: days (distinct install dates),
+      productive hours (day-log install windows), labor units (installs ×
+      per-unit labor + done scope items), material variance
+      (reconciliation verbatim), approved COs (count + added days),
+      blocker days total AND per code (new `blocker_breakdown` jsonb).
+- [x] Verdict per dimension (under/on/over + signed %, ±10% band) —
+      computed at render, never stored; regeneration recomputes numbers
+      and preserves the narrative.
+- [x] Feeds the estimation brain: generation triggers
+      `recomputeCrewRates()` (rolling window = recent actuals weigh
+      most), and `listLaborStandardDivergence` flags seeds the learned
+      rates contradict (company blend vs the 1 lu = 1 hr definition,
+      ≥3-sample bar).
+- [x] Renders in-app (AutopsyPanel on the Progress tab, owner/pm only),
+      as a closeout-PDF section with verdict text, and as an optional
+      "Email to owners" summary; generation auto-ticks the seeded
+      "Autopsy generated" closeout gate item.
+- [x] Optional AI narrative (gate `ANTHROPIC_API_KEY`): max 5 candid
+      lines drafted from the numbers into an editable textarea — the
+      human saves what's kept; route gated owner/pm (it reads
+      office-only data, unlike the requireOrg AI routes).
+- [x] Company view on /app/estimate ("Estimate accuracy"): every
+      autopsied project's day/labor variance in one table + the
+      divergence flags, above the labor-standards editor they point at.
+- [x] Found: "use server" files can't re-export even types (runtime
+      ReferenceError); react-pdf `<Image>` is raster-only (SVG fixtures
+      blow up the closeout PDF — unreachable via real uploads, which
+      re-encode to JPEG client-side).
+- [x] `npm run lint`/`typecheck`/`build` all pass. New
+      `e2e/autopsy-flow.spec.ts` — exact known ground truth asserted to
+      the decimal (20% over on all three dimensions), verdicts in the
+      UI, gate tick, live AI draft + save, owner-email path, PDF, and
+      the company view's +20% row. Full suite green: 38 passed, 3
+      intentionally skipped; zero leftover test data.
 
 ## Batch 4, Sub-phase H — Customer communication plan ✅ done (2026-07-06)
 

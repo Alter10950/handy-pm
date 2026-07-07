@@ -1712,6 +1712,45 @@ The push channel (the portal stays pull). Full reasoning in ADR-045.
   contact + preferences, manual call/other logging (kind `manual`), and
   the complete history.
 
+## Closeout autopsy (Batch 4, Sub-phase I, 2026-07-06)
+
+Every job grades its own estimate at closeout. Full reasoning in
+ADR-046.
+
+- **Baseline = the ORIGINAL estimate** (the ADR-043 deal-time snapshot,
+  else the FIRST saved `project_estimates` row) — the earliest belief
+  is the honest one to judge; the latest estimate already corrected
+  itself mid-job. Actuals: distinct install dates, summed day-log
+  install windows, installs × per-unit labor + done scope items,
+  reconciliation rows verbatim (material_variance jsonb), approved COs,
+  blocker days total + per code (`blocker_breakdown` jsonb, the one
+  schema addition).
+- **Verdicts compute at render** (±10% band, signed %) — never stored,
+  nothing to drift. Regenerating recomputes numbers from ground truth
+  and preserves the narrative.
+- **Feeds the brain via existing mechanisms:** generation runs
+  `recomputeCrewRates()` (the rolling window already weights recent
+  actuals highest), and `listLaborStandardDivergence` compares
+  company-blended learned rates (≥3 samples) against the 1 lu = 1 hr
+  definition to flag wrong seeds on the `/app/estimate` "Estimate
+  accuracy" view — placed directly above the labor-standards editor
+  the flags tell you to adjust.
+- **Surfaces:** AutopsyPanel on the Progress tab (owner/pm only —
+  matches project_autopsies RLS), a closeout-PDF section with verdict
+  text, optional owner email, auto-tick of the seeded "Autopsy
+  generated" item, and the company accuracy table.
+- **AI narrative** (`/api/autopsy/narrative`): bare-fetch forced-tool
+  per ADR-025, but gated `requireRole(["owner","pm"])` — unlike the
+  requireOrg AI routes, it reads office-only data for its prompt. Max
+  5 lines, drafts into an editable textarea; the human saves what's
+  kept.
+- **Two sharp edges found:** a `"use server"` file cannot re-export
+  even a TYPE (the actions transform emits runtime re-exports per
+  export name → ReferenceError); react-pdf's `<Image>` decodes raster
+  only — an SVG marking drawing 500s the closeout PDF, which real
+  uploads can never hit (client-side JPEG re-encode) but
+  admin-fabricated test fixtures can.
+
 ## Testing
 
 `npm run test:e2e` (`npm run seed && playwright test`) runs a Playwright
@@ -2153,7 +2192,7 @@ transitively via `project_id` → `projects.org_id` or `crew_id` →
 | `change_orders`                          | `project_id`                  | Batch 4 (2026-07-06) — numbered per project (`unique(project_id, number)`), `reason`/`status` enums, `labor_units`/`added_days`/`price`, customer-approval tracking (`customer_approved_via`/`_at`/`_approver_name`). Built out in Sub-phase F: + `approval_token`/`sent_at`/`sent_to` (single-use public approve/decline token), the COs tab, the public `/portal/co/[token]` page, and merge-on-approval. |
 | `change_order_items`                     | via `change_orders`           | Sub-phase F (2026-07-06) — a CO's own draft lines (`kind` ∈ `scope`/`material`, work_type/description/qty/unit/labor_units). Deliberately NOT in scope_items/materials until approval, so unapproved work is structurally invisible to every consumer; on approval the lines are copied into the real tables (tagged `change_order_id`) and these rows remain as the CO's permanent record. |
 | `project_comms`                          | `project_id`                  | Batch 4 (2026-07-06) — an auditable log of everything the customer was told (`kind` ∈ `milestone`/`weekly_report`/`manual`/`schedule_change`/`change_order`, `channel` ∈ `email`/`portal`/`logged_call`/`logged_other`). The push channel — the customer portal (Batch 3) stays the pull channel. Built out in Sub-phase H: auto milestones, the weekly customer report, manual logging, the Comms tab — and the exact-subject match against this table is the milestone dedupe. |
-| `project_autopsies`                      | `project_id` (unique)          | Batch 4 (2026-07-06) — estimated vs actual, generated at the Closeout stage: days/hours/labor units/`material_variance` (jsonb)/change-order count+days/blocker days, plus an optional narrative. |
+| `project_autopsies`                      | `project_id` (unique)          | Batch 4 (2026-07-06) — estimated vs actual, generated at the Closeout stage: days/hours/labor units/`material_variance` (jsonb)/change-order count+days/blocker days, plus an optional narrative. Built out in Sub-phase I: + `blocker_breakdown` (jsonb, days lost per code), generation from ground truth on the Progress tab, verdicts at render, the company accuracy view, and the AI-drafted narrative. |
 | `capacity_overrides`                     | `project_id`                   | Sub-phase G (2026-07-06) — insert-only audit of owner capacity overrides: required `reason`, `conflict_dates` snapshot, who/when. Written only when an owner saves a schedule past the num_crews hard block; surfaced on the dashboard. |
 
 **Exactly one marking page per project:** `drawings.role` defaults to

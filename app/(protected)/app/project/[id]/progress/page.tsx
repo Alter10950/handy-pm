@@ -1,6 +1,9 @@
+import { AutopsyPanel } from "@/components/autopsy/autopsy-panel";
 import { PhaseProgress } from "@/components/projects/phase-progress";
+import { getAutopsy } from "@/lib/autopsy/queries";
 import { listPhases } from "@/lib/phases/queries";
 import { getProjectProgress, listRowProgress } from "@/lib/projects/queries";
+import { createClient } from "@/lib/supabase/server";
 
 export default async function ProjectProgressPage({
   params,
@@ -14,6 +17,18 @@ export default async function ProjectProgressPage({
     listRowProgress(id),
   ]);
   const pct = Math.round((progress?.pct ?? 0) * 100);
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const { data: profile } = user
+    ? await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle()
+    : { data: null };
+  const canManage = profile?.role === "owner" || profile?.role === "pm";
+  // project_autopsies RLS is owner/pm-only — don't even query for other
+  // roles (it would silently return null anyway).
+  const autopsy = canManage ? await getAutopsy(id) : null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -67,6 +82,16 @@ export default async function ProjectProgressPage({
       </div>
 
       <PhaseProgress phases={phases} rowProgress={rowProgress} />
+
+      {canManage ? (
+        <AutopsyPanel
+          projectId={id}
+          autopsy={autopsy}
+          canManage={canManage}
+          aiAvailable={Boolean(process.env.ANTHROPIC_API_KEY)}
+          resendConfigured={Boolean(process.env.RESEND_API_KEY)}
+        />
+      ) : null}
 
       <p className="text-sm text-muted-foreground">
         Per-material reconciliation (installed / assigned / needed / received /

@@ -5,6 +5,94 @@ Consequences.
 
 ---
 
+## ADR-046: Batch 4, Sub-phase I — closeout autopsy
+
+**Decision date:** 2026-07-06
+
+**Context:** without a structured look-back, every estimate repeats the
+last one's mistakes — iBuy's overrun taught nothing because nothing
+recorded what "over" even was. Sub-phase 0 created `project_autopsies`;
+this sub-phase computes it, renders it, feeds it back into the
+estimation brain, and trends it company-wide.
+
+**Choice — the estimated side is the ORIGINAL estimate, not the
+latest:** the baseline judged against is
+`projects.original_estimate_*` (the deal-time snapshot, ADR-043),
+falling back to the FIRST saved `project_estimates` row — the earliest
+belief is the honest one; judging against the latest estimate (already
+corrected mid-job) would grade the test after erasing the wrong
+answers. Actuals: distinct install dates (days on site), summed
+day-log install windows (productive hours), installs × per-unit labor
+plus completed scope items (labor units), the reconciliation rows
+verbatim (material variance jsonb), approved COs (count + added days),
+and blockers as distinct affected days — total and per code (new
+`blocker_breakdown` jsonb column, the one schema addition).
+
+**Choice — verdicts are ±10% bands computed at render, never stored:**
+under/on/over + signed % (`verdict()` in lib/autopsy/shared) — storing
+them would just create a second copy to drift. Regeneration is safe and
+expected (numbers recompute from ground truth; the narrative — human
+text — survives via upsert semantics that never touch it).
+
+**Choice — feeding the estimation brain is two existing mechanisms, not
+a new one:** (1) generating an autopsy triggers `recomputeCrewRates()`
+— the rolling window already makes recent actuals the highest-weight
+data by construction, so "actuals become the highest-weight data" is
+the existing learner run at the moment new history lands; (2)
+`listLaborStandardDivergence` compares the company-blended learned
+rates (≥3 samples, the estimator's own trust bar) against the 1.0
+units/hour definition — a task_key far from 1.0 means its seed
+hours-per-unit is wrong by about that factor, flagged on the company
+view with a plain-language direction ("quotes will run ~40% over at
+this seed").
+
+**Choice — the AI narrative is optional, numbers-first, and lands in an
+editable box:** `/api/autopsy/narrative` follows the established
+bare-fetch/forced-tool pattern (ADR-025) but gates on
+`requireRole(["owner","pm"])` rather than requireOrg — unlike the
+packing-slip/voice-note routes it READS office-only data (the autopsy
+row) to build its prompt. Max 5 lines, explicitly told the numbers are
+the source of truth; the draft only ever fills the textarea, and
+`saveAutopsyNarrative` persists whatever the human left there.
+
+**Choice — surfaces:** the AutopsyPanel lives on the Progress tab
+(owner/pm only — project_autopsies RLS is office-only, so other roles
+don't even query), generation auto-ticks the seeded "Autopsy generated"
+closeout item (same label sync as ADR-041/042/044), the closeout PDF
+gains an estimated-vs-actual section with verdict text, "Email to
+owners" sends a summary to owner-role emails (owners are the
+bid-accuracy audience), and `/app/estimate` gains the company view —
+every autopsied project's day/labor variance in one table plus the
+labor-standard divergence flags, right above the labor standards
+editor those flags tell you to adjust.
+
+**Found while building:** a `"use server"` file can't even re-export a
+TYPE (`export type { AutopsyRow }`) — the actions-module transform
+emits a runtime re-export for every export name and crashes the page
+with `ReferenceError: AutopsyRow is not defined`. Also (test-side):
+react-pdf's `<Image>` decodes raster formats only — an SVG behind the
+marking-drawing row trips its font machinery ("Font family not
+registered: sans-serif"); real uploads are always JPEG (the client
+re-encode), so this only ever bites admin-fabricated fixtures.
+
+**Consequences:** New migration
+`20260707200000_autopsy_blocker_breakdown.sql`. New
+`lib/autopsy/{shared,queries,actions}.ts`,
+`components/autopsy/{autopsy-panel,estimate-accuracy}.tsx`,
+`/api/autopsy/narrative`, the Progress-tab panel, the closeout-PDF
+autopsy section, and the `/app/estimate` accuracy view. New
+`e2e/autopsy-flow.spec.ts` — fabricates a finished project (20 lu / 10
+days estimated vs 24 lu / 12 days / 24 h actual, 3 blocker days across
+2 codes, one approved CO) and asserts the exact stored numbers, the
+"20% over estimate" verdicts in the UI, the auto-ticked gate item, a
+live AI narrative draft + save, the owner-email path (accepting
+Resend's sandbox rejection as proof the full path ran — domain
+verification is a standing NEEDS-YOU), the PDF including the section,
+and the company view showing +20%. Full suite green: 38 passed, 3
+intentionally skipped.
+
+---
+
 ## ADR-045: Batch 4, Sub-phase H — customer communication plan
 
 **Decision date:** 2026-07-06

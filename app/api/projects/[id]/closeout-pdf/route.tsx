@@ -79,6 +79,13 @@ export async function GET(
   if (dayLogsError) throw dayLogsError;
   if (changeOrdersError) throw changeOrdersError;
 
+  const { data: autopsy, error: autopsyError } = await supabase
+    .from("project_autopsies")
+    .select("*")
+    .eq("project_id", projectId)
+    .maybeSingle();
+  if (autopsyError) throw autopsyError;
+
   const crewIds = [
     ...new Set(dayLogs.map((log) => log.crew_id).filter((id): id is string => id !== null)),
   ];
@@ -138,6 +145,20 @@ export async function GET(
       approvedVia: co.customer_approved_via,
       approvedAt: co.customer_approved_at,
     })),
+    autopsy: autopsy
+      ? {
+          estimatedDays: autopsy.estimated_days,
+          actualDays: autopsy.actual_days,
+          estimatedHours: autopsy.estimated_hours,
+          actualLaborHours: autopsy.actual_labor_hours,
+          estimatedLaborUnits: autopsy.estimated_labor_units,
+          actualLaborUnits: autopsy.actual_labor_units,
+          changeOrderCount: autopsy.change_order_count,
+          changeOrderDays: autopsy.change_order_days,
+          blockerDays: autopsy.blocker_days,
+          narrative: autopsy.narrative,
+        }
+      : null,
   };
 
   const buffer = await renderToBuffer(<CloseoutPdfDocument data={data} />);

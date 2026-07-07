@@ -37,6 +37,19 @@ export interface CloseoutChangeOrder {
   approvedAt: string | null;
 }
 
+export interface CloseoutAutopsy {
+  estimatedDays: number | null;
+  actualDays: number | null;
+  estimatedHours: number | null;
+  actualLaborHours: number | null;
+  estimatedLaborUnits: number | null;
+  actualLaborUnits: number | null;
+  changeOrderCount: number;
+  changeOrderDays: number;
+  blockerDays: number;
+  narrative: string | null;
+}
+
 export interface CloseoutPdfData {
   orgName: string;
   orgAddress: string | null;
@@ -50,6 +63,18 @@ export interface CloseoutPdfData {
   blockers: CloseoutBlocker[];
   dayLogs: CloseoutDayLog[];
   changeOrders: CloseoutChangeOrder[];
+  autopsy: CloseoutAutopsy | null;
+}
+
+// Under/on/over verdict text for the PDF — mirrors lib/autopsy/shared's
+// verdict() (kept separate: this file renders in react-pdf's runtime and
+// keeps zero app imports beyond types).
+function verdictText(estimated: number | null, actual: number | null): string {
+  if (estimated === null || actual === null || estimated <= 0) return "—";
+  const pct = Math.round(((actual - estimated) / estimated) * 100);
+  if (pct > 10) return `${pct}% over`;
+  if (pct < -10) return `${Math.abs(pct)}% under`;
+  return `on estimate (${pct >= 0 ? "+" : ""}${pct}%)`;
 }
 
 const styles = StyleSheet.create({
@@ -238,6 +263,66 @@ export function CloseoutPdfDocument({ data }: { data: CloseoutPdfData }) {
             ))}
           </View>
         )}
+
+        {data.autopsy ? (
+          <>
+            <Text style={styles.sectionTitle}>Closeout autopsy — estimated vs actual</Text>
+            <View style={styles.table}>
+              <View style={styles.tableHeaderRow}>
+                <Text style={[styles.th, { flex: 2 }]}>Dimension</Text>
+                <Text style={styles.th}>Estimated</Text>
+                <Text style={styles.th}>Actual</Text>
+                <Text style={[styles.th, { flex: 2 }]}>Verdict</Text>
+              </View>
+              <View style={styles.tableRow}>
+                <Text style={[styles.td, { flex: 2 }]}>Days on site</Text>
+                <Text style={styles.td}>{data.autopsy.estimatedDays ?? "—"}</Text>
+                <Text style={styles.td}>{data.autopsy.actualDays ?? "—"}</Text>
+                <Text style={[styles.td, { flex: 2 }]}>
+                  {verdictText(data.autopsy.estimatedDays, data.autopsy.actualDays)}
+                </Text>
+              </View>
+              <View style={styles.tableRow}>
+                <Text style={[styles.td, { flex: 2 }]}>Productive hours</Text>
+                <Text style={styles.td}>{data.autopsy.estimatedHours ?? "—"}</Text>
+                <Text style={styles.td}>{data.autopsy.actualLaborHours ?? "—"}</Text>
+                <Text style={[styles.td, { flex: 2 }]}>
+                  {verdictText(data.autopsy.estimatedHours, data.autopsy.actualLaborHours)}
+                </Text>
+              </View>
+              <View style={styles.tableRow}>
+                <Text style={[styles.td, { flex: 2 }]}>Labor units</Text>
+                <Text style={styles.td}>{data.autopsy.estimatedLaborUnits ?? "—"}</Text>
+                <Text style={styles.td}>{data.autopsy.actualLaborUnits ?? "—"}</Text>
+                <Text style={[styles.td, { flex: 2 }]}>
+                  {verdictText(
+                    data.autopsy.estimatedLaborUnits,
+                    data.autopsy.actualLaborUnits
+                  )}
+                </Text>
+              </View>
+              <View style={styles.tableRow}>
+                <Text style={[styles.td, { flex: 2 }]}>Change orders</Text>
+                <Text style={styles.td}>—</Text>
+                <Text style={styles.td}>{data.autopsy.changeOrderCount}</Text>
+                <Text style={[styles.td, { flex: 2 }]}>
+                  +{data.autopsy.changeOrderDays} day(s)
+                </Text>
+              </View>
+              <View style={styles.tableRow}>
+                <Text style={[styles.td, { flex: 2 }]}>Blocker-affected days</Text>
+                <Text style={styles.td}>—</Text>
+                <Text style={styles.td}>{data.autopsy.blockerDays}</Text>
+                <Text style={[styles.td, { flex: 2 }]} />
+              </View>
+            </View>
+            {data.autopsy.narrative ? (
+              <Text style={{ fontSize: 9.5, lineHeight: 1.4, marginTop: 6 }}>
+                {data.autopsy.narrative}
+              </Text>
+            ) : null}
+          </>
+        ) : null}
 
         <View style={styles.signRow}>
           <View style={styles.signBlock}>

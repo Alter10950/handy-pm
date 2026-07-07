@@ -1,10 +1,15 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
+import { EstimateAccuracy } from "@/components/autopsy/estimate-accuracy";
 import { CrewRatesPanel } from "@/components/estimating/crew-rates-panel";
 import { LaborStandardsEditor } from "@/components/estimating/labor-standards-editor";
 import { NewEstimateDialog } from "@/components/estimating/new-estimate-dialog";
 import { ProjectCard } from "@/components/projects/project-card";
+import {
+  listCompanyAutopsies,
+  listLaborStandardDivergence,
+} from "@/lib/autopsy/queries";
 import { listCrews } from "@/lib/crews/queries";
 import {
   listCrewRates,
@@ -40,12 +45,18 @@ export default async function EstimatingPage() {
     redirect("/app");
   }
 
-  const [estimates, standards, crews, rates] = await Promise.all([
-    listEstimateProjects(),
-    listLaborStandards(),
-    listCrews(),
-    listCrewRates(),
-  ]);
+  // project_autopsies RLS is owner/pm-only — a scheduler would just get
+  // silent empties, so skip the queries entirely for them.
+  const isOffice = profile.role === "owner" || profile.role === "pm";
+  const [estimates, standards, crews, rates, autopsies, divergences] =
+    await Promise.all([
+      listEstimateProjects(),
+      listLaborStandards(),
+      listCrews(),
+      listCrewRates(),
+      isOffice ? listCompanyAutopsies() : Promise.resolve([]),
+      isOffice ? listLaborStandardDivergence() : Promise.resolve([]),
+    ]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -76,6 +87,10 @@ export default async function EstimatingPage() {
           </div>
         )}
       </div>
+
+      {isOffice ? (
+        <EstimateAccuracy autopsies={autopsies} divergences={divergences} />
+      ) : null}
 
       <LaborStandardsEditor standards={standards} />
       <CrewRatesPanel crews={crews} rates={rates} />
