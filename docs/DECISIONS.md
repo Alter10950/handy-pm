@@ -5,6 +5,92 @@ Consequences.
 
 ---
 
+## ADR-045: Batch 4, Sub-phase H — customer communication plan
+
+**Decision date:** 2026-07-06
+
+**Context:** iBuy's customer was never told the schedule — slips were
+discovered, not communicated. Sub-phase 0 gave `projects` the contact/
+preference columns and created `project_comms` (the audit log of
+everything the customer was told); the portal (Batch 3) is the pull
+channel. This sub-phase builds the push channel: auto milestones, an
+auto weekly customer report, proactive slip notices, and manual logging
+— all landing in one per-project Comms tab.
+
+**Choice — milestones are hooked to the events themselves, sent via the
+admin client, and deduped by their own log:** `lib/comms/milestones.ts`
+is called from the success paths that ARE the milestones —
+`setProjectSchedule` (schedule confirmed), `completeStage`/
+`overrideStage` via the stage that just finished (mobilize→install
+started, punch→punch complete, closeout→closed out), and
+`logInstallDelta` (50% crossed; a phase's rows all complete). The admin
+client is deliberate: the triggering session varies from scheduler to
+owner to CREW (whose RLS can't insert into office-only project_comms),
+and the milestone is the org talking to its customer, not the
+individual user (same reasoning as the report sender, ADR-032). Dedupe
+is an exact (project, kind='milestone', subject) match against
+project_comms itself — the log of what was sent doubles as the guard
+against sending it twice, so the hooks only ever detect "the condition
+holds now," never "it just changed." Every hook is best-effort: a comms
+hiccup must never fail a schedule save or a crew's install log.
+Ordering nuance: an overridden stage still fires its milestone (the
+customer-facing fact — install started — holds either way), but
+"Customer notified of schedule" only auto-ticks when the milestone
+actually SENT, never on a skip.
+
+**Choice — the finish-changed notice is deliberately half-automatic:**
+the estimate panel detects the change (this save's forecast vs the last
+SAVED estimate) and prompts; the REASON is typed by a human, because the
+brief's safety layer ("material logistics," not "supplier shipped wrong
+beams") is a judgment no lookup table makes safely. There is no
+automatic internal→customer phrase translation anywhere — customer-visible
+free text is always human-authored, and the automated
+templates contain only facts (dates, percentages, phase names).
+`sendFinishChangedNotice` throws with a specific message when it can't
+send (no email / opted out / no Resend), because a PM who clicked
+"Notify customer" must know the customer was NOT notified.
+
+**Choice — the weekly customer report is a separate SAFE composer, not
+a filtered internal report:** `lib/comms/customer-report.ts` builds
+from scratch — % complete, units + days worked this week, scheduled
+days next week, expected finish — so internal signals (shortages,
+costs, SPI/risk labels, blockers, reconciliation) are excluded by
+construction rather than by remembering to strip them. The E2E test
+asserts the logged `body_snapshot` contains no internal markers. It
+rides the existing weekly cron (`Promise.all` with the internal
+reports — the Vercel Hobby 2-cron cap again, ADR-038) filtered to
+active + opted-in + Execute/Punch stage + email on file ("default on
+while in Execute": the schema default is true, the stage filter is what
+keeps a project from mailing before work starts or after closeout). A
+"Send update now" button on the Comms tab sends the same report on
+demand, bypassing the stage filter — the explicit click is the opt-in.
+
+**Choice — every send logs its exact payload:** `body_snapshot` stores
+the full HTML that went out, and the Comms tab renders it (email
+snapshots are app-composed HTML; manual entries render as text). The
+comms log being the COMPLETE record — including phone calls via the
+manual form (kind 'manual', channel logged_call/logged_other) — is the
+whole point: "what does the customer know?" has one answer, in one
+place.
+
+**Consequences:** New `lib/comms/{milestones,customer-report,queries,
+actions}.ts`, `components/comms/comms-workspace.tsx`, a "Comms" tab
+(office-only, same two-layer gating as Handoff/COs), hooks in
+`setProjectSchedule`/`completeStage`/`overrideStage`/`logInstallDelta`,
+the finish-changed prompt in `ProjectEstimatePanel`, and the weekly
+cron route sending customer reports alongside internal ones. No new
+tables — Sub-phase 0's schema covered it. New `e2e/comms-flow.spec.ts`
+drives every milestone kind end to end with REAL Resend sends
+(schedule confirmed + gate-item tick, install started via five UI
+overrides, 50% and phase-complete via real field-app stepper taps,
+finish-changed via the prompt with old→new+reason asserted in the
+logged body, punch + closeout, the safe report's snapshot asserted to
+contain NO internal markers, and a manual call log) — all verified
+against project_comms in the DB, not just the UI. Full suite green: 37
+passed, 3 intentionally skipped.
+
+---
+
 ## ADR-044: Batch 4, Sub-phase G — two-crew capacity board (enforce, don't warn)
 
 **Decision date:** 2026-07-06

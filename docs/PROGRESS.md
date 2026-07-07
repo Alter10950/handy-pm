@@ -300,6 +300,21 @@ session, not just the seeded owner playing both parts. Full suite green:
 33 passed, 3 intentionally skipped; confirmed zero leftover test data
 (including `handoff_surveys` rows) afterward.
 
+**Sub-phase H — customer communication plan — done and verified live
+(2026-07-06, see ADR-045):** slips get communicated, not discovered.
+Auto milestone emails fire from the real events (schedule confirmed,
+install started, 50%, phase complete, punch, closeout — always logged
+to `project_comms`, which doubles as the send-once guard), a
+half-automatic finish-changed notice pairs detected old→new dates with
+a human-worded customer-safe reason, and a weekly customer report —
+composed from scratch so internal signals (shortages, costs, SPI,
+blockers) are excluded by construction — rides the existing weekly cron
+for executing, opted-in projects. A new office-only Comms tab holds the
+customer contact + preferences, a manual log for calls, a "Send update
+now" button, and the full history with every send's exact payload:
+"what does the customer know?" now has one answer in one place. Full
+suite green: 37 passed, 3 intentionally skipped.
+
 **Sub-phase G — two-crew capacity board — done and verified live
 (2026-07-06, see ADR-044):** promising dates the crews can't keep is now
 blocked, not warned about. Committing schedule dates that would need
@@ -1226,6 +1241,42 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
       actually runs in this environment). Full suite green: 33 passed, 3
       intentionally skipped; confirmed zero leftover test data (projects,
       auth users, and `handoff_surveys` rows all back to zero) afterward.
+
+## Batch 4, Sub-phase H — Customer communication plan ✅ done (2026-07-06)
+
+- [x] Comms tab (office-only): customer contact (name/email) +
+      preference toggles (auto milestones, auto weekly report), manual
+      call/other logging, full history with each send's exact
+      body_snapshot viewable — the complete record of what the customer
+      knows.
+- [x] Auto milestone emails hooked to the real events, always logged to
+      project_comms (which doubles as the send-once dedupe): schedule
+      confirmed (setProjectSchedule; also auto-ticks "Customer notified
+      of schedule" ONLY when actually sent), install started
+      (mobilize completed/overridden), 50% crossed + phase complete
+      (crew install logging, best-effort), punch complete, closed out.
+- [x] Proactive finish-changed notice: the estimate panel detects a
+      changed forecast vs the last saved estimate and prompts for a
+      HUMAN-WORDED customer-safe reason ("material logistics") — old →
+      new date + reason emailed and logged; no automatic internal→
+      customer phrase translation exists by design.
+- [x] Auto weekly customer report — a separate SAFE composer (%
+      complete, units/days this week, next week's scheduled days,
+      expected finish; NEVER shortages/costs/SPI/blockers/reconciliation
+      — excluded by construction), riding the existing weekly cron for
+      active + opted-in + Execute/Punch projects, plus a "Send update
+      now" button.
+- [x] All sends via the admin client (a crew member's install can
+      trigger a milestone but crew RLS can't write office-only
+      project_comms — the milestone is the org speaking, ADR-032's
+      reasoning), every hook best-effort so comms never fail the
+      triggering operation.
+- [x] `npm run lint`/`typecheck`/`build` all pass. New
+      `e2e/comms-flow.spec.ts` — every milestone kind driven end to end
+      with real Resend sends and DB-asserted comms rows, the safety
+      contract asserted on the logged report snapshot, the manual log,
+      and the finish-changed prompt round trip. Full suite green: 37
+      passed, 3 intentionally skipped; zero leftover test data.
 
 ## Batch 4, Sub-phase G — Two-crew capacity board ✅ done (2026-07-06)
 

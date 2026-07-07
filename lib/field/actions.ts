@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { tryMilestone } from "@/lib/comms/milestones";
 import { touchProjectActivity } from "@/lib/projects/actions";
 import { createClient } from "@/lib/supabase/server";
 import type { BlockerCode } from "@/lib/supabase/database.types";
@@ -9,6 +10,65 @@ import type { BlockerCode } from "@/lib/supabase/database.types";
 function revalidateField(projectId: string) {
   revalidatePath("/field");
   revalidatePath(`/field/${projectId}`);
+}
+
+// Progress-driven auto milestones (Sub-phase H): crossing 50% overall,
+// and a phase reaching 100%. Checked after each positive install log —
+// the milestone sender's own log-based dedupe makes the checks
+// idempotent, so this only needs to detect "the condition holds now,"
+// never "it just changed." Entirely best-effort: crew install logging
+// must never fail on a comms read.
+async function maybeSendProgressMilestones(
+  projectId: string,
+  rowId: string
+): Promise<void> {
+  try {
+    const supabase = await createClient();
+
+    const { data: progress } = await supabase
+      .from("project_progress")
+      .select("pct, name")
+      .eq("project_id", projectId)
+      .maybeSingle();
+    if (progress && progress.pct >= 0.5) {
+      await tryMilestone(projectId, "pct_50", {
+        subjectSuffix: "over halfway there",
+        bodyLines: [
+          `Your project just passed the <strong>50% complete</strong> mark (${Math.round(progress.pct * 100)}% installed).`,
+        ],
+      });
+    }
+
+    const { data: row } = await supabase
+      .from("rows")
+      .select("phase_id")
+      .eq("id", rowId)
+      .maybeSingle();
+    if (row?.phase_id) {
+      const { data: phaseRows } = await supabase
+        .from("row_progress")
+        .select("is_complete, has_materials")
+        .eq("phase_id", row.phase_id);
+      const withMaterials = (phaseRows ?? []).filter((r) => r.has_materials);
+      if (withMaterials.length > 0 && withMaterials.every((r) => r.is_complete)) {
+        const { data: phase } = await supabase
+          .from("phases")
+          .select("name")
+          .eq("id", row.phase_id)
+          .maybeSingle();
+        if (phase) {
+          await tryMilestone(projectId, "phase_complete", {
+            subjectSuffix: `phase "${phase.name}" complete`,
+            bodyLines: [
+              `The <strong>${phase.name}</strong> phase of your project is fully installed.`,
+            ],
+          });
+        }
+      }
+    }
+  } catch (err) {
+    console.error("progress milestones failed", err);
+  }
 }
 
 // idempotency_key makes this safe to replay: the offline queue (see
@@ -37,6 +97,9 @@ export async function logInstallDelta(
   });
   if (error && error.code !== "23505") throw error;
   await touchProjectActivity(projectId);
+  if (qty > 0) {
+    await maybeSendProgressMilestones(projectId, rowId);
+  }
   revalidateField(projectId);
 }
 

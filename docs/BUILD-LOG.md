@@ -4,6 +4,55 @@ Engineering journal. Newest entries at top.
 
 ---
 
+## 2026-07-06 — Batch 4 Sub-phase H: customer communication plan
+
+**What:** the push channel — iBuy's customer discovering slips instead
+of being told about them, made structurally impossible. Auto milestone
+emails hooked to the real events, an auto weekly customer-safe report,
+a proactive finish-changed notice with human-worded reasons, manual
+call logging, and a Comms tab where the complete record lives. Full
+reasoning in `docs/DECISIONS.md` ADR-045; summary here.
+
+**Build:** `lib/comms/milestones.ts` — sendMilestone/tryMilestone,
+admin-client (the trigger can be a CREW member whose RLS can't write
+office-only project_comms; the milestone is the org speaking, not the
+user), deduped by exact subject match against project_comms itself, so
+the log of what was sent is also the send-once guard. Hooks:
+setProjectSchedule (schedule confirmed — and "Customer notified of
+schedule" only auto-ticks when the email actually SENT, never on a
+skip), completeStage/overrideStage (mobilize→install started,
+punch→punch complete, closeout→closed out — overrides fire them too,
+the customer-facing fact holds either way), logInstallDelta (50%
+crossed, phase fully installed — best-effort, crew logging never fails
+on comms). The finish-changed notice is deliberately half-automatic:
+the estimate panel detects this save's forecast differing from the last
+saved one and prompts; the customer-safe reason is typed by the PM —
+no automatic internal→customer phrase table exists on purpose. The
+weekly customer report is a separate SAFE composer (% complete, units +
+days this week, next week's scheduled days, expected finish — internal
+signals excluded by construction, not by filtering), riding the
+existing weekly cron for active + opted-in + Execute/Punch projects,
+plus a "Send update now" button. Comms tab: contact + preference
+toggles, manual call/other logging, and the full history with each
+send's exact body_snapshot viewable.
+
+**Verified:** `npm run lint`/`typecheck`/`build` all green. New
+`e2e/comms-flow.spec.ts` exercises every milestone kind with REAL
+Resend sends and asserts each against project_comms in the DB: schedule
+confirmed (+ the gate-item tick), install started (five sequential UI
+stage overrides), 50% and phase-complete from real field-app stepper
+taps, the finish-changed prompt (old→new date and the typed reason
+asserted inside the logged body), punch + closeout, the customer
+report's snapshot asserted to contain NO internal markers (no
+"Blocker", no "SPI", no "to order", no "shortage"), and a manually
+logged phone call — 8+ real emails in one 26-second flow. One test-side
+fixture lesson: an admin-inserted drawings row must have a REAL storage
+object behind it, or the Overview page's signed-URL call throws
+"Object not found" into the error boundary. Full suite green: 37
+passed, 3 intentionally skipped; zero leftover test data.
+
+---
+
 ## 2026-07-06 — Batch 4 Sub-phase G: two-crew capacity board
 
 **What:** promising dates the crews can't keep made structurally

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { requireRole } from "@/lib/auth/session";
+import { tryMilestone } from "@/lib/comms/milestones";
 import {
   getDefaultGateTemplateId,
   getTemplateStagesWithItems,
@@ -105,6 +106,41 @@ async function advanceToNextStage(
     .update({ stage_key: nextKey })
     .eq("id", projectId);
   if (projectError) throw projectError;
+}
+
+// Auto milestone notifications tied to stage transitions (Sub-phase H) —
+// called from completeStage/overrideStage after the transition lands.
+// Best-effort throughout; the stage change must never fail on a comms
+// hiccup.
+async function maybeSendStageMilestones(
+  projectId: string,
+  completedStageKey: GateStageKey
+): Promise<void> {
+  if (completedStageKey === "mobilize") {
+    // Execute just became active — the install is underway.
+    await tryMilestone(projectId, "install_started", {
+      subjectSuffix: "installation has started",
+      bodyLines: [
+        "Our crew has started installation on your project.",
+        "You'll get progress updates as work moves along — and you can check your project page any time if you have a portal link.",
+      ],
+    });
+  } else if (completedStageKey === "punch") {
+    await tryMilestone(projectId, "punch_complete", {
+      subjectSuffix: "punch list complete",
+      bodyLines: [
+        "The punch list is complete — installation work on your project is finished and we're moving to final closeout.",
+      ],
+    });
+  } else if (completedStageKey === "closeout") {
+    await tryMilestone(projectId, "closeout_sent", {
+      subjectSuffix: "project closed out",
+      bodyLines: [
+        "Your project is officially closed out. Thank you for working with us!",
+        "Your project manager will share the final closeout report with you.",
+      ],
+    });
+  }
 }
 
 export interface GateItemPatch {
@@ -304,6 +340,7 @@ export async function completeStage(
   if (error) throw error;
 
   await advanceToNextStage(projectId, stage.stage_key);
+  await maybeSendStageMilestones(projectId, stage.stage_key);
   await touchProjectActivity(projectId);
   revalidateProject(projectId);
 }
@@ -337,6 +374,10 @@ export async function overrideStage(
   if (error) throw error;
 
   await advanceToNextStage(projectId, stage.stage_key);
+  // An override advances the lifecycle just like completion — the
+  // customer-facing "install started"/"punch complete"/"closed out"
+  // facts hold either way.
+  await maybeSendStageMilestones(projectId, stage.stage_key);
   await touchProjectActivity(projectId);
   revalidateProject(projectId);
 }

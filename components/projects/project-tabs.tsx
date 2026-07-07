@@ -52,7 +52,12 @@ export function ProjectTabs({
       : []),
     // Change orders only exist once there's a sold scope to change.
     ...(status !== "estimate" && canViewOfficeTabs
-      ? [{ href: `${base}/change-orders`, label: "COs" }]
+      ? [
+          { href: `${base}/change-orders`, label: "COs" },
+          // The push channel's audit log (project_comms RLS is
+          // owner/pm-only, same as change_orders/handoff_surveys).
+          { href: `${base}/comms`, label: "Comms" },
+        ]
       : []),
     { href: `${base}/estimate`, label: "Estimate" },
   ];

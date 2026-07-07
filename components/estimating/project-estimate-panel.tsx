@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { sendFinishChangedNotice } from "@/lib/comms/actions";
 import {
   computeEstimatePreview,
   saveProjectEstimate,
@@ -86,6 +87,12 @@ export function ProjectEstimatePanel({
   const [explaining, setExplaining] = useState(false);
   const [explanation, setExplanation] = useState<string | null>(null);
   const [explainError, setExplainError] = useState<string | null>(null);
+  const [finishPrompt, setFinishPrompt] = useState<{
+    oldFinish: string;
+    newFinish: string;
+  } | null>(null);
+  const [finishReason, setFinishReason] = useState("");
+  const [finishError, setFinishError] = useState<string | null>(null);
 
   function recompute(nextCrewCount: number, nextCrewIds: string[]) {
     startTransition(async () => {
@@ -123,8 +130,39 @@ export function ProjectEstimatePanel({
           crewIds: selectedCrewIds,
         });
         setSaveMessage("Estimate saved.");
+        // Schedule slips get communicated proactively, not discovered
+        // (Sub-phase H): the expected finish just changed vs the last
+        // SAVED estimate — offer to notify the customer, with a
+        // human-worded, customer-safe reason. history[0] is the latest
+        // save BEFORE this one (newest-first).
+        const previousFinish = history[0]?.forecast_finish ?? null;
+        const newFinish = estimate.forecastFinish;
+        if (newFinish && previousFinish && newFinish !== previousFinish) {
+          setFinishPrompt({ oldFinish: previousFinish, newFinish });
+        }
       } catch (err) {
         setSaveMessage(err instanceof Error ? err.message : "Could not save.");
+      }
+    });
+  }
+
+  function handleSendFinishNotice() {
+    if (!finishPrompt) return;
+    setFinishError(null);
+    startTransition(async () => {
+      try {
+        await sendFinishChangedNotice(projectId, {
+          oldFinish: finishPrompt.oldFinish,
+          newFinish: finishPrompt.newFinish,
+          reason: finishReason,
+        });
+        setFinishPrompt(null);
+        setFinishReason("");
+        setSaveMessage("Customer notified of the new expected finish.");
+      } catch (err) {
+        setFinishError(
+          err instanceof Error ? err.message : "Could not send the notice."
+        );
       }
     });
   }
@@ -266,6 +304,52 @@ export function ProjectEstimatePanel({
           <p className="mt-3 whitespace-pre-line rounded-md bg-muted p-3 text-sm text-foreground">
             {explanation}
           </p>
+        ) : null}
+
+        {finishPrompt ? (
+          <div
+            data-testid="finish-changed-prompt"
+            className="mt-3 flex flex-col gap-2 rounded-md border border-primary/50 bg-primary/10 p-3"
+          >
+            <p className="text-sm font-medium text-foreground">
+              Expected finish moved: {finishPrompt.oldFinish} →{" "}
+              {finishPrompt.newFinish}. Tell the customer proactively?
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <Input
+                aria-label="Customer-facing reason"
+                placeholder="Customer-facing reason (e.g. material logistics)"
+                value={finishReason}
+                onChange={(event) => setFinishReason(event.target.value)}
+                disabled={isPending}
+                className="h-8 w-72 text-sm"
+              />
+              <Button
+                type="button"
+                size="sm"
+                disabled={isPending || !finishReason.trim()}
+                onClick={handleSendFinishNotice}
+              >
+                {isPending ? "Sending…" : "Notify customer"}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                disabled={isPending}
+                onClick={() => setFinishPrompt(null)}
+              >
+                Dismiss
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Write it how the customer should read it — &ldquo;material
+              logistics,&rdquo; not internal detail.
+            </p>
+            {finishError ? (
+              <p className="text-sm text-destructive">{finishError}</p>
+            ) : null}
+          </div>
         ) : null}
       </div>
 

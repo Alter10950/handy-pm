@@ -1675,6 +1675,43 @@ schedule dates. Full reasoning in ADR-044.
   decided state is the terminal UI, and the office pages those
   revalidations would have freshened are all force-dynamic anyway.
 
+## Customer communication plan (Batch 4, Sub-phase H, 2026-07-06)
+
+The push channel (the portal stays pull). Full reasoning in ADR-045.
+
+- **Milestones are hooks on the events themselves**
+  (`lib/comms/milestones.ts`): `setProjectSchedule` → schedule
+  confirmed; `completeStage`/`overrideStage` → install started
+  (mobilize done), punch complete, closed out; `logInstallDelta` → 50%
+  crossed and phase-complete. All best-effort — comms never fail the
+  triggering operation. Admin client throughout: the trigger can be a
+  crew member whose RLS can't insert into office-only `project_comms`,
+  and the milestone is the org speaking to its customer, not the user.
+- **The comms log IS the dedupe:** an exact
+  (project, kind='milestone', subject) match means it already went out —
+  hooks only detect "the condition holds now," never "it just changed."
+  Repeatable notices (finish changed) pass `dedupe: false`.
+- **"Customer notified of schedule" auto-ticks only on a real send** —
+  a skip (no email / opted out / Resend unconfigured) means the customer
+  was NOT notified and the checklist must not claim otherwise.
+- **Finish-changed is half-automatic by design:** the estimate panel
+  detects this save's forecast differing from the last SAVED estimate
+  and prompts; the customer-safe reason is typed by the PM. No
+  internal→customer phrase translation table exists on purpose —
+  customer-visible free text is always human-authored; automated
+  templates carry only facts.
+- **The weekly customer report is a separate SAFE composer**
+  (`lib/comms/customer-report.ts`), not a filtered internal report —
+  internal signals are excluded by construction. Rides the weekly cron
+  (Promise.all beside internal reports — the Hobby 2-cron cap again)
+  for active + `comms_weekly_report` + Execute/Punch + email-on-file
+  projects; "Send update now" on the Comms tab bypasses the stage
+  filter (the click is the opt-in). Every send logs its full
+  `body_snapshot`, which the Comms tab renders back.
+- **Comms tab** (office-only, same two-layer gating as Handoff/COs):
+  contact + preferences, manual call/other logging (kind `manual`), and
+  the complete history.
+
 ## Testing
 
 `npm run test:e2e` (`npm run seed && playwright test`) runs a Playwright
@@ -2115,7 +2152,7 @@ transitively via `project_id` → `projects.org_id` or `crew_id` →
 | `handoff_surveys`                        | `project_id` (unique)          | Batch 4 (2026-07-06) — the sales→ops handoff: site conditions, `constraints` (jsonb: live_warehouse/access_notes/forklift_onsite/working_hours/floor_condition/permits_needed), `photo_paths` (same array convention as `day_logs`), and dual estimator+PM sign-off columns/timestamps. One row per project. Built out in Sub-phase D: a Handoff tab (hidden pre-sale AND per-role, owner/pm only), teardown auto-creating a draft `scope_items` row, a printable PDF, and an optional AI draft-from-notes assist. |
 | `change_orders`                          | `project_id`                  | Batch 4 (2026-07-06) — numbered per project (`unique(project_id, number)`), `reason`/`status` enums, `labor_units`/`added_days`/`price`, customer-approval tracking (`customer_approved_via`/`_at`/`_approver_name`). Built out in Sub-phase F: + `approval_token`/`sent_at`/`sent_to` (single-use public approve/decline token), the COs tab, the public `/portal/co/[token]` page, and merge-on-approval. |
 | `change_order_items`                     | via `change_orders`           | Sub-phase F (2026-07-06) — a CO's own draft lines (`kind` ∈ `scope`/`material`, work_type/description/qty/unit/labor_units). Deliberately NOT in scope_items/materials until approval, so unapproved work is structurally invisible to every consumer; on approval the lines are copied into the real tables (tagged `change_order_id`) and these rows remain as the CO's permanent record. |
-| `project_comms`                          | `project_id`                  | Batch 4 (2026-07-06) — an auditable log of everything the customer was told (`kind` ∈ `milestone`/`weekly_report`/`manual`/`schedule_change`, `channel` ∈ `email`/`portal`/`logged_call`/`logged_other`). The push channel — the customer portal (Batch 3) stays the pull channel. |
+| `project_comms`                          | `project_id`                  | Batch 4 (2026-07-06) — an auditable log of everything the customer was told (`kind` ∈ `milestone`/`weekly_report`/`manual`/`schedule_change`/`change_order`, `channel` ∈ `email`/`portal`/`logged_call`/`logged_other`). The push channel — the customer portal (Batch 3) stays the pull channel. Built out in Sub-phase H: auto milestones, the weekly customer report, manual logging, the Comms tab — and the exact-subject match against this table is the milestone dedupe. |
 | `project_autopsies`                      | `project_id` (unique)          | Batch 4 (2026-07-06) — estimated vs actual, generated at the Closeout stage: days/hours/labor units/`material_variance` (jsonb)/change-order count+days/blocker days, plus an optional narrative. |
 | `capacity_overrides`                     | `project_id`                   | Sub-phase G (2026-07-06) — insert-only audit of owner capacity overrides: required `reason`, `conflict_dates` snapshot, who/when. Written only when an owner saves a schedule past the num_crews hard block; surfaced on the dashboard. |
 

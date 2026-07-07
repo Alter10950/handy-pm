@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { requireRole } from "@/lib/auth/session";
+import { tryMilestone } from "@/lib/comms/milestones";
 import { ensureProjectStages, toggleGateItem } from "@/lib/gates/actions";
 import {
   checkScheduleCapacity,
@@ -166,6 +167,28 @@ export async function setProjectSchedule(
   // item unticked, since the dates are NOT within capacity.
   if (dates.length > 0 && capacity.conflicts.length === 0) {
     await syncScheduleGateItem(projectId, "Dates committed within capacity");
+  }
+
+  // Auto milestone: the customer hears their dates are locked in
+  // (Sub-phase H). Dedupe means only the FIRST committed schedule
+  // notifies — a mid-project rebuild is a schedule *change*, which the
+  // finish-changed flow communicates with a human-worded reason instead.
+  if (dates.length > 0) {
+    const sorted = [...dates].sort();
+    const milestone = await tryMilestone(projectId, "schedule_confirmed", {
+      subjectSuffix: "your install dates are confirmed",
+      bodyLines: [
+        `Your project is scheduled: <strong>${sorted[0]}</strong> through <strong>${sorted[sorted.length - 1]}</strong> (${sorted.length} working day${sorted.length === 1 ? "" : "s"}).`,
+        "We'll keep you posted as work gets underway.",
+      ],
+    });
+    // Only a real send ticks "Customer notified of schedule" — a skip
+    // (no email on file, opted out, Resend unconfigured) means the
+    // customer was NOT notified, and the checklist shouldn't claim
+    // otherwise.
+    if (milestone?.sent) {
+      await syncScheduleGateItem(projectId, "Customer notified of schedule");
+    }
   }
 
   revalidateScheduler(projectId);
