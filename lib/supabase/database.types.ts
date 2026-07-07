@@ -308,6 +308,48 @@ export type Database = {
           },
         ]
       }
+      capacity_overrides: {
+        Row: {
+          conflict_dates: string[]
+          created_at: string
+          created_by: string | null
+          id: string
+          project_id: string
+          reason: string
+        }
+        Insert: {
+          conflict_dates?: string[]
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          project_id: string
+          reason: string
+        }
+        Update: {
+          conflict_dates?: string[]
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          project_id?: string
+          reason?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "capacity_overrides_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "project_progress"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "capacity_overrides_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       change_order_items: {
         Row: {
           change_order_id: string

@@ -194,6 +194,26 @@ test("scheduler: create crew, build schedule, generate targets, assign crew to a
         return data?.length ?? 0;
       })
       .toBe(1);
+
+    // Sub-phase G: assigning a crew auto-ticks the Schedule stage's
+    // literal "Crew assigned" checklist item.
+    await expect
+      .poll(async () => {
+        const { data: stage } = await admin
+          .from("project_stages")
+          .select("id")
+          .eq("project_id", projectId!)
+          .eq("stage_key", "schedule")
+          .single();
+        const { data: item } = await admin
+          .from("project_gate_items")
+          .select("done")
+          .eq("project_stage_id", stage!.id)
+          .eq("label", "Crew assigned")
+          .single();
+        return item?.done;
+      })
+      .toBe(true);
   });
 
   await test.step("unassign the crew", async () => {

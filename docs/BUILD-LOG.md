@@ -4,6 +4,59 @@ Engineering journal. Newest entries at top.
 
 ---
 
+## 2026-07-06 — Batch 4 Sub-phase G: two-crew capacity board
+
+**What:** promising dates the crews can't keep made structurally
+impossible: `organizations.num_crews` (default 2) is now a HARD
+constraint on committing schedule dates — enforce, don't warn — plus a
+month-view Capacity Board and dashboard-surfaced owner overrides. Full
+reasoning in `docs/DECISIONS.md` ADR-044; summary here.
+
+**Build:** the capacity model is one scheduled project-day = one
+crew-day (distinct active projects per date ≤ num_crews).
+`setProjectSchedule` now runs `checkScheduleCapacity` and returns a
+discriminated result instead of saving: the ScheduleBuilder renders
+which projects hold the conflicting days, the first feasible start (a
+bounded forward scan over the org's working days — honestly null if a
+year out is still full) with one-click "Use this start," and an
+owner-only override (required reason → new `capacity_overrides` table,
+insert-only, shown in a new "Capacity overrides" dashboard section
+beside "Overridden gates"). `/scheduler/capacity` is the month board:
+a "Committed" row of scheduled projects per day (over-capacity days
+red) above per-crew assignment lanes — commitments and gaps at a
+glance. Two Schedule-stage gate items now auto-tick from real events
+via the established label-lookup sync: "Dates committed within
+capacity" on a conflict-free save (deliberately NOT on an overridden
+one — those dates aren't within capacity), "Crew assigned" on
+createAssignment.
+
+**A race the full suite caught that two standalone runs missed:** the
+public CO decision page (Sub-phase F) sometimes swapped its
+"Approved — thank you!" card for the invalid-link shell. Deciding
+nulls the single-use token by design — and both a manual
+router.refresh() and, subtler, the revalidatePath calls INSIDE the
+public server action make the customer's own router refetch the
+now-unresolvable page, unmounting the confirmation mid-read. Removed
+both (the local decided state is the terminal UI; the office pages
+those revalidations would have freshened are force-dynamic anyway).
+
+**Verified:** `npm run lint`/`typecheck`/`build` all green. New
+`e2e/capacity-flow.spec.ts` — project A saves cleanly and its capacity
+gate item auto-ticks; project B (admin) fills the second slot; project
+C is blocked with A and B named and a feasible start suggested, and
+nothing saved; owner override with a reason saves, logs
+(reason + conflict dates + who), leaves the item unticked, and shows on
+the dashboard; the board shows all three commitments and the
+over-capacity summary. scheduler-flow additionally asserts the "Crew
+assigned" auto-tick. Full suite green: 36 passed, 3 intentionally
+skipped; zero leftover test data. Known coupling documented in the ADR:
+the suite shares the org's REAL capacity — when Alter schedules his two
+live projects, schedule-saving specs colliding with those weeks will
+surface the capacity panel (the feature working); point them at
+far-future windows then.
+
+---
+
 ## 2026-07-06 — Batch 4 Sub-phase F: change orders
 
 **What:** iBuy's silent margin loss made a decision instead of an

@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -13,6 +12,12 @@ import {
 // The customer's approve/decline controls on the public token page. Kept
 // deliberately simple: one name field (approval needs a name on record),
 // one optional note (decline), two buttons.
+//
+// Deliberately NO router.refresh() after a decision: deciding nulls the
+// token (single-use, ADR-043), so a server re-render of this page would
+// resolve to the invalid-link shell and unmount the thank-you card the
+// customer is reading. The local `decided` state IS the terminal UI; a
+// manual reload later correctly lands on "already decided."
 export function ChangeOrderDecision({ token }: { token: string }) {
   const [name, setName] = useState("");
   const [declineNote, setDeclineNote] = useState("");
@@ -20,7 +25,6 @@ export function ChangeOrderDecision({ token }: { token: string }) {
   const [error, setError] = useState<string | null>(null);
   const [decided, setDecided] = useState<"approved" | "declined" | null>(null);
   const [isPending, startTransition] = useTransition();
-  const router = useRouter();
 
   function approve() {
     setError(null);
@@ -31,7 +35,6 @@ export function ChangeOrderDecision({ token }: { token: string }) {
         return;
       }
       setDecided("approved");
-      router.refresh();
     });
   }
 
@@ -44,7 +47,6 @@ export function ChangeOrderDecision({ token }: { token: string }) {
         return;
       }
       setDecided("declined");
-      router.refresh();
     });
   }
 

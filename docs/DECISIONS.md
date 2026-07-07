@@ -5,6 +5,106 @@ Consequences.
 
 ---
 
+## ADR-044: Batch 4, Sub-phase G — two-crew capacity board (enforce, don't warn)
+
+**Decision date:** 2026-07-06
+
+**Context:** iBuy ran long partly because dates were promised that the
+org's two crews could never keep. `organizations.num_crews` existed
+since Sub-phase 0 (default 2) with nothing enforcing it; the Batch-3
+crew calendar warns about double-booking one CREW, but nothing stopped
+committing more concurrent PROJECTS than there are crews at all.
+
+**Choice — the capacity model is deliberately coarse: one scheduled
+project-day = one crew-day:** a project with work scheduled on a date
+needs at least one crew there, so the number of distinct ACTIVE projects
+scheduled on any date can't exceed num_crews. No fractional crew-days,
+no size-weighted math — the failure this prevents (promising two
+customers the same crew) lives at the day-of-commitment level, and a
+finer model would demand data nobody enters at scheduling time. Only
+`status='active'` projects consume capacity (an estimate draft or a
+completed job holding stale schedule rows blocks no one).
+
+**Choice — `setProjectSchedule` is the enforcement point and returns
+conflicts instead of throwing:** committing dates IS the promise, so
+that's where the gate lives (`checkScheduleCapacity` → per-date
+conflicting project names + the first feasible start). The action now
+returns a discriminated result (`{ok:false, conflicts, suggestedStart,
+numCrews}`) rather than throwing a stringly-typed error — the
+ScheduleBuilder renders the explanation, a one-click "Use this start"
+(shifting the same window length), and the owner-only override path.
+The first-feasible-start scan walks the org's default_working_days for
+a same-length conflict-free run, bounded at a year — if a year out is
+still full it honestly returns null rather than inventing a date.
+Assignments (`createAssignment`) are deliberately NOT capacity-gated:
+they're bounded by real crews existing, already warn on double-booking
+(ADR-029), and Sub-phase E's dispatch gate covers them; the capacity
+constraint is about the schedule promise.
+
+**Choice — owner override, logged to its own table, surfaced on the
+dashboard:** `capacity_overrides` (project, required reason, the
+conflicting dates as a snapshot, who, when) — insert-only, owner-only
+write per the brief's "Owner override with reason," read by
+owner/pm/scheduler. Surfaced as a "Capacity overrides" dashboard
+section beside "Overridden gates" — same exceptions-only convention
+(ADR-042), because an override nobody sees isn't accountable. A
+capacity-overridden save deliberately does NOT auto-tick the "Dates
+committed within capacity" gate item — the dates are not within
+capacity, and the checklist shouldn't say they are.
+
+**Choice — the Capacity Board reads at two levels:** a month grid
+(`/scheduler/capacity`, prev/next month links) whose "Committed" row
+shows the capacity-consuming truth (scheduled projects per day,
+over-capacity days red) and whose crew lanes below show actual
+whole-project assignments — commitments and gaps at a glance, per the
+brief's "what you look at before promising a customer a date." It's a
+read-only Server Component: committing/fixing happens in the
+per-project builder, dispatching in the crew calendar; the board is the
+view that tells you which of those to open.
+
+**Choice — gate items auto-tick from real events, tick-only:** "Dates
+committed within capacity" ticks on a conflict-free schedule save;
+"Crew assigned" (same Schedule stage, literally this event) ticks on
+createAssignment — both via the same label-lookup sync as
+handoff/materials (ADR-041/042).
+
+**Known coupling, documented not hidden:** the E2E suite runs against
+the org's real capacity. Today the two real projects hold no future
+schedule rows, so specs scheduling today+13 pass; the day real
+schedules fill a week, schedule-saving specs will surface the capacity
+panel — which is the feature working, not flaking. The fix then is
+pointing those specs at far-future windows, not weakening the gate.
+
+**A race found by the full suite, fixed at the root (in Sub-phase F's
+code):** the public CO decision page intermittently replaced its
+"Approved — thank you!" card with the invalid-link shell. Deciding
+nulls the single-use token BY DESIGN; both a manual `router.refresh()`
+and — subtler — `revalidatePath` calls inside the public server action
+make the customer's own router refetch the now-unresolvable page,
+unmounting the confirmation mid-read. Both removed: the local decided
+state is the terminal UI, and the office pages those revalidations
+would have freshened are all force-dynamic anyway. Passed twice
+standalone before the loaded full-suite run exposed the ordering — the
+same lesson as ADR-040's detour: a test that only fails under load is
+still a real bug.
+
+**Consequences:** New migration
+`20260707190000_capacity_overrides.sql`. New `lib/scheduler/capacity.ts`
+(`checkScheduleCapacity`, `getCapacityBoardData`,
+`listCapacityOverrides`), `/scheduler/capacity` page + nav link,
+`components/dashboard/capacity-override-list.tsx`, ScheduleBuilder's
+conflict panel + owner override UI (`isOwner` threaded from the page),
+`setProjectSchedule(projectId, dates, override?)` returning
+`SetScheduleResult`, and the two Schedule-stage gate-item syncs. New
+`e2e/capacity-flow.spec.ts` (clean save auto-ticks the item; a third
+project over 2-crew capacity is blocked with both conflicting projects
+named + a feasible start; owner override saves, logs with reason/dates,
+and leaves the item unticked; dashboard shows the override; the board
+shows all three commitments on the over-committed month). Full suite
+green: 36 passed, 3 intentionally skipped.
+
+---
+
 ## ADR-043: Batch 4, Sub-phase F — change orders
 
 **Decision date:** 2026-07-06

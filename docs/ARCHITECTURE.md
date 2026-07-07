@@ -1632,6 +1632,49 @@ ADR-043.
   props but useState initials don't re-run; fixed with the same
   adjust-state-during-render pattern as the lifecycle panel (ADR-038).
 
+## Two-crew capacity board (Batch 4, Sub-phase G, 2026-07-06)
+
+`organizations.num_crews` becomes a hard constraint on committing
+schedule dates. Full reasoning in ADR-044.
+
+- **Model:** one scheduled project-day = one crew-day; distinct ACTIVE
+  projects per date ≤ num_crews. Deliberately coarse — the failure this
+  prevents (promising two customers the same crew) lives at the
+  day-of-commitment level. `lib/scheduler/capacity.ts` owns the check,
+  the board data, and the override list.
+- **Enforcement point:** `setProjectSchedule` (committing dates IS the
+  promise) — returns `SetScheduleResult` (`{ok:false, conflicts,
+  suggestedStart, numCrews}`) rather than throwing, so the
+  ScheduleBuilder can render which projects hold each day, a one-click
+  "Use this start" (first feasible same-length run over the org's
+  working days, bounded at a year, honestly null when full), and the
+  owner-only override (required reason → `capacity_overrides`,
+  insert-only, dashboard-surfaced beside overridden gates).
+  `createAssignment` is deliberately NOT capacity-gated — assignments
+  are bounded by real crews, warn on double-booking (ADR-029), and are
+  dispatch-gated by Sub-phase E already.
+- **Capacity Board** (`/scheduler/capacity`): read-only month grid — a
+  "Committed" row of scheduled projects per day (over-capacity days
+  red) above per-crew whole-project assignment lanes; the
+  before-you-promise-a-date view. Committing/fixing happens in the
+  per-project builder; dispatching in the crew calendar.
+- **Gate items auto-tick from real events** (label-lookup sync,
+  tick-only, per ADR-041/042): "Dates committed within capacity" on a
+  conflict-free save — deliberately NOT on an overridden save — and
+  "Crew assigned" on createAssignment.
+- **Known coupling:** the E2E suite shares the org's REAL capacity;
+  when live projects fill a week, schedule-saving specs colliding with
+  it will surface the capacity panel — the feature working, not flake.
+  Point those specs at far-future windows if that lands.
+- **Race fixed at the root (in Sub-phase F's public CO page), exposed
+  only by the loaded full-suite run:** deciding nulls the single-use
+  token by design, and BOTH a manual `router.refresh()` and
+  `revalidatePath` calls inside the public server action make the
+  customer's own router refetch the now-unresolvable page — unmounting
+  the "thank you" card mid-read. Both removed; the component's local
+  decided state is the terminal UI, and the office pages those
+  revalidations would have freshened are all force-dynamic anyway.
+
 ## Testing
 
 `npm run test:e2e` (`npm run seed && playwright test`) runs a Playwright
@@ -2074,6 +2117,7 @@ transitively via `project_id` → `projects.org_id` or `crew_id` →
 | `change_order_items`                     | via `change_orders`           | Sub-phase F (2026-07-06) — a CO's own draft lines (`kind` ∈ `scope`/`material`, work_type/description/qty/unit/labor_units). Deliberately NOT in scope_items/materials until approval, so unapproved work is structurally invisible to every consumer; on approval the lines are copied into the real tables (tagged `change_order_id`) and these rows remain as the CO's permanent record. |
 | `project_comms`                          | `project_id`                  | Batch 4 (2026-07-06) — an auditable log of everything the customer was told (`kind` ∈ `milestone`/`weekly_report`/`manual`/`schedule_change`, `channel` ∈ `email`/`portal`/`logged_call`/`logged_other`). The push channel — the customer portal (Batch 3) stays the pull channel. |
 | `project_autopsies`                      | `project_id` (unique)          | Batch 4 (2026-07-06) — estimated vs actual, generated at the Closeout stage: days/hours/labor units/`material_variance` (jsonb)/change-order count+days/blocker days, plus an optional narrative. |
+| `capacity_overrides`                     | `project_id`                   | Sub-phase G (2026-07-06) — insert-only audit of owner capacity overrides: required `reason`, `conflict_dates` snapshot, who/when. Written only when an owner saves a schedule past the num_crews hard block; surfaced on the dashboard. |
 
 **Exactly one marking page per project:** `drawings.role` defaults to
 `'reference'`; a partial unique index

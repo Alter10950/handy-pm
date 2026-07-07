@@ -116,6 +116,7 @@ export default async function SchedulerProjectPage({
           ])
         )}
         phaseTimelines={phaseTimelines}
+        isOwner={profile.role === "owner"}
       />
     </div>
   );

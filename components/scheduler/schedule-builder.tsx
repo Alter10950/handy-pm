@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { setProjectSchedule } from "@/lib/scheduler/actions";
+import type { CapacityConflictDay } from "@/lib/scheduler/capacity";
 import type { Tables } from "@/lib/supabase/database.types";
 
 function addDays(iso: string, days: number): string {
@@ -22,9 +23,11 @@ function isWeekend(iso: string): boolean {
 export function ScheduleBuilder({
   projectId,
   schedule,
+  isOwner,
 }: {
   projectId: string;
   schedule: Tables<"project_schedule">[];
+  isOwner: boolean;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -34,6 +37,11 @@ export function ScheduleBuilder({
   const [candidateDates, setCandidateDates] = useState<string[] | null>(null);
   const [excluded, setExcluded] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
+  const [conflicts, setConflicts] = useState<CapacityConflictDay[] | null>(null);
+  const [suggestedStart, setSuggestedStart] = useState<string | null>(null);
+  const [numCrews, setNumCrews] = useState<number | null>(null);
+  const [overrideReason, setOverrideReason] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   function generateCandidates() {
     const dates: string[] = [];
@@ -44,6 +52,7 @@ export function ScheduleBuilder({
     }
     setCandidateDates(dates);
     setExcluded(new Set());
+    setConflicts(null);
   }
 
   function toggleDate(date: string) {
@@ -55,18 +64,48 @@ export function ScheduleBuilder({
     });
   }
 
-  async function handleSave() {
+  async function handleSave(withOverride: boolean) {
     if (!candidateDates) return;
     setSaving(true);
+    setError(null);
     try {
       const finalDates = candidateDates.filter((date) => !excluded.has(date));
-      await setProjectSchedule(projectId, finalDates);
+      const result = await setProjectSchedule(
+        projectId,
+        finalDates,
+        withOverride ? { reason: overrideReason } : undefined
+      );
+      if (!result.ok) {
+        // The capacity gate said no — show which projects hold those
+        // days and the first start that would actually fit.
+        setConflicts(result.conflicts);
+        setSuggestedStart(result.suggestedStart);
+        setNumCrews(result.numCrews);
+        return;
+      }
       setOpen(false);
       setCandidateDates(null);
+      setConflicts(null);
+      setOverrideReason("");
       router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save schedule.");
     } finally {
       setSaving(false);
     }
+  }
+
+  function useSuggestedStart() {
+    if (!suggestedStart) return;
+    // Keep the same window length, shifted to the suggested start.
+    const lengthDays =
+      (new Date(`${end}T00:00:00Z`).getTime() -
+        new Date(`${start}T00:00:00Z`).getTime()) /
+      86_400_000;
+    setStart(suggestedStart);
+    setEnd(addDays(suggestedStart, lengthDays));
+    setConflicts(null);
+    setCandidateDates(null);
   }
 
   if (!open) {
@@ -149,13 +188,81 @@ export function ScheduleBuilder({
           <Button
             type="button"
             disabled={saving}
-            onClick={() => void handleSave()}
+            onClick={() => void handleSave(false)}
             className="self-start"
           >
             {saving ? "Saving…" : "Save schedule"}
           </Button>
         </>
       ) : null}
+
+      {conflicts ? (
+        <div
+          data-testid="capacity-conflict-panel"
+          className="flex flex-col gap-2 rounded-md border border-destructive/50 bg-destructive/10 p-3"
+        >
+          <p className="text-sm font-semibold text-destructive">
+            Over capacity — the org has {numCrews} crew{numCrews === 1 ? "" : "s"}
+          </p>
+          <ul className="flex flex-col gap-0.5 text-xs text-foreground">
+            {conflicts.slice(0, 8).map((c) => (
+              <li key={c.date}>
+                {c.date}: already committed to {c.projectNames.join(", ")}
+              </li>
+            ))}
+            {conflicts.length > 8 ? (
+              <li className="text-muted-foreground">
+                …and {conflicts.length - 8} more day
+                {conflicts.length - 8 === 1 ? "" : "s"}
+              </li>
+            ) : null}
+          </ul>
+          {suggestedStart ? (
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <span className="text-foreground">
+                First start that fits:{" "}
+                <span data-testid="suggested-start" className="font-semibold">
+                  {suggestedStart}
+                </span>
+              </span>
+              <Button type="button" size="sm" variant="outline" onClick={useSuggestedStart}>
+                Use this start
+              </Button>
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              No fully free window found in the next year.
+            </p>
+          )}
+          {isOwner ? (
+            <div className="flex flex-wrap items-center gap-2 border-t border-destructive/30 pt-2">
+              <Input
+                aria-label="Override reason"
+                placeholder="Override reason (e.g. borrowed crew)"
+                value={overrideReason}
+                onChange={(event) => setOverrideReason(event.target.value)}
+                disabled={saving}
+                className="h-8 w-64 text-sm"
+              />
+              <Button
+                type="button"
+                size="sm"
+                variant="destructive"
+                disabled={saving || !overrideReason.trim()}
+                onClick={() => void handleSave(true)}
+              >
+                {saving ? "Saving…" : "Override & save anyway"}
+              </Button>
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Only an owner can override the capacity limit.
+            </p>
+          )}
+        </div>
+      ) : null}
+
+      {error ? <p className="text-sm text-destructive">{error}</p> : null}
     </div>
   );
 }

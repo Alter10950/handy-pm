@@ -27,6 +27,7 @@ export function SchedulerWorkspace({
   dailyActuals,
   crewDailyActuals,
   phaseTimelines,
+  isOwner,
 }: {
   project: Tables<"projects">;
   progress: Views<"project_progress"> | null;
@@ -41,6 +42,7 @@ export function SchedulerWorkspace({
   dailyActuals: Record<string, number>;
   crewDailyActuals: Record<string, Record<string, number>>;
   phaseTimelines: PhaseTimelineEntry[];
+  isOwner: boolean;
 }) {
   const router = useRouter();
   const [plannedDays, setPlannedDays] = useState(
@@ -128,7 +130,7 @@ export function SchedulerWorkspace({
         </span>
       </div>
 
-      <ScheduleBuilder projectId={project.id} schedule={schedule} />
+      <ScheduleBuilder projectId={project.id} schedule={schedule} isOwner={isOwner} />
 
       <div className="flex flex-wrap items-center gap-3">
         <button

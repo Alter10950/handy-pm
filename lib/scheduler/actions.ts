@@ -3,7 +3,11 @@
 import { revalidatePath } from "next/cache";
 
 import { requireRole } from "@/lib/auth/session";
-import { ensureProjectStages } from "@/lib/gates/actions";
+import { ensureProjectStages, toggleGateItem } from "@/lib/gates/actions";
+import {
+  checkScheduleCapacity,
+  type CapacityConflictDay,
+} from "@/lib/scheduler/capacity";
 import { listProjectSchedule, listRemainingByMaterial } from "@/lib/scheduler/queries";
 import { createClient } from "@/lib/supabase/server";
 
@@ -65,15 +69,85 @@ export async function upsertPlannedDays(
   revalidateScheduler(projectId);
 }
 
+// Best-effort, label-matched auto-tick of a Schedule-stage checklist
+// item — same pattern (and same reasoning) as the handoff/materials
+// syncs (ADR-041/042): the schedule data is the source of truth, this
+// just saves the duplicate manual click. Tick-only.
+async function syncScheduleGateItem(projectId: string, label: string): Promise<void> {
+  try {
+    const supabase = await createClient();
+    const { data: stage } = await supabase
+      .from("project_stages")
+      .select("id")
+      .eq("project_id", projectId)
+      .eq("stage_key", "schedule")
+      .maybeSingle();
+    if (!stage) return;
+    const { data: item } = await supabase
+      .from("project_gate_items")
+      .select("id, done")
+      .eq("project_stage_id", stage.id)
+      .eq("label", label)
+      .maybeSingle();
+    if (!item || item.done) return;
+    await toggleGateItem(item.id, projectId, { done: true });
+  } catch (err) {
+    console.error(`syncScheduleGateItem(${label}) failed`, err);
+  }
+}
+
+export type SetScheduleResult =
+  | { ok: true }
+  | {
+      ok: false;
+      conflicts: CapacityConflictDay[];
+      suggestedStart: string | null;
+      numCrews: number;
+    };
+
 // Replace-the-whole-set semantics: simpler and just as correct as diffing,
 // since project_schedule rows carry no other state (a date is either
 // scheduled or it isn't — nothing to preserve across a rebuild).
+//
+// Capacity is a HARD constraint here (ADR-044): committing dates that
+// would need more concurrent crews than the org has returns the
+// conflicts (which projects, which days, first feasible start) instead
+// of saving — enforce, don't warn. An OWNER can override with a
+// required reason, which is logged to capacity_overrides and surfaced
+// on the dashboard.
 export async function setProjectSchedule(
   projectId: string,
-  dates: string[]
-): Promise<void> {
-  await requireRole(SCHEDULERS);
+  dates: string[],
+  override?: { reason: string }
+): Promise<SetScheduleResult> {
+  const { userId, role } = await requireRole(SCHEDULERS);
+
+  const capacity = await checkScheduleCapacity(projectId, dates);
+  if (capacity.conflicts.length > 0 && !override) {
+    return {
+      ok: false,
+      conflicts: capacity.conflicts,
+      suggestedStart: capacity.suggestedStart,
+      numCrews: capacity.numCrews,
+    };
+  }
+
   const supabase = await createClient();
+  if (capacity.conflicts.length > 0 && override) {
+    const reason = override.reason.trim();
+    if (!reason) throw new Error("A reason is required to override capacity.");
+    if (role !== "owner") {
+      throw new Error("Only an owner can override the crew-capacity limit.");
+    }
+    const { error: overrideError } = await supabase.from("capacity_overrides").insert({
+      project_id: projectId,
+      reason,
+      conflict_dates: capacity.conflicts.map((c) => c.date),
+      created_by: userId,
+    });
+    if (overrideError) throw overrideError;
+  }
+
   const { error: deleteError } = await supabase
     .from("project_schedule")
     .delete()
@@ -86,7 +160,16 @@ export async function setProjectSchedule(
       .insert(dates.map((workDate) => ({ project_id: projectId, work_date: workDate })));
     if (insertError) throw insertError;
   }
+
+  // "Dates committed within capacity" auto-checks only when that's
+  // literally true — a capacity-overridden save deliberately leaves the
+  // item unticked, since the dates are NOT within capacity.
+  if (dates.length > 0 && capacity.conflicts.length === 0) {
+    await syncScheduleGateItem(projectId, "Dates committed within capacity");
+  }
+
   revalidateScheduler(projectId);
+  return { ok: true };
 }
 
 export async function createAssignment(
@@ -108,6 +191,10 @@ export async function createAssignment(
     }))
   );
   if (error) throw error;
+
+  // The Schedule stage's "Crew assigned" item is literally this event —
+  // same tick-only label sync as "Dates committed within capacity."
+  await syncScheduleGateItem(projectId, "Crew assigned");
   revalidateScheduler(projectId);
 }
 

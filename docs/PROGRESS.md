@@ -300,6 +300,24 @@ session, not just the seeded owner playing both parts. Full suite green:
 33 passed, 3 intentionally skipped; confirmed zero leftover test data
 (including `handoff_surveys` rows) afterward.
 
+**Sub-phase G — two-crew capacity board — done and verified live
+(2026-07-06, see ADR-044):** promising dates the crews can't keep is now
+blocked, not warned about. Committing schedule dates that would need
+more concurrent crews than the org has (num_crews, default 2; one
+scheduled project-day = one crew-day) returns the conflicting projects
+per date and the first feasible same-length start instead of saving —
+with an owner-only override (required reason) logged to a new audit
+table and surfaced in a "Capacity overrides" dashboard section beside
+the overridden gates. A month-view Capacity Board
+(`/scheduler/capacity`) shows the "Committed" row (over-capacity days
+red) above per-crew assignment lanes — the screen you look at before
+promising a customer a date. The Schedule stage's "Dates committed
+within capacity" and "Crew assigned" checklist items now auto-tick from
+the real events (never from an overridden save). Also fixed a real race
+the full suite exposed in the Sub-phase F public CO page (the
+customer's confirmation card unmounting mid-read — see ADR-044). Full
+suite green: 36 passed, 3 intentionally skipped.
+
 **Sub-phase F — change orders — done and verified live (2026-07-06, see
 ADR-043):** silent margin loss becomes a decision. Scope growth is now a
 numbered CO (CO-1, CO-2… per project) with attached scope/material
@@ -1208,6 +1226,37 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
       actually runs in this environment). Full suite green: 33 passed, 3
       intentionally skipped; confirmed zero leftover test data (projects,
       auth users, and `handoff_surveys` rows all back to zero) afterward.
+
+## Batch 4, Sub-phase G — Two-crew capacity board ✅ done (2026-07-06)
+
+- [x] Capacity model: one scheduled project-day consumes one crew-day —
+      distinct ACTIVE projects per date ≤ `organizations.num_crews`
+      (estimate drafts and completed jobs block nobody).
+- [x] `setProjectSchedule` hard-blocks over-capacity commits, returning
+      the conflicting projects per date + the first feasible same-length
+      start (bounded year scan over org working days, honestly null when
+      full) — rendered in the ScheduleBuilder with one-click "Use this
+      start."
+- [x] Owner-only override with required reason → new `capacity_overrides`
+      audit table (insert-only) + a "Capacity overrides" dashboard
+      section beside "Overridden gates."
+- [x] `/scheduler/capacity` month board: "Committed" row (scheduled
+      projects per day, over-capacity days red) above per-crew
+      assignment lanes; prev/next month; linked from the Scheduler home.
+- [x] Gate items auto-tick from real events: "Dates committed within
+      capacity" on a conflict-free save (NOT on an overridden one),
+      "Crew assigned" on createAssignment.
+- [x] Fixed a real race the full suite exposed in Sub-phase F's public
+      CO page: deciding nulls the token, and both router.refresh() and
+      the public action's own revalidatePath calls made the customer's
+      router refetch the now-invalid page, unmounting the thank-you card
+      — both removed.
+- [x] `npm run lint`/`typecheck`/`build` all pass. New
+      `e2e/capacity-flow.spec.ts` (clean save ticks the item; third
+      project blocked with names + suggestion; override saves + logs +
+      dashboard; board shows the over-committed month). Full suite
+      green: 36 passed, 3 intentionally skipped; zero leftover test
+      data.
 
 ## Batch 4, Sub-phase F — Change orders ✅ done (2026-07-06)
 

@@ -1,7 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
 import { mergeApprovedChangeOrder } from "@/lib/change-orders/merge";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -75,10 +73,12 @@ export async function approveChangeOrderViaToken(
     console.error("mergeApprovedChangeOrder (public) failed", err);
   }
 
-  revalidatePath(`/app/project/${co.project_id}/change-orders`);
-  revalidatePath(`/app/project/${co.project_id}/materials`);
-  revalidatePath(`/app/project/${co.project_id}/scope`);
-  revalidatePath(`/app/project/${co.project_id}/estimate`);
+  // Deliberately NO revalidatePath here: it would make the customer's own
+  // router refetch this page, whose token just went invalid — unmounting
+  // the thank-you card mid-read (the same race as a manual
+  // router.refresh, see change-order-decision.tsx). The office pages this
+  // would have freshened are all force-dynamic and refetch per-request
+  // anyway.
   return { ok: true };
 }
 
@@ -129,6 +129,6 @@ export async function declineChangeOrderViaToken(
     return { ok: false, error: "This link is no longer valid." };
   }
 
-  revalidatePath(`/app/project/${co.project_id}/change-orders`);
+  // No revalidatePath — same reasoning as the approve path above.
   return { ok: true };
 }

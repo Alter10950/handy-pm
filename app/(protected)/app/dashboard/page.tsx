@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { BlockerEscalationList } from "@/components/dashboard/blocker-escalation-list";
+import { CapacityOverrideList } from "@/components/dashboard/capacity-override-list";
 import { CrewPerformanceSummary } from "@/components/dashboard/crew-performance-summary";
 import { EmailReportButton } from "@/components/dashboard/email-report-button";
 import { GateOverrideList } from "@/components/dashboard/gate-override-list";
@@ -17,6 +18,7 @@ import {
   listUnresolvedBlockersAcrossProjects,
 } from "@/lib/dashboard/queries";
 import { listOrgWideNextActions, listOverriddenStages } from "@/lib/gates/queries";
+import { listCapacityOverrides } from "@/lib/scheduler/capacity";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
@@ -74,6 +76,7 @@ export default async function DashboardPage() {
     activity,
     lifecycleAttention,
     gateOverrides,
+    capacityOverrides,
   ] = await Promise.all([
     listActiveProjectsForDashboard(),
     listShortagesAcrossProjects(),
@@ -82,6 +85,7 @@ export default async function DashboardPage() {
     getTodayActivitySummary(),
     listOrgWideNextActions(),
     listOverriddenStages(),
+    listCapacityOverrides(),
   ]);
 
   return (
@@ -104,9 +108,14 @@ export default async function DashboardPage() {
         <LifecycleAttentionList summaries={lifecycleAttention} />
       </Section>
 
-      <Section title={`Overridden gates (${gateOverrides.length})`}>
-        <GateOverrideList overrides={gateOverrides} />
-      </Section>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <Section title={`Overridden gates (${gateOverrides.length})`}>
+          <GateOverrideList overrides={gateOverrides} />
+        </Section>
+        <Section title={`Capacity overrides (${capacityOverrides.length})`}>
+          <CapacityOverrideList overrides={capacityOverrides} />
+        </Section>
+      </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Section title={`Blockers needing escalation (${blockers.length})`}>

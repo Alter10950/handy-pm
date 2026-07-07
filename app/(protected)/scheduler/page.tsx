@@ -50,12 +50,20 @@ export default async function SchedulerPage() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-lg font-semibold text-foreground">Scheduler</h1>
-        <Link
-          href="/scheduler/calendar"
-          className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground"
-        >
-          📅 Crew Calendar
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/scheduler/capacity"
+            className="rounded-md border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted"
+          >
+            📊 Capacity Board
+          </Link>
+          <Link
+            href="/scheduler/calendar"
+            className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground"
+          >
+            📅 Crew Calendar
+          </Link>
+        </div>
       </div>
       <div>
         <h2 className="mb-3 text-lg font-semibold text-foreground">Crews</h2>
