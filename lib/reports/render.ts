@@ -42,6 +42,22 @@ export function renderProjectReportHtml(data: ProjectReportData): string {
     ? `<img src="${data.markingDrawingUrl}" alt="Marked drawing" style="max-width:100%;border:1px solid #ddd;border-radius:6px;margin:12px 0;" />`
     : "";
 
+  // Only rendered when there's CO news in the window — most weeks most
+  // projects have none, and an empty "Change orders: none" section is
+  // noise in an email.
+  const changeOrdersHtml =
+    data.changeOrdersInPeriod.length === 0
+      ? ""
+      : `<h2 style="font-size:16px;margin-bottom:4px;">Change orders ${escapeHtml(data.periodLabel)}</h2>
+        <ul style="padding-left:20px;margin:8px 0;">${data.changeOrdersInPeriod
+          .map(
+            (co) =>
+              `<li style="font-size:14px;margin-bottom:4px;">CO-${co.number}: ${escapeHtml(co.title)} — ${escapeHtml(co.status)}${
+                co.addedDays !== null && co.addedDays > 0 ? `, +${co.addedDays} day(s)` : ""
+              }${co.price !== null ? `, $${co.price.toLocaleString()}` : ""}</li>`
+          )
+          .join("")}</ul>`;
+
   return `
     <div style="font-family:Arial,Helvetica,sans-serif;max-width:640px;margin:0 auto;color:#1a1a1a;">
       <h1 style="font-size:20px;margin-bottom:4px;">${escapeHtml(data.projectName)}</h1>
@@ -74,6 +90,8 @@ export function renderProjectReportHtml(data: ProjectReportData): string {
 
       <h2 style="font-size:16px;margin-bottom:4px;">Blockers ${escapeHtml(data.periodLabel)}</h2>
       ${blockersHtml}
+
+      ${changeOrdersHtml}
 
       <p style="color:#999;font-size:12px;margin-top:24px;">Sent automatically by Handy PM.</p>
     </div>

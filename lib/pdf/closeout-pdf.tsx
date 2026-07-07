@@ -27,6 +27,16 @@ export interface CloseoutDayLog {
   note: string | null;
 }
 
+export interface CloseoutChangeOrder {
+  number: number;
+  title: string;
+  status: string;
+  addedDays: number | null;
+  price: number | null;
+  approvedVia: string | null;
+  approvedAt: string | null;
+}
+
 export interface CloseoutPdfData {
   orgName: string;
   orgAddress: string | null;
@@ -39,6 +49,7 @@ export interface CloseoutPdfData {
   reconciliation: CloseoutReconciliationRow[];
   blockers: CloseoutBlocker[];
   dayLogs: CloseoutDayLog[];
+  changeOrders: CloseoutChangeOrder[];
 }
 
 const styles = StyleSheet.create({
@@ -166,6 +177,38 @@ export function CloseoutPdfDocument({ data }: { data: CloseoutPdfData }) {
                 <Text style={[styles.td, { flex: 2 }]}>{b.note ?? ""}</Text>
                 <Text style={styles.td}>
                   {b.resolvedAt ? formatDate(b.resolvedAt) : "Open"}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        <Text style={styles.sectionTitle}>Change orders</Text>
+        {data.changeOrders.length === 0 ? (
+          <Text style={styles.empty}>No change orders.</Text>
+        ) : (
+          <View style={styles.table}>
+            <View style={styles.tableHeaderRow}>
+              <Text style={styles.th}>CO</Text>
+              <Text style={[styles.th, { flex: 3 }]}>Title</Text>
+              <Text style={styles.th}>Status</Text>
+              <Text style={styles.th}>Added days</Text>
+              <Text style={styles.th}>Price</Text>
+              <Text style={[styles.th, { flex: 2 }]}>Approved</Text>
+            </View>
+            {data.changeOrders.map((co, i) => (
+              <View key={i} style={styles.tableRow}>
+                <Text style={styles.td}>CO-{co.number}</Text>
+                <Text style={[styles.td, { flex: 3 }]}>{co.title}</Text>
+                <Text style={styles.td}>{co.status}</Text>
+                <Text style={styles.td}>{co.addedDays ?? "—"}</Text>
+                <Text style={styles.td}>
+                  {co.price !== null ? `$${co.price.toLocaleString()}` : "—"}
+                </Text>
+                <Text style={[styles.td, { flex: 2 }]}>
+                  {co.approvedAt
+                    ? `${formatDate(co.approvedAt)}${co.approvedVia ? ` (${co.approvedVia})` : ""}`
+                    : "—"}
                 </Text>
               </View>
             ))}

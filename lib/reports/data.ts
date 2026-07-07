@@ -12,6 +12,14 @@ export interface ReportBlocker {
   resolved: boolean;
 }
 
+export interface ReportChangeOrder {
+  number: number;
+  title: string;
+  status: string;
+  addedDays: number | null;
+  price: number | null;
+}
+
 export interface ProjectReportData {
   projectId: string;
   projectName: string;
@@ -20,6 +28,7 @@ export interface ProjectReportData {
   spi: number | null;
   installsInPeriod: number;
   blockersInPeriod: ReportBlocker[];
+  changeOrdersInPeriod: ReportChangeOrder[];
   forecastFinish: string | null;
   markingDrawingUrl: string | null;
   periodLabel: string;
@@ -62,6 +71,7 @@ export async function buildProjectReportData(
     { data: blockers, error: blockersError },
     { data: markingDrawing, error: drawingError },
     { data: latestEstimate, error: estimateError },
+    { data: changeOrders, error: changeOrdersError },
   ] = await Promise.all([
     admin.from("targets").select("*").eq("project_id", projectId),
     admin.from("rows").select("id").eq("project_id", projectId),
@@ -84,12 +94,23 @@ export async function buildProjectReportData(
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
+    // Any CO created OR decided in the window — a week-old CO that got
+    // approved yesterday is this week's news too.
+    admin
+      .from("change_orders")
+      .select("number, title, status, added_days, price, created_at, customer_approved_at")
+      .eq("project_id", projectId)
+      .or(
+        `created_at.gte.${startDate}T00:00:00,customer_approved_at.gte.${startDate}T00:00:00`
+      )
+      .order("number"),
   ]);
   if (targetsError) throw targetsError;
   if (rowsError) throw rowsError;
   if (blockersError) throw blockersError;
   if (drawingError) throw drawingError;
   if (estimateError) throw estimateError;
+  if (changeOrdersError) throw changeOrdersError;
 
   const rowIds = rows.map((r) => r.id);
   const [{ data: installsInPeriodRaw, error: installsError }, { data: installsAllTime, error: allTimeError }] =
@@ -138,6 +159,13 @@ export async function buildProjectReportData(
       note: b.note,
       workDate: b.work_date,
       resolved: b.resolved_at !== null,
+    })),
+    changeOrdersInPeriod: changeOrders.map((co) => ({
+      number: co.number,
+      title: co.title,
+      status: co.status,
+      addedDays: co.added_days,
+      price: co.price,
     })),
     forecastFinish: latestEstimate?.forecast_finish ?? null,
     markingDrawingUrl,

@@ -300,6 +300,24 @@ session, not just the seeded owner playing both parts. Full suite green:
 33 passed, 3 intentionally skipped; confirmed zero leftover test data
 (including `handoff_surveys` rows) afterward.
 
+**Sub-phase F — change orders — done and verified live (2026-07-06, see
+ADR-043):** silent margin loss becomes a decision. Scope growth is now a
+numbered CO (CO-1, CO-2… per project) with attached scope/material
+lines, labor and added-days auto-suggested from the same labor
+standards everything else uses, an optional price, and a real customer
+decision: a tokenized approve/decline page emailed via Resend (the
+app's first — and only — unauthenticated write path: single-use token,
+replay-guarded, name on record) or a manually recorded verbal/written
+approval. Approval merges the lines into real scope items and materials
+(received = 0, so new material still clears the Sub-phase E gate), and
+the project permanently keeps BOTH numbers — a one-time original-
+estimate snapshot vs live-computed current approved — on the Estimate
+tab. COs flow into the closeout PDF and period reports, every send is
+logged to the customer-comms audit table, and a Materials-tab banner
+flags mid-execution materials with no CO behind them: "this looks like
+scope growth — create a change order?" Full suite green: 35 passed, 3
+intentionally skipped.
+
 **Sub-phase E — material verification gate — done and verified live
 (2026-07-06, see ADR-042):** "no verified material, no crew dispatch,"
 enforced rather than warned. Materials-stage readiness is now computed
@@ -1190,6 +1208,48 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
       actually runs in this environment). Full suite green: 33 passed, 3
       intentionally skipped; confirmed zero leftover test data (projects,
       auth users, and `handoff_surveys` rows all back to zero) afterward.
+
+## Batch 4, Sub-phase F — Change orders ✅ done (2026-07-06)
+
+- [x] New `change_order_items` table (a CO's own draft lines) + RLS
+      helper; `change_orders` gains `approval_token`/`sent_at`/`sent_to`;
+      `materials.change_order_id`; `projects.original_estimate_*`;
+      `project_comms.kind` extended with `change_order`.
+- [x] CO workflow: create (title/reason/description, numbered CO-1,
+      CO-2… per project) → attach scope and/or material lines →
+      labor_units + added_days auto-suggested from the same labor
+      standards the rest of the app uses (editable until sent) →
+      optional price → draft → pending_customer → approved/rejected/
+      cancelled.
+- [x] Draft lines merge into REAL `scope_items`/`materials` rows only on
+      approval (received=0 — CO materials still clear the Sub-phase E
+      gate like everything else), keeping unapproved work structurally
+      invisible to the estimator/scheduler/field/reconciliation instead
+      of relying on status filters everywhere.
+- [x] Customer approval both ways: a tokenized public approve/decline
+      page (`/portal/co/[token]` — the app's first unauthenticated write
+      path: single-use token, replay-guarded, name required to approve,
+      decline note preserved) emailed via Resend and logged to
+      `project_comms`; OR manual record (verbal/written + who).
+- [x] "The project keeps BOTH numbers": one-time original-estimate
+      snapshot (at estimate→active conversion, or lazily at first CO
+      send/approval, always before any merge) + live-computed current
+      approved (original + Σ approved COs) on a new Estimate-tab card.
+- [x] COs render in the closeout PDF (new table section) and the
+      daily/weekly report HTML (created-or-decided-in-window, section
+      omitted when empty).
+- [x] Scope-growth guard: Materials-tab banner when materials with no
+      CO were added after Mobilize completed on an executing project —
+      "this looks like scope growth — create a change order?"
+- [x] Found and fixed: CO detail's figure inputs went stale after line
+      changes (useState initials vs router.refresh — same
+      adjust-state-during-render fix as ADR-038's lifecycle panel).
+- [x] `npm run lint`/`typecheck`/`build` all pass. New
+      `e2e/change-order-flow.spec.ts` (draft→lines→manual approval→
+      DB-verified merge + baseline, real Resend send, cookieless
+      customer approve AND decline, replay protection, closeout PDF,
+      scope-growth banner). Full suite green: 35 passed, 3 intentionally
+      skipped; zero leftover test data.
 
 ## Batch 4, Sub-phase E — Material verification gate ✅ done (2026-07-06)
 

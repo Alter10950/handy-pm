@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { MaterialsWorkspace } from "@/components/projects/materials-workspace";
 import { PackingSlipExtractDialog } from "@/components/projects/packing-slip-extract-dialog";
 import { PackingSlipUpload } from "@/components/projects/packing-slip-upload";
@@ -5,6 +7,7 @@ import { ReconciliationCard } from "@/components/projects/reconciliation-card";
 import { listLaborStandards } from "@/lib/estimating/queries";
 import { listPhases } from "@/lib/phases/queries";
 import {
+  getProject,
   getProjectProgress,
   getSignedDrawingUrl,
   getSignedPackingSlipUrl,
@@ -15,6 +18,7 @@ import {
   listRowMaterials,
   listRowProgress,
 } from "@/lib/projects/queries";
+import { createClient } from "@/lib/supabase/server";
 
 function fileNameFromPath(path: string): string {
   const parts = path.split("/");
@@ -36,6 +40,7 @@ export default async function ProjectMaterialsPage({
     projectProgress,
     phases,
     laborStandards,
+    project,
   ] = await Promise.all([
     listMaterials(id),
     listDrawings(id),
@@ -45,7 +50,29 @@ export default async function ProjectMaterialsPage({
     getProjectProgress(id),
     listPhases(id),
     listLaborStandards(),
+    getProject(id),
   ]);
+
+  // Scope-growth guard (ADR-043): materials added while the project is
+  // already executing, with no change order behind them, are exactly how
+  // margin quietly leaks. Compare created_at against the Mobilize
+  // stage's completion — everything before that was planning; everything
+  // after is mid-execution growth until a CO says otherwise.
+  let scopeGrowthCount = 0;
+  if (project && ["execute", "punch"].includes(project.stage_key)) {
+    const supabase = await createClient();
+    const { data: mobilize } = await supabase
+      .from("project_stages")
+      .select("completed_at")
+      .eq("project_id", id)
+      .eq("stage_key", "mobilize")
+      .maybeSingle();
+    if (mobilize?.completed_at) {
+      scopeGrowthCount = materials.filter(
+        (m) => m.change_order_id === null && m.created_at > mobilize.completed_at!
+      ).length;
+    }
+  }
 
   const [rowMaterials, pages, packingSlipLinks] = await Promise.all([
     listRowMaterials(rowProgress.map((row) => row.row_id)),
@@ -72,6 +99,28 @@ export default async function ProjectMaterialsPage({
         <h2 className="text-lg font-semibold text-foreground">Materials</h2>
         <PackingSlipUpload projectId={id} />
       </div>
+
+      {scopeGrowthCount > 0 ? (
+        <div
+          data-testid="scope-growth-banner"
+          className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-primary/50 bg-primary/10 px-4 py-3"
+        >
+          <p className="text-sm text-foreground">
+            <span className="font-semibold">
+              {scopeGrowthCount} material{scopeGrowthCount === 1 ? "" : "s"} added
+              mid-execution
+            </span>{" "}
+            with no change order behind {scopeGrowthCount === 1 ? "it" : "them"} —
+            this looks like scope growth.
+          </p>
+          <Link
+            href={`/app/project/${id}/change-orders`}
+            className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/80"
+          >
+            Create a change order?
+          </Link>
+        </div>
+      ) : null}
 
       <MaterialsWorkspace
         projectId={id}

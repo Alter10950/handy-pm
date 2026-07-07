@@ -1566,6 +1566,72 @@ been promising: "no verified material, no crew dispatch."
   (ADR-041); "Material staged/ready" deliberately stays a manual human
   confirmation between green numbers and a complete stage.
 
+## Change orders (Batch 4, Sub-phase F, 2026-07-06)
+
+The full workflow on Sub-phase 0's `change_orders` table: draft →
+lines → send-or-record → approve/reject → merge. Full reasoning in
+ADR-043.
+
+- **Draft lines in `change_order_items`, merged on approval:**
+  unapproved work never touches `scope_items`/`materials`, so no
+  consumer anywhere needs a CO-status join — the failure mode of the
+  alternative (immediate rows + filters) is a forgotten filter silently
+  counting unapproved work. `lib/change-orders/merge.ts` is the single
+  place approval semantics live, takes its Supabase client as a
+  parameter (cookie client for office manual approval, admin client for
+  the customer's tokenized approval), and copies the stored line labor
+  verbatim — labor_standards isn't readable without a session, and
+  re-deriving could disagree with what the customer approved. Merged
+  materials get `received: 0` (they still clear the Sub-phase E gate)
+  and `change_order_id` for traceability; draft lines remain as the CO's
+  permanent record.
+- **The app's only unauthenticated write path:**
+  `/portal/co/[token]` + `lib/change-orders/public-actions.ts`. The
+  read-only portal's trust model (ADR-035) extended to exactly two
+  transitions on one row: `approval_token` (32-hex, unique, minted per
+  send) is nulled by the first decision, and every public update carries
+  `.eq("status", "pending_customer")` so replays match zero rows. A
+  dedicated column, not `share_tokens` — a CO token is one-decision-
+  then-dead, nothing like a long-lived revocable portal token. Approve
+  requires a typed name; decline appends the customer's note to the
+  description.
+- **Original vs current approved = one snapshot + live arithmetic:**
+  `projects.original_estimate_*` written exactly once
+  (`ensureOriginalEstimate` — at estimate→active conversion, or lazily
+  at first CO send/manual-approval, always BEFORE any merge so
+  "original" can't include CO work); current approved is
+  original + `getApprovedChangeOrderTotals` computed live wherever
+  shown (the Estimate tab's baseline card). No second stored figure to
+  drift; the scheduler updates by construction since merged rows flow
+  through its existing queries.
+- **Suggestions are standard-pace and stored per line:** scope lines
+  price like Scope-tab items (work_type base × qty), material lines
+  like addMaterial's default (the "general" standard per unit × qty);
+  the CO's `labor_units` is the line sum and `added_days` is
+  labor ÷ the estimator's own 8-hour crew day — deliberately simpler
+  than the crew-rate blend, because a draft CO is a quote-time figure
+  the office edits before sending (both fields editable while draft).
+- **Sends are customer comms:** `sendChangeOrderForApproval` requires
+  `RESEND_API_KEY` + a customer email (inline-settable on the CO page;
+  full comms management is Sub-phase H), and logs to `project_comms`
+  with the new `change_order` kind. Manual approval
+  (verbal/written + who) is a first-class path, not a fallback — small
+  customers approve on the phone.
+- **Scope-growth guard:** a Materials-tab banner (not a write-time
+  modal — add/import/paste are bulk paths where per-row prompts would
+  be hostile) flags materials with no `change_order_id` created after
+  the Mobilize stage's `completed_at` on an execute/punch project.
+  "Installed exceeds estimated scope" has no honest data signal today
+  (reconciliation caps installed at assigned by design, ADR-013) —
+  noted as future work rather than shipping a misleading proxy.
+- **COs in outputs:** closeout PDF gains a Change orders table;
+  `buildProjectReportData` gains `changeOrdersInPeriod`
+  (created-or-decided in the window) rendered only when non-empty.
+- **Found while building:** the CO detail's figure inputs went stale
+  after line changes — server recompute + router.refresh delivers new
+  props but useState initials don't re-run; fixed with the same
+  adjust-state-during-render pattern as the lifecycle panel (ADR-038).
+
 ## Testing
 
 `npm run test:e2e` (`npm run seed && playwright test`) runs a Playwright
@@ -2004,7 +2070,8 @@ transitively via `project_id` → `projects.org_id` or `crew_id` →
 | `scope_items`                            | `project_id` (+ optional `row_id`/`phase_id`) | Batch 4 (2026-07-06) — work beyond install (`work_type` ∈ `install`/`teardown`/`remove_levels`/`add_levels`/`relocate`/`repair`/`other`) — the category of work an earlier real project ("iBuy") lost two weeks to leaving unscoped. `source` ∈ `handoff`/`estimate`/`change_order` tracks where an item came from; `change_order_id` links one added via a CO. Built out in Sub-phase C: a Scope tab (owner/pm CRUD) + field progress tracking (below) + folded into the estimator/scheduler's own labor-hours math. |
 | `scope_item_updates` / `scope_item_progress` | via `scope_items` | Sub-phase C (2026-07-06) — an append-only progress log (`status` ∈ `partial`/`done`, `note`, `photo_path`, `logged_by`) any org member can insert (crew included — mirrors `installs`/`blockers`), never updates an existing row; `scope_item_progress` is the latest-update-per-item view every consumer actually reads. |
 | `handoff_surveys`                        | `project_id` (unique)          | Batch 4 (2026-07-06) — the sales→ops handoff: site conditions, `constraints` (jsonb: live_warehouse/access_notes/forklift_onsite/working_hours/floor_condition/permits_needed), `photo_paths` (same array convention as `day_logs`), and dual estimator+PM sign-off columns/timestamps. One row per project. Built out in Sub-phase D: a Handoff tab (hidden pre-sale AND per-role, owner/pm only), teardown auto-creating a draft `scope_items` row, a printable PDF, and an optional AI draft-from-notes assist. |
-| `change_orders`                          | `project_id`                  | Batch 4 (2026-07-06) — numbered per project (`unique(project_id, number)`), `reason`/`status` enums, `labor_units`/`added_days`/`price`, customer-approval tracking (`customer_approved_via`/`_at`/`_approver_name`). |
+| `change_orders`                          | `project_id`                  | Batch 4 (2026-07-06) — numbered per project (`unique(project_id, number)`), `reason`/`status` enums, `labor_units`/`added_days`/`price`, customer-approval tracking (`customer_approved_via`/`_at`/`_approver_name`). Built out in Sub-phase F: + `approval_token`/`sent_at`/`sent_to` (single-use public approve/decline token), the COs tab, the public `/portal/co/[token]` page, and merge-on-approval. |
+| `change_order_items`                     | via `change_orders`           | Sub-phase F (2026-07-06) — a CO's own draft lines (`kind` ∈ `scope`/`material`, work_type/description/qty/unit/labor_units). Deliberately NOT in scope_items/materials until approval, so unapproved work is structurally invisible to every consumer; on approval the lines are copied into the real tables (tagged `change_order_id`) and these rows remain as the CO's permanent record. |
 | `project_comms`                          | `project_id`                  | Batch 4 (2026-07-06) — an auditable log of everything the customer was told (`kind` ∈ `milestone`/`weekly_report`/`manual`/`schedule_change`, `channel` ∈ `email`/`portal`/`logged_call`/`logged_other`). The push channel — the customer portal (Batch 3) stays the pull channel. |
 | `project_autopsies`                      | `project_id` (unique)          | Batch 4 (2026-07-06) — estimated vs actual, generated at the Closeout stage: days/hours/labor units/`material_variance` (jsonb)/change-order count+days/blocker days, plus an optional narrative. |
 

@@ -4,6 +4,69 @@ Engineering journal. Newest entries at top.
 
 ---
 
+## 2026-07-06 — Batch 4 Sub-phase F: change orders
+
+**What:** iBuy's silent margin loss made a decision instead of an
+accident: a full change-order workflow — draft with attached scope/
+material lines, labor + added-days auto-suggested (editable), optional
+price, customer approval by tokenized email link OR manual record
+(who/when/how), automatic merge into the project on approval, original
+vs current-approved estimate kept honestly side by side, COs in the
+closeout PDF and period reports, and a scope-growth banner prompting
+"create a change order?" when materials appear mid-execution with no CO
+behind them. Full reasoning in `docs/DECISIONS.md` ADR-043; summary
+here.
+
+**Build:** draft lines live in a new `change_order_items` table and
+merge into real `scope_items`/`materials` rows ONLY on approval — the
+inverse (immediate rows filtered while pending) would have needed a
+CO-status join in every estimator/scheduler/field/reconciliation
+consumer, where one forgotten filter silently counts unapproved work.
+One merge function (`lib/change-orders/merge.ts`) takes its Supabase
+client as a parameter because it runs in two auth worlds: the office's
+cookie client (manual approval) and the service-role admin client (the
+customer's tokenized approval — the app's first and only unauthenticated
+write path, guarded by a single-use 32-hex token nulled on decision,
+with `.eq(status, 'pending_customer')` on every public update as the
+replay guard). `projects` gains a one-time original-estimate snapshot
+(`ensureOriginalEstimate` — at estimate→active conversion or lazily at
+first CO send/approval, always BEFORE the merge so "original" never
+includes CO work); current-approved is live arithmetic
+(original + Σ approved COs), never a second stored number. CO sends go
+through Resend and land in `project_comms` (new 'change_order' kind).
+New "COs" tab (office-only, same two-layer gating as Handoff — the
+shared prop is now `canViewOfficeTabs`), public `/portal/co/[token]`
+page in the portal's own shell style, Estimate-tab baseline card,
+closeout-PDF change-orders table, report `changeOrdersInPeriod` section
+(renders only when non-empty), and the Materials-tab scope-growth
+banner (`created_at` after Mobilize completed + no `change_order_id`).
+
+**Found and fixed while building:** the CO detail's labor/days inputs
+went permanently stale after adding a line — the server recomputes the
+totals and `router.refresh()` delivers new props, but `useState`
+initials don't re-run. Same class of bug as Sub-phase A's lifecycle
+panel not following the active stage; same fix (adjust-state-during-
+render with a last-server-value tracker).
+
+**Verified:** `npm run lint`/`typecheck`/`build` all green. New
+`e2e/change-order-flow.spec.ts` — the full arc in one flow: CO-1
+drafted with a teardown scope line + a material line (auto-suggested
+1.2 hrs / 0.15 days verified against the seeded labor standards),
+manually approved → merge verified in the DB (scope item with
+labor 0.6, material with received 0 and per-unit labor back-derived to
+0.1, both change_order_id-tagged) and the baseline snapshot verified to
+EXCLUDE the CO's own work; the Estimate tab's original-vs-approved card;
+CO-2 sent for real through Resend (token minted, comms row logged) and
+approved by "the customer" in a genuinely cookieless browser context;
+CO-3 declined the same way with the note appended; replay protection
+(nulled token → invalid-link shell); closeout PDF 200; and the
+scope-growth banner firing for a post-mobilize no-CO material while
+correctly NOT firing for the CO-merged one. Full suite green: 35
+passed, 3 intentionally skipped; zero leftover test data (projects,
+users, and change_orders all back to zero).
+
+---
+
 ## 2026-07-06 — Batch 4 Sub-phase E: material verification gate
 
 **What:** iBuy's third failure — bad material discovered mid-install at

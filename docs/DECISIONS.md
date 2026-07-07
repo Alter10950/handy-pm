@@ -5,6 +5,138 @@ Consequences.
 
 ---
 
+## ADR-043: Batch 4, Sub-phase F — change orders
+
+**Decision date:** 2026-07-06
+
+**Context:** iBuy's margin died by a thousand silent cuts — teardown
+nobody priced, materials added mid-install, days added without anyone
+deciding they were billable. Sub-phase 0 created the `change_orders`
+table (numbered per project, reason/status enums, price + approval
+bookkeeping columns); this sub-phase builds the entire workflow on it:
+draft → lines → send-or-record → approve/reject → merge.
+
+**Choice — draft lines live in their own `change_order_items` table and
+merge into scope_items/materials only on approval:** the alternative
+(create real scope_items/materials rows immediately, tagged with the CO,
+filtered out while unapproved) would have required a CO-status join in
+every consumer that exists today — estimator, scheduler, field app,
+reconciliation view, Scope tab — and any future one that forgets the
+filter silently counts unapproved work. Draft-then-merge inverts the
+risk: unapproved work is structurally invisible everywhere, and the one
+merge function is the single place approval semantics live. The draft
+rows are deliberately kept after merge as the CO's own permanent record
+of exactly what it added; merged rows carry `change_order_id`
+(scope_items had it since Sub-phase 0; materials gained it here) for
+traceability in the other direction.
+
+**Choice — "original vs current approved" is one snapshot plus live
+arithmetic, not two stored numbers:** `projects` gains
+`original_estimate_labor_units/days/saved_at`, written exactly once by
+`ensureOriginalEstimate` — at estimate→active conversion (the moment the
+estimate becomes the deal), or lazily at first CO send/manual-approval
+for projects created directly active. Current approved =
+original + Σ approved COs' labor/days, computed live by
+`getApprovedChangeOrderTotals` wherever it's displayed (the Estimate
+tab's new baseline card) — no second stored figure to drift. The
+snapshot deliberately happens BEFORE the merge inside every approval
+path, so "original" can never include CO work. The scheduler's own
+numbers update by construction: merged scope/materials flow into
+`getProjectRemainingLaborUnits` through the same queries as everything
+else.
+
+**Choice — CO labor/days suggestions are standard-pace, stored per line,
+never re-derived at merge:** a line's labor is priced when it's entered
+(scope: work_type's base units × qty, same as the Scope tab's
+suggestion; material: the "general" standard per unit × qty, same as
+addMaterial's default), summed onto the CO (`labor_units`), and
+converted to `added_days` at the estimator's own 8-hour crew day —
+standard pace rather than computeProjectEstimate's crew-rate blend,
+because a draft CO is a quote-time figure the office reviews and can
+overwrite (both fields stay editable until sent). At merge the stored
+line values are copied verbatim (materials back-derive per-unit =
+line total ÷ qty) — re-deriving would both disagree with what the
+customer approved and be impossible on the public path, where
+labor_standards isn't readable (no session).
+
+**Choice — the tokenized approve/decline page is the app's first and
+only unauthenticated write path, and it's deliberately tiny:** the
+read-only portal's trust model (ADR-035: an unguessable token IS the
+authorization, admin client because RLS has nothing to scope against)
+extends to exactly two transitions on exactly one row.
+`change_orders.approval_token` (32-hex, minted per send, `unique`) is
+single-purpose and single-use: nulled by whichever decision lands first,
+and every public update carries `.eq("status", "pending_customer")` so a
+replay (double click, stale tab, forwarded email) matches zero rows and
+falls through to the already-decided screen. A dedicated column beat
+reusing `share_tokens` because a CO token's lifecycle (one decision,
+then dead) is nothing like a portal token's (long-lived, revocable,
+project-scoped). The decline path appends the customer's optional note
+onto the CO description rather than adding a column. Approval requires a
+typed name (`customer_approver_name`); the public merge failure is
+logged, never surfaced to the customer as "your approval failed,"
+because the approval row itself already stood.
+
+**Choice — manual approval is a first-class path, not a fallback:**
+`recordManualApproval(via: verbal|written, approverName)` — the brief's
+"who/when/how" maps onto the existing free-text
+`customer_approved_via` + `customer_approved_at` + name columns. Small
+customers approve on the phone; requiring the email round-trip would
+just mean the CO never gets recorded. Sending requires `RESEND_API_KEY`
+and a customer email (an inline field on the CO page sets
+`projects.customer_contact_email` — full customer-comms management is
+Sub-phase H's job, but a CO shouldn't be blocked on it); the send is
+logged to `project_comms` with a new `change_order` kind (CHECK
+constraint extended), since a CO going out IS a customer communication.
+
+**Choice — the scope-growth guard is a computed banner on the Materials
+tab, not a write-time interceptor:** "new materials added mid-Execute"
+is detected by comparing `materials.created_at` (no CO attached) against
+the Mobilize stage's `completed_at` — everything before mobilization was
+planning, everything after is growth until a CO says otherwise. A
+banner on the page where the PM already works beats intercepting
+addMaterial/import/paste with a modal (those are bulk paths where a
+prompt-per-row would be hostile, and the brief wants a prompt, not a
+block). "Installed exceeds estimated scope" has no honest signal today —
+the reconciliation view caps installed at assigned by design (ADR-013),
+so overinstall is invisible at the data layer; noted as future work
+rather than shipping a misleading proxy.
+
+**Choice — COs appear in the closeout PDF and the period reports:** the
+closeout PDF gains a Change orders table (number/title/status/days/
+price/approved-how); `buildProjectReportData` gains
+`changeOrdersInPeriod` (created OR decided in the window — week-old COs
+approved yesterday are this week's news) rendered as a section that
+only appears when non-empty. The report still goes to owner/pm
+recipients (customer-facing sends are Sub-phase H); the section is in
+place for when the audience widens.
+
+**Consequences:** New migration
+`20260707180000_change_orders_workflow.sql` (`change_order_items` +
+`org_id_of_change_order` RLS helper, `change_orders.approval_token/
+sent_at/sent_to`, `materials.change_order_id`, `projects.original_
+estimate_*`, `project_comms.kind` + 'change_order'). New modules:
+`lib/change-orders/{shared,queries,actions,merge,public,public-actions}.ts`,
+`components/change-orders/{change-order-list,change-order-detail,
+change-order-decision}.tsx`, pages `/app/project/[id]/change-orders`
+(+ `[coId]`) and public `/portal/co/[token]`. `project-tabs.tsx`'s
+role-gated prop generalized (`canViewHandoff` → `canViewOfficeTabs`)
+to cover the new COs tab. `convertEstimateToActive` now snapshots the
+baseline. Found and fixed while building: the CO detail's figure inputs
+went stale after a line change (useState initials don't re-run on
+router.refresh — fixed with the same adjust-state-during-render pattern
+as LifecyclePanel, ADR-038). New `e2e/change-order-flow.spec.ts` covers
+the full arc: draft + auto-suggested figures, manual approval → merge
+(scope item + received-0 material) + baseline snapshot verified against
+the DB, the estimate tab's original-vs-approved card, a REAL Resend
+send minting a token + comms log, the customer approving CO-2 and
+declining CO-3 from a genuinely cookieless browser context, replay
+protection (nulled token), closeout PDF, and the scope-growth banner
+firing only for a post-mobilize, no-CO material. Full suite green: 35
+passed, 3 intentionally skipped.
+
+---
+
 ## ADR-042: Batch 4, Sub-phase E — material verification gate ("no verified material, no crew dispatch")
 
 **Decision date:** 2026-07-06

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
 import { requireOrg, requireRole } from "@/lib/auth/session";
+import { ensureOriginalEstimate } from "@/lib/change-orders/actions";
 import { ROLLING_WINDOW_DAYS } from "@/lib/estimating/labor";
 import { computeProjectEstimate, type ComputedEstimate } from "@/lib/estimating/queries";
 import { createClient } from "@/lib/supabase/server";
@@ -248,6 +249,12 @@ export async function convertEstimateToActive(projectId: string) {
     .eq("id", projectId)
     .eq("status", "estimate");
   if (error) throw error;
+
+  // Conversion is the moment "the estimate" becomes "the deal" — snapshot
+  // it as the original-estimate baseline change orders are measured
+  // against (ADR-043). Idempotent; projects created directly active get
+  // theirs lazily at first CO send/approval instead.
+  await ensureOriginalEstimate(projectId);
 
   revalidatePath("/app/estimate");
   revalidatePath(`/app/project/${projectId}`);

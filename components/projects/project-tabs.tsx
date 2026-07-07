@@ -9,11 +9,14 @@ import type { ProjectStatus } from "@/lib/supabase/database.types";
 export function ProjectTabs({
   projectId,
   status,
-  canViewHandoff,
+  canViewOfficeTabs,
 }: {
   projectId: string;
   status: ProjectStatus;
-  canViewHandoff: boolean;
+  // Handoff and Change orders are hidden per-role, not just per-status —
+  // their tables' RLS (handoff_surveys, change_orders) is owner/pm-only
+  // both ways, so any other role would only ever see an empty shell.
+  canViewOfficeTabs: boolean;
 }) {
   const pathname = usePathname();
   const base = `/app/project/${projectId}`;
@@ -27,9 +30,8 @@ export function ProjectTabs({
   const tabs = [
     { href: base, label: "Overview" },
     // Handoff formalizes a sale becoming an ops job — doesn't exist
-    // pre-sale, and hidden per-role (not just per-status) since
-    // handoff_surveys RLS is owner/pm-only both ways.
-    ...(status !== "estimate" && canViewHandoff
+    // pre-sale.
+    ...(status !== "estimate" && canViewOfficeTabs
       ? [{ href: `${base}/handoff`, label: "Handoff" }]
       : []),
     ...(status !== "estimate"
@@ -47,6 +49,10 @@ export function ProjectTabs({
           { href: `${base}/progress`, label: "Progress" },
           { href: `${base}/portal`, label: "Portal" },
         ]
+      : []),
+    // Change orders only exist once there's a sold scope to change.
+    ...(status !== "estimate" && canViewOfficeTabs
+      ? [{ href: `${base}/change-orders`, label: "COs" }]
       : []),
     { href: `${base}/estimate`, label: "Estimate" },
   ];

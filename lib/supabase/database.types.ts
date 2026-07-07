@@ -80,7 +80,13 @@ export type ChangeOrderStatus =
   | "approved"
   | "rejected"
   | "cancelled";
-export type CommsKind = "milestone" | "weekly_report" | "manual" | "schedule_change";
+export type ChangeOrderItemKind = "scope" | "material";
+export type CommsKind =
+  | "milestone"
+  | "weekly_report"
+  | "manual"
+  | "schedule_change"
+  | "change_order";
 export type CommsChannel = "email" | "portal" | "logged_call" | "logged_other";
 
 export type Database = {
@@ -302,9 +308,54 @@ export type Database = {
           },
         ]
       }
+      change_order_items: {
+        Row: {
+          change_order_id: string
+          created_at: string
+          description: string
+          id: string
+          kind: ChangeOrderItemKind
+          labor_units: number | null
+          qty: number | null
+          unit: string | null
+          work_type: ScopeWorkType | null
+        }
+        Insert: {
+          change_order_id: string
+          created_at?: string
+          description: string
+          id?: string
+          kind: ChangeOrderItemKind
+          labor_units?: number | null
+          qty?: number | null
+          unit?: string | null
+          work_type?: ScopeWorkType | null
+        }
+        Update: {
+          change_order_id?: string
+          created_at?: string
+          description?: string
+          id?: string
+          kind?: ChangeOrderItemKind
+          labor_units?: number | null
+          qty?: number | null
+          unit?: string | null
+          work_type?: ScopeWorkType | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "change_order_items_change_order_id_fkey"
+            columns: ["change_order_id"]
+            isOneToOne: false
+            referencedRelation: "change_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       change_orders: {
         Row: {
           added_days: number | null
+          approval_token: string | null
           created_at: string
           created_by: string | null
           customer_approved_at: string | null
@@ -317,11 +368,14 @@ export type Database = {
           price: number | null
           project_id: string
           reason: ChangeOrderReason
+          sent_at: string | null
+          sent_to: string | null
           status: ChangeOrderStatus
           title: string
         }
         Insert: {
           added_days?: number | null
+          approval_token?: string | null
           created_at?: string
           created_by?: string | null
           customer_approved_at?: string | null
@@ -334,11 +388,14 @@ export type Database = {
           price?: number | null
           project_id: string
           reason: ChangeOrderReason
+          sent_at?: string | null
+          sent_to?: string | null
           status?: ChangeOrderStatus
           title: string
         }
         Update: {
           added_days?: number | null
+          approval_token?: string | null
           created_at?: string
           created_by?: string | null
           customer_approved_at?: string | null
@@ -351,6 +408,8 @@ export type Database = {
           price?: number | null
           project_id?: string
           reason?: ChangeOrderReason
+          sent_at?: string | null
+          sent_to?: string | null
           status?: ChangeOrderStatus
           title?: string
         }
@@ -968,6 +1027,7 @@ export type Database = {
       materials: {
         Row: {
           capacity: string | null
+          change_order_id: string | null
           compatible_system: string | null
           condition: MaterialCondition
           created_at: string
@@ -984,6 +1044,7 @@ export type Database = {
         }
         Insert: {
           capacity?: string | null
+          change_order_id?: string | null
           compatible_system?: string | null
           condition?: MaterialCondition
           created_at?: string
@@ -1000,6 +1061,7 @@ export type Database = {
         }
         Update: {
           capacity?: string | null
+          change_order_id?: string | null
           compatible_system?: string | null
           condition?: MaterialCondition
           created_at?: string
@@ -1015,6 +1077,13 @@ export type Database = {
           unit?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "materials_change_order_id_fkey"
+            columns: ["change_order_id"]
+            isOneToOne: false
+            referencedRelation: "change_orders"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "materials_project_id_fkey"
             columns: ["project_id"]
@@ -1599,6 +1668,9 @@ export type Database = {
           mark_drawing_id: string | null
           name: string
           org_id: string
+          original_estimate_days: number | null
+          original_estimate_labor_units: number | null
+          original_estimate_saved_at: string | null
           planned_days: number | null
           pm_user_id: string | null
           site_address: string | null
@@ -1618,6 +1690,9 @@ export type Database = {
           mark_drawing_id?: string | null
           name: string
           org_id: string
+          original_estimate_days?: number | null
+          original_estimate_labor_units?: number | null
+          original_estimate_saved_at?: string | null
           planned_days?: number | null
           pm_user_id?: string | null
           site_address?: string | null
@@ -1637,6 +1712,9 @@ export type Database = {
           mark_drawing_id?: string | null
           name?: string
           org_id?: string
+          original_estimate_days?: number | null
+          original_estimate_labor_units?: number | null
+          original_estimate_saved_at?: string | null
           planned_days?: number | null
           pm_user_id?: string | null
           site_address?: string | null

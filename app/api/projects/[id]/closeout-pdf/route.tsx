@@ -40,6 +40,7 @@ export async function GET(
     { data: blockers, error: blockersError },
     { data: markingDrawing, error: drawingError },
     { data: dayLogs, error: dayLogsError },
+    { data: changeOrders, error: changeOrdersError },
   ] = await Promise.all([
     supabase.from("projects").select("site_address, created_at").eq("id", projectId).single(),
     supabase.from("organizations").select("name, address, logo_path").eq("id", project.org_id).single(),
@@ -64,6 +65,11 @@ export async function GET(
       .select("work_date, crew_id, arrived_at, departed_at, note")
       .eq("project_id", projectId)
       .order("work_date"),
+    supabase
+      .from("change_orders")
+      .select("number, title, status, added_days, price, customer_approved_via, customer_approved_at")
+      .eq("project_id", projectId)
+      .order("number"),
   ]);
   if (fullProjectError) throw fullProjectError;
   if (orgError) throw orgError;
@@ -71,6 +77,7 @@ export async function GET(
   if (blockersError) throw blockersError;
   if (drawingError) throw drawingError;
   if (dayLogsError) throw dayLogsError;
+  if (changeOrdersError) throw changeOrdersError;
 
   const crewIds = [
     ...new Set(dayLogs.map((log) => log.crew_id).filter((id): id is string => id !== null)),
@@ -121,6 +128,15 @@ export async function GET(
       arrivedAt: log.arrived_at,
       departedAt: log.departed_at,
       note: log.note,
+    })),
+    changeOrders: changeOrders.map((co) => ({
+      number: co.number,
+      title: co.title,
+      status: co.status,
+      addedDays: co.added_days,
+      price: co.price,
+      approvedVia: co.customer_approved_via,
+      approvedAt: co.customer_approved_at,
     })),
   };
 
