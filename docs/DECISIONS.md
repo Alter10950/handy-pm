@@ -5,6 +5,148 @@ Consequences.
 
 ---
 
+## ADR-042: Batch 4, Sub-phase E — material verification gate ("no verified material, no crew dispatch")
+
+**Decision date:** 2026-07-06
+
+**Context:** iBuy's third failure — bad material surfaced mid-install at
+the customer's site. Batch 3 built the receiving lifecycle
+(`material_receipts`: ordered→received→verified→staged→short/damaged/
+wrong) but nothing consumed it as a constraint: the scheduler's only
+guard was a dismissible row-level `window.confirm`, the field app
+rendered its full working UI unconditionally, and the seeded Materials-
+stage checklist was pure checkbox theater (hand-tickable with zero
+receiving data behind it). `docs/ARCHITECTURE.md` had already named this
+exact gap: "turning 'no verified material, no crew dispatch' into an
+actual block is an explicit later (Batch 4) job."
+
+**Choice — `received` means USABLE units, so `to_order` stays the single
+reorder truth:** the worksheet's two gestures write disjoint quantities —
+"✓ Received + verified" logs the good count (received + verified events,
+received-bumps the aggregate), "Flag problem" logs the bad count (a
+short/damaged/wrong event, NO received bump). A flagged unit therefore
+never counts as received, which means `needed - received` (`to_order`,
+unchanged since Batch 1's view) automatically carries every flagged unit
+onto the existing reorder list — no parallel shortage math, no
+double-count, and the "flags auto-land on the reorder list" requirement
+falls out of the data model rather than being bolted on. The legacy
+CheckInForm still lets someone log received-100-then-damaged-10 (which
+under this definition is a mis-entry: 90 + 10); the reconciliation
+card's numbers make that visible and correctable, and the worksheet
+makes the right entry the path of least resistance.
+
+**Choice — flags are "open" until explicitly resolved
+(`material_receipts.resolved_at`/`resolved_by`), and open flags block
+the gate:** discovering damage is an event; deciding it's dealt with
+(replacement received, or shortfall accepted) is a judgment that needed
+a place to live. Two new columns on the same event row — not a separate
+resolution log — because a flag has exactly one resolution and the
+history view already renders receipts chronologically. Resolution is
+owner/pm (`resolveMaterialFlag`), mirrors the seeded "Shortages/damage
+resolved or accepted" checklist item, and is E2E-verified to clear both
+the gate and the open-flags UI.
+
+**Choice — readiness is COMPUTED server-side and re-verified at stage
+completion, not trusted from checkboxes:** `getMaterialsReadiness`
+(lib/materials/queries.ts) derives % received, % verified (each capped
+per-material at needed), and open-flag totals from
+`material_reconciliation`'s two new appended columns (`verified`,
+`open_flag_qty` — appended at the END of the select list per ADR-019).
+`completeStage` now recomputes it whenever `stage_key === 'materials'`
+and throws with the specific blocked reason if it isn't green — the
+first stage in this codebase whose completion is verified against real
+data instead of item state, closing the hand-tick loophole the gate
+engine shipped with (every checkbox was always interactive regardless of
+stage status). `overrideStage` remains the accountable escape hatch,
+unchanged. A ZERO-material project is deliberately NOT ready ("No
+materials loaded yet") — an unloaded BOM is exactly the iBuy failure
+mode; the genuine no-materials job (customer-supplied) is what override
+exists for.
+
+**Choice — "crew dispatch" = `createAssignment`/`moveAssignment`, and
+the block is the Mobilize stage's own lock state:** this data model has
+no "dispatched" flag anywhere — assigning a crew to a work day IS the
+dispatch act, so those two Server Actions are the enforcement point
+(`requireClearedForDispatch`: ensureProjectStages, then reject while the
+mobilize stage row is `locked`). Planning stays free on purpose:
+`setProjectSchedule` (which days are working days) is NOT gated — you
+schedule next month's job before its steel ships all the time; you just
+can't commit a crew to it. No new state was invented: "cleared" is
+simply mobilize ∈ active/complete/overridden, which `advanceToNextStage`
+already maintains — the Materials stage completing (now impossible to
+fake) or being overridden (logged) is exactly what unlocks Mobilize.
+The pre-existing row-level readiness warning in AssignCrewForm (ADR-029,
+dismissible) is deliberately untouched — that's about one row's physical
+state, this is the project-level gate; both fire independently.
+
+**Choice — the field app withholds the working UI entirely
+(`clearedForInstall`), with a legacy grace:** a crew opening a locked
+project sees a "Not cleared for install" panel instead of steppers/day
+close/blockers — UI-level enforcement per the brief ("the field app
+shows crews a 'not cleared for install' state"), while the server-level
+half lives on the dispatch actions. A project with NO mobilize stage row
+at all (pre-Batch-4, stages never bootstrapped — sub-phase J's backfill
+hasn't run) is treated as CLEARED on the field side: bricking a live
+legacy project's crew mid-install would be worse than the gap, and the
+dispatch-side check bootstraps stages itself so new assignments are
+airtight either way.
+
+**Choice — the verification worksheet is a separate tablet-first screen,
+additive to the Receiving tab:** `/app/project/[id]/receiving/verify` —
+one card per BOM line, 48px tap targets, qty prefilled with the
+outstanding amount so the common case ("whole remaining delivery arrived
+and checks out") is literally one tap, flags inline (kind + qty + note),
+fully-verified lines sink to the bottom. The Receiving tab keeps the
+finer-grained CheckInForm (all 7 statuses, incl. `staged`) and gains the
+gate summary card + per-flag Resolve controls. Receiving stays owner/pm
+(existing `material_receipts_write` RLS unchanged) — "the warehouse guy"
+at Handy Equip is an owner/pm in practice; widening RLS to crew was not
+asked for and stays out of scope.
+
+**Choice — "Material staged/ready" stays a manual checklist item:** the
+other three seeded Materials items auto-tick from computed readiness
+(same best-effort label-lookup sync as ADR-041's handoff items,
+tick-only). Staging is a physical act in the warehouse, and leaving it
+manual keeps one deliberate human confirmation between "the numbers are
+green" and "the stage is complete" — the gate's job is stopping
+unverified dispatch, not removing humans from the loop.
+
+**Choice — overridden gates finally surface on the dashboard
+(`listOverriddenStages` + `GateOverrideList`):** Sub-phase 0's migration
+comment promised overrides would "surface as a dashboard exception in a
+later sub-phase," and nothing had shipped — overrides were only visible
+inside each project's own expanded stage card. The brief's "override
+(with reason, logged, dashboard-flagged)" makes this that sub-phase:
+every overridden stage on an active project, org-wide, with who/why/
+when, in a new "Overridden gates" dashboard section — same
+exceptions-only batch-fetch shape as listShortagesAcrossProjects.
+
+**Consequences:** New migration
+`20260707170000_material_verification_gate.sql` (receipt resolution
+columns + `material_reconciliation` gains `verified`/`open_flag_qty`).
+New: `getMaterialsReadiness`, `logVerifiedReceipt`/`flagMaterial`/
+`resolveMaterialFlag` (+ `material_flagged` NotificationKind, in-app,
+same-day, PM-of-record else all owner/pm, never the flagger themselves),
+`isProjectClearedForInstall`/`listOverriddenStages`,
+`requireClearedForDispatch` inside scheduler actions, the worksheet
+screen, the field lock panel, the scheduler's dispatch-gate banner, and
+dashboard override surfacing. `AssignCrewForm` and the crew calendar
+gained real error surfacing (a gate rejection used to be an unhandled
+promise — found while wiring the block). Pre-existing specs that
+dispatch crews or open the field detail on unverified projects
+(scheduler-flow, crew-calendar-flow, field-flow, scope-of-work-flow) now
+call a shared `clearDispatchGate` helper — the honest admin-side
+equivalent of the office completing the gate; materials-lifecycle-flow's
+old static "Flagged:" assertion updated to the new open-flags/resolve
+UI. New `e2e/material-gate-flow.spec.ts` covers the whole arc:
+hand-ticked checklist rejected server-side, dispatch blocked with a
+visible error and zero DB rows, field locked, flag → PM notification +
+reorder list, resolve → green → stage completes → the same assignment
+that was blocked succeeds → field unlocked → overrides visible on the
+dashboard. Full suite green: 34 passed, 3 intentionally skipped.
+
+---
+
 ## ADR-041: Batch 4, Sub-phase D — sales→ops handoff survey
 
 **Decision date:** 2026-07-06

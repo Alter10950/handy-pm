@@ -457,9 +457,11 @@ new query for either tab's filter.
   posture as the calendar's double-booking warning (ADR-029). The row
   picker itself also prefixes a blocked row's button label with "⚠ " and
   a destructive border, so the warning isn't the first signal. This is
-  intentionally a soft warning, not a hard gate — turning "no verified
-  material, no crew dispatch" into an actual block is an explicit later
-  (Batch 4) job that builds on this UI rather than duplicating it.
+  intentionally a soft warning, not a hard gate — it's about one row's
+  physical state. The hard, project-level gate ("no verified material,
+  no crew dispatch") shipped in Batch 4 Sub-phase E as a separate,
+  server-side check layered on top of this UI (see "Material
+  verification gate" below): both fire independently.
 
 ## CSV/XLSX import, row-range duplication, materials bulk ops, drawing versioning (Batch 3, Sub-phase G, 2026-07-06)
 
@@ -1487,6 +1489,83 @@ PDF summary, and an optional AI draft assist.
   sign-off calls (each of which upserts only its own two sign-off
   columns), checked directly against the database after each.
 
+## Material verification gate (Batch 4, Sub-phase E, 2026-07-06)
+
+Turns the Batch-3 receiving lifecycle into the hard gate the docs had
+been promising: "no verified material, no crew dispatch."
+
+- **`received` means USABLE units — that one definition does most of the
+  work:** the verification worksheet's two gestures write disjoint
+  quantities: "✓ Received + verified" logs the good count
+  (`logVerifiedReceipt`: one received + one verified event, bumps
+  `materials.received`), "Flag problem" logs the bad count
+  (`flagMaterial`: a short/damaged/wrong event, NO received bump). A
+  flagged unit therefore never counts as received, so `to_order`
+  (`needed - received`, unchanged since the original view) automatically
+  carries every flagged unit onto the existing reorder list — no
+  parallel shortage math, no double count.
+- **Flags are open until resolved:** `material_receipts.resolved_at`/
+  `resolved_by` (new columns, same event row — a flag has exactly one
+  resolution). Open flags block the gate; `resolveMaterialFlag`
+  (owner/pm) closes one; the Receiving tab renders per-flag Resolve
+  controls in place of the old static "Flagged:" text.
+- **Readiness is computed, and stage completion re-verifies it:**
+  `getMaterialsReadiness` (lib/materials/queries.ts) reads
+  `material_reconciliation`'s two appended columns (`verified`,
+  `open_flag_qty` — appended at the END per ADR-019) and returns
+  pctReceived/pctVerified (capped per-material at needed), open-flag
+  totals, and a human blocked-reason. `completeStage` recomputes it for
+  `stage_key === 'materials'` and throws if not green — closing the gate
+  engine's original hand-tick loophole (checkboxes were always
+  interactive regardless of stage status). Zero materials = NOT ready by
+  design (an unloaded BOM is the iBuy failure); override is the logged
+  escape hatch for the genuine customer-supplied-material job.
+- **Dispatch is the enforcement point:** no "dispatched" state exists
+  anywhere in the schedule tables — assigning a crew to a day IS
+  dispatch, so `createAssignment`/`moveAssignment` call
+  `requireClearedForDispatch` (ensureProjectStages, then reject while
+  the mobilize row is `locked`). Planning (`setProjectSchedule`) is
+  deliberately ungated. "Cleared" is simply mobilize ∈
+  active/complete/overridden — the state `advanceToNextStage` already
+  maintains — so completing (now unfakeable) or overriding (logged)
+  Materials is exactly what unlocks dispatch. The row-level readiness
+  warning in AssignCrewForm (ADR-029) is untouched and independent.
+  Both that form and the crew calendar gained catch-and-display error
+  paths — a server rejection there was previously an unhandled promise,
+  a gap that never mattered until an action could deliberately throw.
+- **Field app withholds the working UI while locked**
+  (`isProjectClearedForInstall` → `clearedForInstall` prop → a
+  "Not cleared for install" panel instead of steppers/day close/
+  blockers/scope). Legacy grace: a project with no mobilize stage row at
+  all (pre-Batch-4, not yet backfilled by sub-phase J) is treated as
+  cleared on the field side only — bricking a live project's crew
+  mid-install would be worse than the gap, and the dispatch check
+  bootstraps stages itself so new assignments stay airtight.
+- **The worksheet is tablet-first and additive**
+  (`/app/project/[id]/receiving/verify`): one card per BOM line, 48px
+  targets, qty prefilled with the outstanding amount (the "whole
+  remaining delivery arrived and checks out" case is one tap), flags
+  inline, fully-verified lines sink to the bottom. The Receiving tab
+  keeps the fine-grained CheckInForm (all 7 statuses incl. `staged`) and
+  gains the gate summary card. Receipts remain owner/pm (existing RLS).
+- **Same-day PM notification per flag:** new `material_flagged`
+  NotificationKind (in-app, immediate, one per discovery — not a
+  digest); recipients are the PM of record, else every owner/pm, never
+  the flagger themselves; `notificationHref` deep-links to the Receiving
+  tab.
+- **Overridden gates now surface on the dashboard:**
+  `listOverriddenStages` + `GateOverrideList` ("Overridden gates"
+  section) — every overridden stage on an active project org-wide with
+  who/why/when, in the same exceptions-only batch-fetch shape as
+  `listShortagesAcrossProjects`. Sub-phase 0's migration comment
+  promised this surfacing; it first shipped here.
+- **Checklist auto-sync, tick-only:** the three data-derived Materials
+  items ("100% of BOM received", "Received verified against packing
+  slip", "Shortages/damage resolved or accepted") auto-tick from
+  readiness via the same best-effort label lookup as the handoff's
+  (ADR-041); "Material staged/ready" deliberately stays a manual human
+  confirmation between green numbers and a complete stage.
+
 ## Testing
 
 `npm run test:e2e` (`npm run seed && playwright test`) runs a Playwright
@@ -1905,7 +1984,7 @@ transitively via `project_id` → `projects.org_id` or `crew_id` →
 | `drawings`                               | `project_id`                  | One row per rendered page (`page_index` 0-based) of an uploaded layout PDF/image. `storage_path` points into the private `drawings` bucket. `role` ∈ `reference`/`marking` — see below.                                                     |
 | `packing_slips`                          | `project_id`                  | Uploaded packing-slip files; `parsed` reserved for future OCR/extraction.                                                                                                                                                                   |
 | `materials`                              | `project_id`                  | The job's material catalog — `total_needed` (job total) and `received` (from packing slips) live here; per-row requirements live in `row_materials`. `size`/`labor_units` (2026-07-03) and `profile`/`capacity`/`condition`/`compatible_system` (2026-07-06, richer identity for the estimating/receiving work) added since. `task_key` (2026-07-06) classifies a material against `labor_standards`, so `labor_units` computes size-aware instead of resting at its bare default — see ADR-030. |
-| `material_receipts`                      | via `materials`                | Append-only receiving event log (2026-07-06) — `status` ∈ `ordered`/`received`/`verified`/`staged`/`short`/`damaged`/`wrong`, each row a fact ("N units reached this status"), not a single mutable state. `materials.received` stays the fast-read aggregate; a receiving check-in (sub-phase F) keeps both in sync. |
+| `material_receipts`                      | via `materials`                | Append-only receiving event log (2026-07-06) — `status` ∈ `ordered`/`received`/`verified`/`staged`/`short`/`damaged`/`wrong`, each row a fact ("N units reached this status"), not a single mutable state. `materials.received` stays the fast-read aggregate (usable units only — flags never bump it, see ADR-042); a receiving check-in keeps both in sync. Batch 4 Sub-phase E added `resolved_at`/`resolved_by`: a short/damaged/wrong flag is "open" (blocks the Materials gate) until an owner/pm resolves it. |
 | `rows`                                   | `project_id` (+ `drawing_id`) | A marked rack section on a drawing page. `x/y/w/h` are **normalized 0..1** fractions of the drawing's rendered size, so marks stay correct at any zoom/display size. `phase_id` (nullable, 2026-07-03); `materials_ready`/`area_accessible`/`drawing_approved` readiness inputs (2026-07-06) — `crew_assigned` is deliberately NOT a column here, it's derived in `row_progress` from `assignments`.                                |
 | `row_materials`                          | via `rows`                    | Required qty of a material for a specific row. `unique(row_id, material_id)`.                                                                                                                                                               |
 | `installs`                               | via `rows`                    | Append-only log of installed qty per row/material/date. `qty` may be negative (a correction entry) — never edit history in place. `idempotency_key` (unique, nullable) + `device_id` added 2026-07-03 for the field app's offline queue.    |

@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 import { deleteProjectCompletely } from "./helpers/cleanup";
+import { clearDispatchGate } from "./helpers/gates";
 import { createAdminClient } from "./helpers/supabase-admin";
 
 const PROJECT_A_NAME = `[E2E] Calendar A ${Date.now()}`;
@@ -52,6 +53,12 @@ test("crew calendar: drag to assign, double-booking warning, remove", async ({
       .single();
     if (error) throw error;
     crewId = crew.id;
+
+    // Sub-phase E's dispatch gate would reject every drag below (neither
+    // project's materials were verified) — clearing it is material-gate-
+    // flow.spec.ts's subject, not this test's.
+    await clearDispatchGate(projectAId!);
+    await clearDispatchGate(projectBId!);
   });
 
   await test.step("drag project A onto today's cell for the crew", async () => {

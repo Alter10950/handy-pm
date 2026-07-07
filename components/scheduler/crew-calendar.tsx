@@ -66,6 +66,7 @@ export function CrewCalendar({
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [dragOverCell, setDragOverCell] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const projectNameById = useMemo(
     () => new Map(projects.map((p) => [p.project_id, p.name])),
     [projects]
@@ -126,6 +127,7 @@ export function CrewCalendar({
     }
 
     setPending(true);
+    setActionError(null);
     try {
       if ("projectId" in source) {
         await createAssignment(source.projectId, crewId, workDate, null);
@@ -133,6 +135,11 @@ export function CrewCalendar({
         await moveAssignment(source.assignmentId, crewId, workDate);
       }
       router.refresh();
+    } catch (err) {
+      // The dispatch gate (ADR-042) rejects server-side while a project's
+      // Mobilize stage is locked — a dropped chip must explain itself, not
+      // silently snap back.
+      setActionError(err instanceof Error ? err.message : "Could not assign crew.");
     } finally {
       setPending(false);
     }
@@ -162,7 +169,16 @@ export function CrewCalendar({
 
   return (
     <div className="flex flex-col gap-4 lg:flex-row">
-      <div className="flex-1 overflow-x-auto rounded-lg border border-border">
+      <div className="flex-1">
+        {actionError ? (
+          <p
+            data-testid="calendar-action-error"
+            className="mb-2 rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+          >
+            {actionError}
+          </p>
+        ) : null}
+        <div className="overflow-x-auto rounded-lg border border-border">
         <table className="w-full border-separate border-spacing-0 text-sm">
           <thead>
             <tr>
@@ -274,6 +290,7 @@ export function CrewCalendar({
             ) : null}
           </tbody>
         </table>
+        </div>
       </div>
 
       <div className="flex w-full flex-col gap-2 lg:w-56">

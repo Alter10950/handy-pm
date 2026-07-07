@@ -922,6 +922,8 @@ export type Database = {
           material_id: string
           note: string | null
           qty: number
+          resolved_at: string | null
+          resolved_by: string | null
           status: MaterialReceiptStatus
         }
         Insert: {
@@ -931,6 +933,8 @@ export type Database = {
           material_id: string
           note?: string | null
           qty: number
+          resolved_at?: string | null
+          resolved_by?: string | null
           status: MaterialReceiptStatus
         }
         Update: {
@@ -940,6 +944,8 @@ export type Database = {
           material_id?: string
           note?: string | null
           qty?: number
+          resolved_at?: string | null
+          resolved_by?: string | null
           status?: MaterialReceiptStatus
         }
         Relationships: [
@@ -2044,10 +2050,12 @@ export type Database = {
           material_id: string
           name: string
           needed: number
+          open_flag_qty: number
           project_id: string
           received: number
           to_order: number
           unit: string
+          verified: number
         }
         Relationships: [
           {

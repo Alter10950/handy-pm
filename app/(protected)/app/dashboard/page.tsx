@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { BlockerEscalationList } from "@/components/dashboard/blocker-escalation-list";
 import { CrewPerformanceSummary } from "@/components/dashboard/crew-performance-summary";
 import { EmailReportButton } from "@/components/dashboard/email-report-button";
+import { GateOverrideList } from "@/components/dashboard/gate-override-list";
 import { LifecycleAttentionList } from "@/components/dashboard/lifecycle-attention-list";
 import { ProjectRiskList } from "@/components/dashboard/project-risk-list";
 import { ShortageList } from "@/components/dashboard/shortage-list";
@@ -15,7 +16,7 @@ import {
   listShortagesAcrossProjects,
   listUnresolvedBlockersAcrossProjects,
 } from "@/lib/dashboard/queries";
-import { listOrgWideNextActions } from "@/lib/gates/queries";
+import { listOrgWideNextActions, listOverriddenStages } from "@/lib/gates/queries";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
@@ -65,15 +66,23 @@ export default async function DashboardPage() {
     redirect("/app");
   }
 
-  const [projects, shortages, blockers, crews, activity, lifecycleAttention] =
-    await Promise.all([
-      listActiveProjectsForDashboard(),
-      listShortagesAcrossProjects(),
-      listUnresolvedBlockersAcrossProjects(),
-      getCrewPerformanceSummary(),
-      getTodayActivitySummary(),
-      listOrgWideNextActions(),
-    ]);
+  const [
+    projects,
+    shortages,
+    blockers,
+    crews,
+    activity,
+    lifecycleAttention,
+    gateOverrides,
+  ] = await Promise.all([
+    listActiveProjectsForDashboard(),
+    listShortagesAcrossProjects(),
+    listUnresolvedBlockersAcrossProjects(),
+    getCrewPerformanceSummary(),
+    getTodayActivitySummary(),
+    listOrgWideNextActions(),
+    listOverriddenStages(),
+  ]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -93,6 +102,10 @@ export default async function DashboardPage() {
 
       <Section title={`Needs attention — stalled or overdue (${lifecycleAttention.length})`}>
         <LifecycleAttentionList summaries={lifecycleAttention} />
+      </Section>
+
+      <Section title={`Overridden gates (${gateOverrides.length})`}>
+        <GateOverrideList overrides={gateOverrides} />
       </Section>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">

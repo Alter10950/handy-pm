@@ -300,6 +300,33 @@ session, not just the seeded owner playing both parts. Full suite green:
 33 passed, 3 intentionally skipped; confirmed zero leftover test data
 (including `handoff_surveys` rows) afterward.
 
+**Sub-phase E — material verification gate — done and verified live
+(2026-07-06, see ADR-042):** "no verified material, no crew dispatch,"
+enforced rather than warned. Materials-stage readiness is now computed
+from the real receiving event log (% received, % verified — each capped
+per-material — and open short/damaged/wrong flags, which stay open until
+an owner/pm explicitly resolves them via two new columns on
+`material_receipts`), and `completeStage` re-verifies that computation
+server-side for the Materials stage — hand-ticking every checkbox no
+longer completes it, the first computed-not-trusted gate in the app.
+While Mobilize stays locked, assigning a crew to a day
+(`createAssignment`/`moveAssignment` — the dispatch act in this data
+model) is server-rejected with a clear message (planning schedule days
+stays free), and the Field app withholds its entire working UI behind a
+"Not cleared for install" panel. A new tablet-first verification
+worksheet (`/receiving/verify`) makes dock check-off one tap per line —
+confirm logs received+verified together, flags log short/damaged/wrong
+with qty and note, notify the PM in-app the same day, and land on the
+reorder list automatically (flagged units are never received-bumped, so
+the existing `to_order` already counts them — one reorder truth, no
+parallel math). The dashboard finally surfaces overridden gates
+org-wide (who/why/when), a promise Sub-phase 0's migration made that
+nothing had shipped. Found and fixed along the way: a dispatch
+rejection would have been an unhandled promise in both the
+AssignCrewForm and the crew calendar (neither had ever needed a catch
+path). Full suite green: 34 passed, 3 intentionally skipped, zero
+leftover test data.
+
 **Batch 3 — ✅ COMPLETE (2026-07-06):** a large flagship push — full user
 management/org settings, Field and Scheduler taken to "flagship," a
 rules-based estimation engine, an exception-first dashboard + emailed
@@ -1163,6 +1190,64 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
       actually runs in this environment). Full suite green: 33 passed, 3
       intentionally skipped; confirmed zero leftover test data (projects,
       auth users, and `handoff_surveys` rows all back to zero) afterward.
+
+## Batch 4, Sub-phase E — Material verification gate ✅ done (2026-07-06)
+
+- [x] `material_receipts.resolved_at`/`resolved_by` (new migration) — a
+      short/damaged/wrong flag stays "open" (gate-blocking) until an
+      owner/pm explicitly resolves it; `material_reconciliation` gains
+      `verified` + `open_flag_qty`, appended at the end (ADR-019).
+- [x] `getMaterialsReadiness` — % received, % verified (capped
+      per-material at needed), open flags, and a human blocked-reason,
+      computed from the receiving event log. A zero-material project is
+      deliberately NOT ready (an unloaded BOM is the iBuy failure mode;
+      override covers the genuine no-materials job).
+- [x] `completeStage` re-verifies computed readiness server-side for the
+      Materials stage — hand-ticking all four checkboxes can no longer
+      complete it (E2E-proven: ticked via admin, Complete rejected with
+      the specific reason). Override stays the logged escape hatch.
+- [x] Hard dispatch block: `createAssignment`/`moveAssignment` reject
+      while the Mobilize stage is locked ("assigning a crew IS the
+      dispatch act" — no dispatched flag existed anywhere to gate
+      instead). Planning (`setProjectSchedule`) deliberately stays free.
+      Both the AssignCrewForm and the crew calendar gained real error
+      surfacing — a rejection there was previously an unhandled promise.
+- [x] Field app shows "Not cleared for install" and withholds the whole
+      working UI (steppers/day close/blockers/scope) while Mobilize is
+      locked; a pre-Batch-4 project with no stage rows at all stays
+      cleared (legacy grace until sub-phase J's backfill), since the
+      dispatch-side check bootstraps stages itself and stays airtight.
+- [x] Verification worksheet (`/app/project/[id]/receiving/verify`) —
+      tablet-first, one card per BOM line, qty prefilled with the
+      outstanding amount ("whole delivery arrived and checks out" = one
+      tap), confirm logs received+verified together, flags log
+      short/damaged/wrong inline with qty + note.
+- [x] Every flag notifies the PM in-app the same day (new
+      `material_flagged` NotificationKind; PM of record, else all
+      owner/pm, never the flagger themselves) and lands on the reorder
+      list automatically — flagged units are never received-bumped, so
+      `to_order` (the existing single reorder truth) already counts them.
+- [x] Receiving tab gains the Materials-gate summary card (green/not
+      ready, %s, open flags, worksheet link) and per-flag Resolve
+      controls; scheduler project page gains a dispatch-gate banner.
+- [x] Dashboard "Overridden gates" section (`listOverriddenStages` +
+      `GateOverrideList`) — who/why/when for every overridden stage on
+      an active project, org-wide; promised in Sub-phase 0's own
+      migration comment, first shipped here.
+- [x] The three data-derived Materials checklist items auto-tick from
+      readiness (same label-lookup sync as the handoff's, tick-only);
+      "Material staged/ready" deliberately stays a manual human
+      confirmation.
+- [x] `npm run lint`/`typecheck`/`build` all pass. New
+      `e2e/material-gate-flow.spec.ts` covers the full arc (fake-ticked
+      completion rejected → dispatch blocked with zero DB rows → field
+      locked → confirm/flag on the worksheet → PM notified + reorder
+      listed → resolve → green → complete → the same assignment now
+      succeeds → field unlocked → overrides on the dashboard). Four
+      pre-existing specs now clear the gate via a shared
+      `clearDispatchGate` helper; materials-lifecycle-flow updated to
+      the new open-flags/resolve UI. Full suite green: 34 passed, 3
+      intentionally skipped; zero leftover test data confirmed.
 
 ## Batch 3, Sub-phase 0 — Schema for estimating/readiness/versioning ✅ done (2026-07-06)
 

@@ -8,6 +8,7 @@ import {
   getTemplateStagesWithItems,
   STAGE_ORDER,
 } from "@/lib/gates/queries";
+import { getMaterialsReadiness } from "@/lib/materials/queries";
 import { touchProjectActivity } from "@/lib/projects/actions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -279,6 +280,21 @@ export async function completeStage(
     throw new Error(
       `${incomplete} item${incomplete === 1 ? "" : "s"} still open — finish them, or use Override.`
     );
+  }
+
+  // The Materials stage alone is also verified against COMPUTED readiness
+  // (the receiving event log), not just checkbox state — hand-ticking the
+  // checklist can't complete it while the BOM isn't actually received,
+  // verified, and flag-free (ADR-042: "no verified material, no crew
+  // dispatch"). Override remains the accountable escape hatch for the
+  // genuine exception (e.g. a job with customer-supplied material).
+  if (stage.stage_key === "materials") {
+    const readiness = await getMaterialsReadiness(projectId);
+    if (!readiness.isReady) {
+      throw new Error(
+        `Materials aren't verified yet — ${readiness.blockedReason} Resolve it on the Receiving tab, or use Override.`
+      );
+    }
   }
 
   const { error } = await supabase

@@ -3,6 +3,7 @@ import path from "node:path";
 import { expect, test } from "@playwright/test";
 
 import { deleteProjectCompletely } from "./helpers/cleanup";
+import { clearDispatchGate } from "./helpers/gates";
 import { createAdminClient } from "./helpers/supabase-admin";
 
 const FIXTURE_PATH = path.join(__dirname, "fixtures/test-drawing.svg");
@@ -172,6 +173,11 @@ test("scheduler: create crew, build schedule, generate targets, assign crew to a
   });
 
   await test.step("assign the crew to today and verify it shows in the week view", async () => {
+    // Sub-phase E's dispatch gate would block this assignment (materials
+    // were never verified in this spec) — clearing it is material-gate-
+    // flow.spec.ts's subject, not this test's.
+    await clearDispatchGate(projectId!);
+
     await page.getByText("+ Assign crew").first().click();
     await page.getByRole("button", { name: "Assign", exact: true }).click();
     await expect(page.getByText(CREW_NAME).last()).toBeVisible({

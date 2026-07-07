@@ -1,12 +1,13 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { recordMaterialReceipt } from "@/lib/materials/actions";
-import type { MaterialReceiptTotals } from "@/lib/materials/queries";
+import { recordMaterialReceipt, resolveMaterialFlag } from "@/lib/materials/actions";
+import type { MaterialReceiptTotals, MaterialsReadiness } from "@/lib/materials/queries";
 import type {
   MaterialReceiptStatus,
   Tables,
@@ -34,6 +35,58 @@ const STATUSES: MaterialReceiptStatus[] = [
 ];
 
 const FLAG_STATUSES = new Set<MaterialReceiptStatus>(["short", "damaged", "wrong"]);
+
+// One unresolved short/damaged/wrong event, with its resolve control —
+// resolving is what un-blocks the Materials gate (the flag stays in the
+// history forever; resolution is a second pair of columns on the same
+// row, not a deletion).
+function OpenFlagRow({
+  flag,
+  projectId,
+  onResolved,
+}: {
+  flag: Tables<"material_receipts">;
+  projectId: string;
+  onResolved: () => void;
+}) {
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  function resolve() {
+    setError(null);
+    startTransition(async () => {
+      try {
+        await resolveMaterialFlag(flag.id, projectId);
+        onResolved();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Could not resolve flag.");
+      }
+    });
+  }
+
+  return (
+    <li className="flex flex-wrap items-center gap-2 text-xs">
+      <span className="font-medium text-destructive">
+        {flag.status} × {flag.qty}
+      </span>
+      {flag.note ? <span className="text-muted-foreground">— {flag.note}</span> : null}
+      <span className="text-muted-foreground">
+        {formatReceiptTimestamp(flag.created_at)}
+      </span>
+      <Button
+        type="button"
+        size="xs"
+        variant="outline"
+        disabled={isPending}
+        onClick={resolve}
+        data-testid={`resolve-flag-${flag.id}`}
+      >
+        {isPending ? "Resolving…" : "Resolve"}
+      </Button>
+      {error ? <span className="text-destructive">{error}</span> : null}
+    </li>
+  );
+}
 
 function CheckInForm({
   materialId,
@@ -116,12 +169,14 @@ export function ReceivingPanel({
   reconciliation,
   receiptTotals,
   receiptHistory,
+  readiness,
 }: {
   projectId: string;
   materials: Tables<"materials">[];
   reconciliation: Views<"material_reconciliation">[];
   receiptTotals: MaterialReceiptTotals[];
   receiptHistory: Record<string, Tables<"material_receipts">[]>;
+  readiness: MaterialsReadiness;
 }) {
   const router = useRouter();
   const reconByMaterial = new Map(reconciliation.map((r) => [r.material_id, r]));
@@ -139,6 +194,50 @@ export function ReceivingPanel({
 
   return (
     <div className="flex flex-col gap-6">
+      <div
+        data-testid="materials-gate-card"
+        className={cn(
+          "flex flex-wrap items-center justify-between gap-3 rounded-lg border px-4 py-3",
+          readiness.isReady
+            ? "border-success/50 bg-success/10"
+            : "border-border bg-card"
+        )}
+      >
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm">
+          <span
+            className={cn(
+              "font-semibold",
+              readiness.isReady ? "text-success" : "text-foreground"
+            )}
+          >
+            {readiness.isReady
+              ? "Materials gate: green"
+              : "Materials gate: not ready"}
+          </span>
+          <span className="text-muted-foreground">
+            {Math.round(readiness.pctReceived * 100)}% received
+          </span>
+          <span className="text-muted-foreground">
+            {Math.round(readiness.pctVerified * 100)}% verified
+          </span>
+          <span
+            className={cn(
+              readiness.openFlagQty > 0
+                ? "font-medium text-destructive"
+                : "text-muted-foreground"
+            )}
+          >
+            {readiness.openFlagQty} flagged open
+          </span>
+        </div>
+        <Link
+          href={`/app/project/${projectId}/receiving/verify`}
+          className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/80"
+        >
+          Open verification worksheet
+        </Link>
+      </div>
+
       <div className="rounded-lg border border-border bg-card p-4">
         <h2 className="mb-3 text-sm font-semibold text-foreground">
           Reorder list ({reorderList.length})
@@ -170,8 +269,9 @@ export function ReceivingPanel({
             {materials.map((material) => {
               const recon = reconByMaterial.get(material.id);
               const totals = totalsByMaterial.get(material.id) ?? {};
-              const flagged = STATUSES.filter(
-                (s) => FLAG_STATUSES.has(s) && (totals[s] ?? 0) > 0
+              const openFlags = (receiptHistory[material.id] ?? []).filter(
+                (entry) =>
+                  FLAG_STATUSES.has(entry.status) && entry.resolved_at === null
               );
               return (
                 <div
@@ -202,11 +302,23 @@ export function ReceivingPanel({
                       )
                     )}
                   </div>
-                  {flagged.length > 0 ? (
-                    <p className="text-xs font-medium text-destructive">
-                      Flagged: {flagged.join(", ")} — resolve before this material is
-                      considered fully staged.
-                    </p>
+                  {openFlags.length > 0 ? (
+                    <div className="rounded-md border border-destructive/40 bg-destructive/5 p-2">
+                      <p className="text-xs font-medium text-destructive">
+                        Open flags — the Materials gate stays red until each is
+                        resolved (replacement received, or accepted as-is):
+                      </p>
+                      <ul className="mt-1.5 flex flex-col gap-1">
+                        {openFlags.map((flag) => (
+                          <OpenFlagRow
+                            key={flag.id}
+                            flag={flag}
+                            projectId={projectId}
+                            onResolved={() => router.refresh()}
+                          />
+                        ))}
+                      </ul>
+                    </div>
                   ) : null}
                   <CheckInForm
                     materialId={material.id}

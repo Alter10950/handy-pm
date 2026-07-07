@@ -30,6 +30,7 @@ export function FieldWorkspace({
   myCrewId,
   dayLogPhotoUrls,
   scopeItems,
+  clearedForInstall,
 }: {
   project: Tables<"projects">;
   rows: Views<"row_progress">[];
@@ -44,6 +45,7 @@ export function FieldWorkspace({
   myCrewId: string | null;
   dayLogPhotoUrls: Record<string, string>;
   scopeItems: ScopeItemProgressRow[];
+  clearedForInstall: boolean;
 }) {
   const [crewId, setCrewId] = useCrewSelection(myCrewId);
   const { logDelta, pendingCount } = useInstallLogger(project.id, crewId);
@@ -120,6 +122,44 @@ export function FieldWorkspace({
     }
     return items;
   }, [myTodayByRowMaterial, rows, materialsById]);
+
+  // "No verified material, no crew dispatch" — the crew-facing half of
+  // the Mobilize hard lock (ADR-042). The whole working UI (install
+  // steppers, day close, blockers, scope) is withheld, not just warned
+  // over: the entire point of the gate is that nobody starts installing
+  // out of an unverified BOM.
+  if (!clearedForInstall) {
+    return (
+      <div className="flex min-h-screen flex-col pb-8">
+        <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-border bg-background p-3">
+          <Link href="/field" className="text-sm text-muted-foreground">
+            ← Projects
+          </Link>
+          <span className="truncate font-medium text-foreground">
+            {project.name}
+          </span>
+          <span aria-hidden className="w-10 shrink-0" />
+        </div>
+        <div className="flex flex-1 items-center justify-center p-6">
+          <div
+            data-testid="not-cleared-panel"
+            className="max-w-sm rounded-lg border border-destructive/50 bg-destructive/10 p-6 text-center"
+          >
+            <p className="text-lg font-semibold text-destructive">
+              Not cleared for install
+            </p>
+            <p className="mt-2 text-sm text-foreground">
+              Materials for this job haven&apos;t been verified yet. The
+              office completes the Materials gate (or an owner/PM overrides
+              it with a reason) before crew work starts here — that&apos;s
+              what keeps a shortage from being discovered mid-install at the
+              customer&apos;s site.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen flex-col pb-8">

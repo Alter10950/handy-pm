@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 import { deleteProjectCompletely } from "./helpers/cleanup";
+import { clearDispatchGate } from "./helpers/gates";
 import { createAdminClient } from "./helpers/supabase-admin";
 
 const PROJECT_NAME = `[E2E] Scope of work ${Date.now()}`;
@@ -103,6 +104,11 @@ test("scope of work: add a project-level item, labor suggested, log partial then
   });
 
   await test.step("the field app shows the same item and can mark it done", async () => {
+    // Sub-phase E's Mobilize lock would show "Not cleared for install"
+    // instead of the working field UI (this spec never verifies
+    // materials) — clearing it is material-gate-flow.spec.ts's subject.
+    await clearDispatchGate(projectId!);
+
     await page.goto(`/field/${projectId}`);
     await page.getByRole("button", { name: "Scope" }).click();
     const card = page.locator('[data-testid^="scope-item-"]').filter({

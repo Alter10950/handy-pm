@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { requireRole } from "@/lib/auth/session";
+import { ensureProjectStages } from "@/lib/gates/actions";
 import { listProjectSchedule, listRemainingByMaterial } from "@/lib/scheduler/queries";
 import { createClient } from "@/lib/supabase/server";
 
@@ -12,6 +13,42 @@ const SCHEDULERS = ["owner", "pm", "scheduler"] as const;
 function revalidateScheduler(projectId: string) {
   revalidatePath("/scheduler");
   revalidatePath(`/scheduler/${projectId}`);
+}
+
+// "No verified material, no crew dispatch" (ADR-042) — assigning a crew
+// to a work day IS the dispatch act in this data model, so it's the
+// enforcement point. Blocked while the project's Mobilize stage is still
+// locked, i.e. until the Materials stage completes (whose own completion
+// re-verifies computed receiving readiness server-side) or an owner/pm
+// overrides it with a logged reason. Planning stays free — scheduling
+// working days (setProjectSchedule) is deliberately NOT gated; only
+// committing an actual crew to those days is. Note the deliberate
+// asymmetry with the row-level readiness check in AssignCrewForm, which
+// stays a dismissible client-side warning (ADR-029) — that one is about
+// a specific row's physical state, this one is the project-level gate.
+async function requireClearedForDispatch(
+  projectId: string,
+  orgId: string
+): Promise<void> {
+  await ensureProjectStages(projectId, orgId);
+  const supabase = await createClient();
+  const { data: mobilize, error } = await supabase
+    .from("project_stages")
+    .select("status")
+    .eq("project_id", projectId)
+    .eq("stage_key", "mobilize")
+    .maybeSingle();
+  if (error) throw error;
+  // No mobilize row even after ensureProjectStages means the org has no
+  // gate template (deleted/never seeded) — nothing to enforce against.
+  if (!mobilize) return;
+  if (mobilize.status === "locked") {
+    throw new Error(
+      "Not cleared for crew dispatch — the Materials gate isn't green yet. " +
+        "Verify the BOM on the Receiving tab and complete the Materials stage " +
+        "(or have an owner/PM override it with a reason) first."
+    );
+  }
 }
 
 export async function upsertPlannedDays(
@@ -58,7 +95,8 @@ export async function createAssignment(
   workDate: string,
   rowIds: string[] | null
 ): Promise<void> {
-  await requireRole(SCHEDULERS);
+  const { orgId } = await requireRole(SCHEDULERS);
+  await requireClearedForDispatch(projectId, orgId);
   const supabase = await createClient();
   const rows = rowIds && rowIds.length > 0 ? rowIds : [null];
   const { error } = await supabase.from("assignments").insert(
@@ -95,7 +133,7 @@ export async function moveAssignment(
   newCrewId: string,
   newWorkDate: string
 ): Promise<void> {
-  await requireRole(SCHEDULERS);
+  const { orgId } = await requireRole(SCHEDULERS);
   const supabase = await createClient();
   const { data: existing, error: findError } = await supabase
     .from("assignments")
@@ -103,6 +141,8 @@ export async function moveAssignment(
     .eq("id", assignmentId)
     .single();
   if (findError) throw findError;
+
+  await requireClearedForDispatch(existing.project_id, orgId);
 
   const { error } = await supabase
     .from("assignments")

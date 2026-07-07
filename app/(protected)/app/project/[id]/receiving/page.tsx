@@ -1,6 +1,7 @@
 import { ReceivingPanel } from "@/components/materials/receiving-panel";
 import {
   getMaterialReceiptTotals,
+  getMaterialsReadiness,
   listMaterialReceiptHistoryByProject,
 } from "@/lib/materials/queries";
 import { listMaterialReconciliation, listMaterials } from "@/lib/projects/queries";
@@ -11,12 +12,14 @@ export default async function ProjectReceivingPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [materials, reconciliation, receiptTotals, receiptHistory] = await Promise.all([
-    listMaterials(id),
-    listMaterialReconciliation(id),
-    getMaterialReceiptTotals(id),
-    listMaterialReceiptHistoryByProject(id),
-  ]);
+  const [materials, reconciliation, receiptTotals, receiptHistory, readiness] =
+    await Promise.all([
+      listMaterials(id),
+      listMaterialReconciliation(id),
+      getMaterialReceiptTotals(id),
+      listMaterialReceiptHistoryByProject(id),
+      getMaterialsReadiness(id),
+    ]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -27,6 +30,7 @@ export default async function ProjectReceivingPage({
         reconciliation={reconciliation}
         receiptTotals={receiptTotals}
         receiptHistory={Object.fromEntries(receiptHistory)}
+        readiness={readiness}
       />
     </div>
   );

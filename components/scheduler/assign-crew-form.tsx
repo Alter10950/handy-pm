@@ -28,6 +28,7 @@ export function AssignCrewForm({
   const [rowIds, setRowIds] = useState<Set<string>>(new Set());
   const [phaseId, setPhaseId] = useState(phases[0]?.id ?? "");
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   function toggleRow(id: string) {
     setRowIds((prev) => {
@@ -69,9 +70,14 @@ export function AssignCrewForm({
     }
 
     setSaving(true);
+    setError(null);
     try {
       await createAssignment(projectId, crewId, workDate, targetRowIds);
       onDone();
+    } catch (err) {
+      // The dispatch gate (ADR-042) rejects server-side while Mobilize is
+      // locked — surface its message instead of silently doing nothing.
+      setError(err instanceof Error ? err.message : "Could not assign crew.");
     } finally {
       setSaving(false);
     }
@@ -178,6 +184,12 @@ export function AssignCrewForm({
       >
         {saving ? "Assigning…" : "Assign"}
       </Button>
+
+      {error ? (
+        <p data-testid="assign-crew-error" className="text-xs text-destructive">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }

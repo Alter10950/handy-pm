@@ -123,6 +123,84 @@ export async function getProjectLifecycle(
   });
 }
 
+// "No verified material, no crew dispatch" — the field app's read side of
+// the Mobilize hard lock (ADR-042). A missing mobilize row (org template
+// deleted, or a pre-Batch-4 project whose stages sub-phase J hasn't
+// backfilled yet) is deliberately treated as CLEARED, not locked — a live
+// legacy project mid-install must not suddenly brick its crew's app; the
+// dispatch-side block (createAssignment) bootstraps stages itself and is
+// the airtight half.
+export async function isProjectClearedForInstall(
+  projectId: string
+): Promise<boolean> {
+  const supabase = await createClient();
+  const { data: mobilize, error } = await supabase
+    .from("project_stages")
+    .select("status")
+    .eq("project_id", projectId)
+    .eq("stage_key", "mobilize")
+    .maybeSingle();
+  if (error) throw error;
+  if (!mobilize) return true;
+  return mobilize.status !== "locked";
+}
+
+export interface StageOverrideSummary {
+  projectId: string;
+  projectName: string;
+  stageKey: string;
+  overrideReason: string;
+  overriddenByName: string | null;
+  overriddenAt: string | null;
+}
+
+// Every overridden gate on an active project, org-wide — the dashboard
+// exception list Sub-phase 0's own migration comment promised ("meant to
+// surface as a dashboard exception in a later sub-phase") but nothing had
+// shipped until now. Same "exceptions only, batch-fetched" convention as
+// listShortagesAcrossProjects.
+export async function listOverriddenStages(): Promise<StageOverrideSummary[]> {
+  const supabase = await createClient();
+  const { data: projects, error: projectsError } = await supabase
+    .from("projects")
+    .select("id, name")
+    .eq("status", "active");
+  if (projectsError) throw projectsError;
+  if (projects.length === 0) return [];
+  const projectNameById = new Map(projects.map((p) => [p.id, p.name]));
+
+  const { data: stages, error: stagesError } = await supabase
+    .from("project_stages")
+    .select("project_id, stage_key, status, override_reason, overridden_by, completed_at")
+    .in("project_id", projects.map((p) => p.id))
+    .eq("status", "overridden");
+  if (stagesError) throw stagesError;
+  if (stages.length === 0) return [];
+
+  const overriderIds = [
+    ...new Set(
+      stages.map((s) => s.overridden_by).filter((id): id is string => id !== null)
+    ),
+  ];
+  const { data: profiles, error: profilesError } =
+    overriderIds.length > 0
+      ? await supabase.from("profiles").select("id, full_name").in("id", overriderIds)
+      : { data: [] as { id: string; full_name: string | null }[], error: null };
+  if (profilesError) throw profilesError;
+  const nameById = new Map(profiles.map((p) => [p.id, p.full_name]));
+
+  return stages
+    .map((s) => ({
+      projectId: s.project_id,
+      projectName: projectNameById.get(s.project_id) ?? "Unknown project",
+      stageKey: s.stage_key,
+      overrideReason: s.override_reason ?? "",
+      overriddenByName: s.overridden_by ? (nameById.get(s.overridden_by) ?? null) : null,
+      overriddenAt: s.completed_at,
+    }))
+    .sort((a, b) => (b.overriddenAt ?? "").localeCompare(a.overriddenAt ?? ""));
+}
+
 export interface OrgNextActionsSummary {
   projectId: string;
   projectName: string;

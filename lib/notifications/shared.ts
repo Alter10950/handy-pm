@@ -10,7 +10,8 @@ import type { Tables } from "@/lib/supabase/database.types";
 export type NotificationKind =
   | "gate_item_overdue"
   | "project_stalled"
-  | "pm_reassigned";
+  | "pm_reassigned"
+  | "material_flagged";
 
 // One notification per project per nag run (not one per overdue item) —
 // itemLabel names the first/only one for a quick peek, overdueCount
@@ -37,6 +38,17 @@ export interface PmReassignedPayload {
   isNewPm: boolean;
 }
 
+// One notification per flag event (not batched) — a short/damaged/wrong
+// discovery at the dock is exactly the thing the PM needs to hear about
+// the same day, not in a digest.
+export interface MaterialFlaggedPayload {
+  projectId: string;
+  projectName: string;
+  materialName: string;
+  flagStatus: string; // short | damaged | wrong
+  qty: number;
+}
+
 export type NotificationRow = Tables<"notifications">;
 
 export function formatNotificationMessage(notification: NotificationRow): string {
@@ -58,6 +70,10 @@ export function formatNotificationMessage(notification: NotificationRow): string
         ? `You're now the PM for ${p.projectName}`
         : `You're no longer the PM for ${p.projectName}`;
     }
+    case "material_flagged": {
+      const p = payload as unknown as MaterialFlaggedPayload;
+      return `${p.projectName}: ${p.qty} × ${p.materialName} flagged ${p.flagStatus}`;
+    }
     default:
       return notification.kind;
   }
@@ -66,5 +82,11 @@ export function formatNotificationMessage(notification: NotificationRow): string
 export function notificationHref(notification: NotificationRow): string {
   const payload = notification.payload as Record<string, unknown>;
   const projectId = typeof payload.projectId === "string" ? payload.projectId : null;
-  return projectId ? `/app/project/${projectId}` : "/app/dashboard";
+  if (!projectId) return "/app/dashboard";
+  // A flag lands you on Receiving (where the flag and its resolution
+  // live), not the Overview.
+  if ((notification.kind as NotificationKind) === "material_flagged") {
+    return `/app/project/${projectId}/receiving`;
+  }
+  return `/app/project/${projectId}`;
 }

@@ -4,6 +4,63 @@ Engineering journal. Newest entries at top.
 
 ---
 
+## 2026-07-06 — Batch 4 Sub-phase E: material verification gate
+
+**What:** iBuy's third failure — bad material discovered mid-install at
+the customer's site — made structurally impossible: the Batch-3
+receiving lifecycle wired into a HARD gate. Materials-stage readiness is
+computed from real receipts (% received, % verified, open shorts/
+damage), the Mobilize stage's lock actually enforces (crew dispatch
+server-rejected, field app withheld), and a tablet-first verification
+worksheet makes dock check-off a one-tap-per-line job. Full reasoning in
+`docs/DECISIONS.md` ADR-042; summary here.
+
+**Build:** `material_receipts` gains `resolved_at`/`resolved_by` (a flag
+is open until an owner/pm explicitly resolves it);
+`material_reconciliation` gains `verified` + `open_flag_qty` (appended
+at the end per ADR-019). `getMaterialsReadiness` computes the gate from
+those; `completeStage` re-verifies it server-side for the materials
+stage, so hand-ticking every checkbox can no longer complete the stage —
+first computed-not-trusted gate in the codebase. `createAssignment`/
+`moveAssignment` reject while Mobilize is locked ("no verified material,
+no crew dispatch" — assigning a crew IS dispatch in this data model;
+planning schedule days stays free). The field app withholds the whole
+working UI behind a "Not cleared for install" panel (legacy grace: a
+pre-Batch-4 project with no stage rows at all stays cleared until
+sub-phase J's backfill). The worksheet (`/receiving/verify`) prefills
+each line's outstanding qty — confirm logs received+verified in one
+gesture, flags log short/damaged/wrong with qty+note, notify the PM
+in-app the same day (`material_flagged`), and land on the reorder list
+automatically because flagged units are never received-bumped, so
+`to_order` already counts them — one reorder truth, no parallel math.
+Receiving tab gains the gate summary card + per-flag Resolve controls;
+the scheduler project page gains a dispatch-gate banner; the dashboard
+finally surfaces overridden gates org-wide (who/why/when — promised in
+Sub-phase 0's migration comment, never shipped until now).
+
+**Found while wiring the block:** a gate rejection from
+`createAssignment` would have been an unhandled promise in both the
+AssignCrewForm and the crew calendar's drag handler — neither had a
+catch path at all, because until now those actions could only fail on
+infrastructure errors. Both now surface the server's message (form
+error line / calendar banner).
+
+**Verified:** `npm run lint`/`typecheck`/`build` all green. New
+`e2e/material-gate-flow.spec.ts` runs the whole arc: hand-ticked
+checklist rejected server-side with the specific reason, dispatch
+blocked (visible error + zero assignment rows), field locked, worksheet
+confirm/flag (PM notification asserted in the DB, reorder list shows the
+flagged units), resolve → gate green → stage completes → the exact
+assignment that was blocked now succeeds → field unlocked → the
+overridden gates show on the dashboard with their reasons. Four
+pre-existing specs that dispatch crews or open the field detail now
+clear the gate via a shared `clearDispatchGate` helper first;
+materials-lifecycle-flow's old "Flagged:" assertion updated to the new
+open-flags/resolve UI (and now exercises Resolve too). Full suite green:
+34 passed, 3 intentionally skipped; zero leftover test data confirmed.
+
+---
+
 ## 2026-07-06 — Batch 4 Sub-phase D: sales→ops handoff survey
 
 **What:** iBuy's second failure — "the sale closed and ops never got a

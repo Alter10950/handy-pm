@@ -3,6 +3,7 @@ import path from "node:path";
 import { expect, test } from "@playwright/test";
 
 import { deleteProjectCompletely } from "./helpers/cleanup";
+import { clearDispatchGate } from "./helpers/gates";
 import { createAdminClient } from "./helpers/supabase-admin";
 
 const FIXTURE_PATH = path.join(__dirname, "fixtures/test-drawing.svg");
@@ -106,6 +107,12 @@ test("field: pick project, select crew, log materials, report a blocker, offline
       .single();
     if (error) throw error;
     crewId = data.id;
+
+    // Sub-phase E's Mobilize lock would show this crew "Not cleared for
+    // install" instead of the working UI (materials were never verified
+    // in this spec) — clearing it is material-gate-flow.spec.ts's
+    // subject, not this test's.
+    await clearDispatchGate(projectId!);
   });
 
   await test.step("project appears in the Field project list", async () => {

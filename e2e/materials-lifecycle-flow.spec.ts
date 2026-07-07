@@ -134,11 +134,21 @@ test("materials lifecycle: receiving check-in, reorder list, richer identity fie
       })
       .toBe(100);
 
-    // Log a "damaged" flag — shows up as a flagged status.
+    // Log a "damaged" flag — lands in the open-flags block (Sub-phase E
+    // reworked the old static "Flagged: …" text into per-flag rows with a
+    // Resolve control, since open flags now block the Materials gate).
     await page.getByLabel("Receipt status").selectOption("damaged");
     await page.locator('input[placeholder="qty"]').fill("3");
     await page.getByRole("button", { name: "Log" }).click();
-    await expect(page.getByText(/Flagged: damaged/)).toBeVisible({
+    await expect(page.getByText(/^Open flags/)).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(page.getByText("damaged × 3")).toBeVisible();
+
+    // Resolving the flag clears the open-flags block (the flag row itself
+    // stays in the history log forever).
+    await page.locator('[data-testid^="resolve-flag-"]').click();
+    await expect(page.getByText(/^Open flags/)).toHaveCount(0, {
       timeout: 10_000,
     });
 

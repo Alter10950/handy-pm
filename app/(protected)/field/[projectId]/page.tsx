@@ -10,6 +10,7 @@ import {
   listTodayBlockers,
   listTodayInstalls,
 } from "@/lib/field/queries";
+import { isProjectClearedForInstall } from "@/lib/gates/queries";
 import { listPhases } from "@/lib/phases/queries";
 import {
   getProject,
@@ -30,17 +31,27 @@ export default async function FieldProjectPage({
   const project = await getProject(projectId);
   if (!project) notFound();
 
-  const [rows, materials, phases, crews, dayLogs, blockers, myCrewId, scopeItems] =
-    await Promise.all([
-      listRowProgress(projectId),
-      listMaterials(projectId),
-      listPhases(projectId),
-      listCrews(),
-      listTodayDayLogs(projectId),
-      listTodayBlockers(projectId),
-      getMyCrewId(),
-      listScopeItems(projectId),
-    ]);
+  const [
+    rows,
+    materials,
+    phases,
+    crews,
+    dayLogs,
+    blockers,
+    myCrewId,
+    scopeItems,
+    clearedForInstall,
+  ] = await Promise.all([
+    listRowProgress(projectId),
+    listMaterials(projectId),
+    listPhases(projectId),
+    listCrews(),
+    listTodayDayLogs(projectId),
+    listTodayBlockers(projectId),
+    getMyCrewId(),
+    listScopeItems(projectId),
+    isProjectClearedForInstall(projectId),
+  ]);
   const rowMaterials = await listRowMaterials(rows.map((row) => row.row_id));
   const [installedTotals, todayInstalls, dayLogPhotoUrls] = await Promise.all([
     getInstalledTotals(rows.map((row) => row.row_id)),
@@ -63,6 +74,7 @@ export default async function FieldProjectPage({
       myCrewId={myCrewId}
       dayLogPhotoUrls={dayLogPhotoUrls}
       scopeItems={scopeItems}
+      clearedForInstall={clearedForInstall}
     />
   );
 }
