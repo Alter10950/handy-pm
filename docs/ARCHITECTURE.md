@@ -1751,6 +1751,29 @@ ADR-046.
   uploads can never hit (client-side JPEG re-encode) but
   admin-fabricated test fixtures can.
 
+## Batch 4 closing pass (Sub-phase J, 2026-07-07)
+
+- **Loading:** one segment-level `app/(protected)/loading.tsx` skeleton
+  — the first loading.tsx in the codebase; per-route spinners weren't
+  worth it when one segment boundary covers every protected navigation.
+- **Backfill** (`scripts/backfill-batch4.mjs`, idempotent, run live):
+  ACTIVE projects with no stage rows get template-bootstrapped stages
+  positioned by evidence (installs → execute; schedule → materials;
+  layout rows → schedule; else handoff), earlier stages overridden with
+  reason 'pre-Batch-4 backfill' — dashboard-visible like any override.
+- **Integration walk** (`e2e/full-lifecycle-flow.spec.ts`): creation →
+  every gate → closeout, one override, one blocked-then-cleared
+  dispatch, one approved CO, all DB-asserted. The walk also documents a
+  workflow nuance: the Schedule stage's "Crew assigned" item is
+  hand-ticked at planning time — the assignment itself is the dispatch
+  act and stays blocked until Mobilize (ADR-042), so the auto-tick from
+  createAssignment only ever helps post-clearance assignments.
+- **Deploy topology:** Vercel git integration builds every `master`
+  push as a PREVIEW — the project's production-branch setting doesn't
+  match. Production promotion (or fixing the branch setting) is a
+  human step; the database (shared by preview and production) is
+  migrated and backfilled ahead of it.
+
 ## Testing
 
 `npm run test:e2e` (`npm run seed && playwright test`) runs a Playwright

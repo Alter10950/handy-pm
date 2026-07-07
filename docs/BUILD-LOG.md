@@ -4,6 +4,48 @@ Engineering journal. Newest entries at top.
 
 ---
 
+## 2026-07-07 — Batch 4 Sub-phase J: polish, QA, backfill, deploy — BATCH 4 COMPLETE
+
+**What:** the closing pass. Full reasoning in `docs/DECISIONS.md`
+ADR-047; summary here, and the batch-level report lives at the top of
+`docs/PROGRESS.md`.
+
+**Build/verify:** one segment-level loading skeleton
+(`app/(protected)/loading.tsx` — the codebase had none anywhere);
+empty/error states re-audited on every new screen (all present from
+their own sub-phases); role audit green (every mutating action calls
+requireRole/requireOrg except the two deliberate token-authorized CO
+decisions). `e2e/full-lifecycle-flow.spec.ts` walks one project
+creation → closeout through every gate — legitimate handoff completion
+with a real second pm-role user, scope overridden with a reason,
+schedule committed, dispatch BLOCKED then succeeding after materials
+verification, an approved CO mid-execute, autopsy at closeout — final
+DB state asserted: 7 complete + 1 overridden. Passed first try (54s).
+`e2e/polish-qa-flow.spec.ts`: the lifecycle stepper, verification
+worksheet (≥44px targets), and capacity board all work at 390×844 with
+zero page overflow, and the dashboard renders 25+ active projects in
+~1s. `scripts/backfill-batch4.mjs` positioned the two real projects by
+evidence (Bingo Warehouse → schedule with handoff/scope overridden
+'pre-Batch-4 backfill'; CNC Building 5 → clean handoff) — idempotent,
+verified live, and the overrides show on the dashboard like any other.
+
+**Found and fixed:** the backfill exposed a latent test bug —
+lifecycle-flow queried gate items by label alone with .single(),
+ambiguous once real projects carried the same seeded labels; fixed
+with stage-id scoping and audited every other spec (already scoped).
+
+**Deploy:** every push built on Vercel as a PREVIEW — the project's
+production branch setting doesn't match `master`, so production still
+runs pre-Batch-4 code. Promoting to production is deliberately left to
+Alter (NEEDS-YOU, one command or one settings change); the live
+database is already backfilled and ready.
+
+**Verified:** `npm run lint`/`typecheck`/`build` green; full suite 41
+passed / 3 intentionally skipped; zero leftover test data; only the
+two real projects remain in the database.
+
+---
+
 ## 2026-07-06 — Batch 4 Sub-phase I: closeout autopsy
 
 **What:** the feedback loop — estimated vs actual across every

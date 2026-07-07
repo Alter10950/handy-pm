@@ -148,19 +148,79 @@ documented. Full E2E suite green at close: 10 passed, 1 skipped
 (intentionally — the packing-slip no-key test, inactive now that a key
 is configured).
 
-**Batch 4 (in progress, 2026-07-06):** the "PM Operating Layer" — a new
-flagship push designed against a real ~$200K project ("iBuy") that ran two
-weeks over because scope was never captured, no one owned the job, bad
-material surfaced mid-install, the customer was never told the schedule,
-and everything lived in one manager's head. Ten sub-phases (0, A-J) make
-each of those structurally impossible: a stage-gate lifecycle (handoff →
-scope → schedule → materials → mobilize → execute → punch → closeout),
-PM-of-record + accountability, scope-of-work beyond install, the sales→ops
-handoff survey, a hard material-verification gate, change orders, a hard
-two-crew capacity board, customer communication (push, not just the
-portal's pull), and a closeout autopsy. No new credentials needed — every
-key Batch 4 requires (Supabase access token, `RESEND_API_KEY`,
-`ANTHROPIC_API_KEY`) was already secured and deployed during Batch 3.
+**Batch 4 — ✅ COMPLETE (2026-07-07): the "PM Operating Layer."**
+Designed against a real ~$200K project ("iBuy") that ran two weeks over
+because scope was never captured, no one owned the job, bad material
+surfaced mid-install, the customer was never told the schedule, and
+everything lived in one manager's head. All ten sub-phases (0, A–J)
+done and verified live via the E2E suite (41 passed / 3 intentionally
+skipped, zero leftover test data): the 8-stage gate lifecycle with
+What's Next + nags + owner-editable templates (A), PM-of-record with
+audit + notifications (B), the scope-of-work builder feeding the
+estimator and scheduler (C), the sales→ops handoff survey with dual
+sign-off + PDF + AI draft (D), the hard material-verification gate —
+computed readiness, dispatch block, tablet worksheet, same-day flag
+alerts (E), numbered change orders with tokenized customer approval and
+original-vs-approved baselines (F), the hard two-crew capacity board
+with feasible-start suggestions and audited owner overrides (G), the
+customer-communication push channel — auto milestones, safe weekly
+report, proactive slip notices, one complete comms log (H), the
+closeout autopsy feeding the estimation brain and the company accuracy
+view (I), and the closing polish/QA/backfill pass with the
+full-lifecycle integration walk (J). ADRs 037–047 carry every design
+decision.
+
+**The iBuy self-review — at which exact gate would each failure have
+been caught?**
+
+1. *"Scope was never captured."* At the **Handoff gate** the survey's
+   teardown answer auto-creates a draft Scope item, and the **Scope
+   stage** cannot complete past "All work types itemized" — with the
+   scope builder feeding those hours straight into the estimate and
+   schedule (Sub-phases C+D). Late-discovered growth becomes a
+   numbered change order, prompted by the scope-growth banner (F).
+2. *"No one owned the job."* At **creation** — a project cannot exist
+   without a PM of record; reassignment is audited and notified; the
+   dashboard shows the PM on every row and nags the accountable person
+   when their project stalls (B+A).
+3. *"Bad material surfaced mid-install."* At the **Materials gate** —
+   readiness is computed from the receiving event log (verified
+   quantities, open flags), hand-ticking can't fake it, the Mobilize
+   stage stays locked, crew dispatch is server-rejected, the field app
+   shows "Not cleared for install," and every short/damaged/wrong flag
+   notifies the PM the same day from the dock worksheet (E).
+4. *"The customer was never told the schedule."* At the **Schedule
+   gate** — "Customer notified of schedule" only auto-ticks when the
+   confirmation email actually SENT; slips trigger the proactive
+   finish-changed notice with old→new dates; the weekly customer
+   report and the milestone stream keep them current, and the comms
+   log proves what they were told (G+H).
+5. *"Everything lived in one manager's head."* Everywhere — the
+   lifecycle stepper IS the process on screen; What's Next says what's
+   blocking; the dashboard surfaces stalls, overdues, shortages, and
+   every override with its reason; the comms log holds the customer
+   record; and the autopsy turns each job's actuals into the next
+   bid's inputs (A+I). The head is now a database.
+
+**NEEDS-YOU (the only human-only items):**
+
+1. **Promote Batch 4 to production (one step).** Every push built on
+   Vercel as a *Preview* because the project's production branch
+   setting doesn't match `master`. Either run
+   `npx vercel ls` and `npx vercel promote <newest-preview-url>` once,
+   or (permanent fix) set Production Branch to `master` in Vercel →
+   handy-pm → Settings → Git — after that every push deploys
+   production automatically. The live database is already migrated and
+   backfilled; only the code promotion is pending.
+2. **Verify a Resend domain (standing item from Batch 3).** Emails to
+   the customer test inbox work, but real customer/owner addresses are
+   rejected until a domain is verified at resend.com/domains and
+   `RESEND_FROM_EMAIL` is set (Vercel env + `.env.local`) to an address
+   on it.
+3. **Position CNC Building 5 when convenient.** The backfill found no
+   in-app evidence for it and left it at a clean Handoff start; if it's
+   actually further along, override its early stages from the Overview
+   page (one click + reason each).
 
 **Sub-phase 0 — schema — done and verified live (2026-07-06, see
 ADR-037):** ten new tables for the whole batch — a reusable, org-editable
@@ -299,6 +359,21 @@ Verified live with a real second `pm`-role user in a separate browser
 session, not just the seeded owner playing both parts. Full suite green:
 33 passed, 3 intentionally skipped; confirmed zero leftover test data
 (including `handoff_surveys` rows) afterward.
+
+**Sub-phase J — polish, QA, backfill, deploy — done and verified live
+(2026-07-07, see ADR-047):** the closing pass. A shared loading
+skeleton; empty/error-state and server-side role audits across every
+new surface (the only unauthenticated writes remain the two deliberate
+token-authorized CO decisions); the full-lifecycle E2E walk — creation
+through every gate to closeout with one override, one
+blocked-then-cleared dispatch, and one approved mid-execute CO, every
+transition DB-asserted, first-try pass; the mobile pass proving the
+stepper, worksheet, and capacity board at phone width; the dashboard
+holding 25+ projects at ~1s; and the evidence-based backfill
+positioning the two real projects (Bingo Warehouse → Schedule with
+auditable 'pre-Batch-4 backfill' overrides, CNC Building 5 → Handoff).
+Production promotion is the one NEEDS-YOU: pushes build as Previews
+because the Vercel production-branch setting doesn't match master.
 
 **Sub-phase I — closeout autopsy — done and verified live (2026-07-06,
 see ADR-046):** every job now ends by grading its own estimate.
@@ -1256,6 +1331,43 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
       actually runs in this environment). Full suite green: 33 passed, 3
       intentionally skipped; confirmed zero leftover test data (projects,
       auth users, and `handoff_surveys` rows all back to zero) afterward.
+
+## Batch 4, Sub-phase J — Polish, QA, backfill, deploy ✅ done (2026-07-07)
+
+- [x] Loading state: one segment-level skeleton
+      (`app/(protected)/loading.tsx`) covering every protected
+      navigation — the codebase previously had none. Empty/error states
+      re-audited across all new screens (each was built with them).
+- [x] Role-permission audit: every mutating Server Action in the
+      batch's nine action modules calls requireRole/requireOrg
+      server-side; the only unauthenticated writes are the two
+      deliberate token-authorized CO decisions (ADR-043); AI routes
+      gated appropriately to the data they read.
+- [x] Full-lifecycle E2E walk (`e2e/full-lifecycle-flow.spec.ts`):
+      creation → every gate → closeout with one override (scope), one
+      blocked-then-successful crew dispatch, one approved mid-execute
+      CO, legitimate handoff dual sign-off via a real second pm user,
+      worksheet-verified materials, and the autopsy — all transitions
+      DB-asserted; final state 7 complete + 1 overridden. First-try
+      pass, 54s.
+- [x] Mobile pass (`e2e/polish-qa-flow.spec.ts`, 390×844): lifecycle
+      stepper, verification worksheet (≥44px touch targets), and
+      capacity board (scrolls in its own container) all operate with
+      zero page-body overflow.
+- [x] Performance: dashboard with 25+ active projects renders in ~1s
+      (15s budget) — the batched org-wide query pattern holds.
+- [x] Backfill (`scripts/backfill-batch4.mjs`, run + verified live,
+      idempotent): evidence-based positioning — Bingo Warehouse →
+      schedule (handoff/scope overridden 'pre-Batch-4 backfill'), CNC
+      Building 5 → clean handoff start.
+- [x] Found and fixed a latent test bug the backfill exposed
+      (lifecycle-flow's unscoped gate-item poll); audited all other
+      specs' gate-item queries.
+- [x] Deploy: all pushes build on Vercel but land as PREVIEWS — the
+      production-branch setting doesn't match `master`. Promotion left
+      to Alter (NEEDS-YOU below); live DB already backfilled and ready.
+- [x] `npm run lint`/`typecheck`/`build` all pass. Full suite green:
+      41 passed, 3 intentionally skipped; zero leftover test data.
 
 ## Batch 4, Sub-phase I — Closeout autopsy ✅ done (2026-07-06)
 

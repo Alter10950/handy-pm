@@ -5,6 +5,95 @@ Consequences.
 
 ---
 
+## ADR-047: Batch 4, Sub-phase J — polish, QA, backfill, deploy
+
+**Decision date:** 2026-07-07
+
+**Context:** the batch's closing pass — states/mobile/roles audits, the
+full-lifecycle integration walk, dashboard scale check, backfilling the
+two real pre-Batch-4 projects, and production deployment.
+
+**Choice — evidence-based backfill, not a blanket stage:**
+`scripts/backfill-batch4.mjs` (idempotent; only touches ACTIVE projects
+with NO stage rows) bootstraps stages from the org template, then
+positions each project by what the database can actually prove:
+installs → execute; a committed schedule → materials; layout rows →
+schedule; nothing → handoff. Earlier stages get
+`status='overridden', override_reason='pre-Batch-4 backfill'` — visible
+on the dashboard's override list like any other accountable skip.
+Run against the live DB: Bingo Warehouse (has a layout) → schedule
+with handoff/scope overridden; CNC Building 5 (no in-app data) → a
+clean handoff start. Verified idempotent (second run: both skipped).
+
+**Choice — one segment-level loading skeleton, not per-route
+spinners:** the codebase had NO loading.tsx anywhere (all pages are
+force-dynamic and fast locally, but slow connections stare at the
+previous page during navigation). One `app/(protected)/loading.tsx`
+skeleton covers every protected navigation; empty/error states were
+verified already built into each new screen during its own sub-phase
+(every new page has an explicit empty state; every form surfaces
+action errors; page throws land in the existing error boundary).
+
+**Role-permission audit result:** every mutating Server Action across
+the batch's nine new/changed action modules calls
+requireRole/requireOrg first (grep-verified per module), with exactly
+two deliberate exceptions — the tokenized CO approve/decline
+(`public-actions.ts`, ADR-043's single-use-token trust model) — and
+the AI routes split correctly (handoff-draft: requireOrg, touches no
+role-gated data; autopsy-narrative: requireRole owner/pm, reads
+office-only data). RLS remains the second, independent layer under all
+of it.
+
+**The lifecycle walk (e2e/full-lifecycle-flow.spec.ts):** one project
+driven creation → closeout through every gate with every transition
+asserted in the DB: handoff completed LEGITIMATELY (survey + photo +
+estimator sign-off + a real pm-role user's sign-off in a second
+session), scope as the override path, schedule committed (capacity +
+customer-notified auto-ticks; "Crew assigned" hand-ticked — the
+checklist item means "crew identified"; the assignment itself is the
+dispatch act and stays correctly blocked until Mobilize, which the
+walk proves by attempting it and asserting the rejection + zero rows),
+materials verified on the worksheet (server recompute passes), the
+same dispatch succeeding after Materials completes, an approved CO
+mid-Execute (merged material asserted), punch, and closeout with the
+autopsy auto-ticking its item — final state: 7 complete + 1 overridden,
+stage_key='closeout'. Passed first try, 54s.
+
+**Mobile + scale (e2e/polish-qa-flow.spec.ts):** at 390×844 the
+lifecycle stepper, verification worksheet (touch targets ≥44px,
+one-tap confirm works), and capacity board (wide grid scrolls in its
+own container) all operate with zero page-body horizontal overflow;
+the dashboard renders 25 admin-created active projects well inside a
+15s dev budget (~1s actual) — the batched org-wide query pattern
+(ADR-031/038/042) holding at scale.
+
+**A latent test bug the backfill exposed:** lifecycle-flow polled
+`project_gate_items` by label alone with `.single()` — fine while only
+one project had bootstrapped stages, ambiguous the moment the two real
+backfilled projects carried the same seeded labels. Fixed by scoping
+through the project's own stage id; audited every other spec's
+gate-item queries (all already scoped).
+
+**Deploy state and the one NEEDS-YOU:** every push this batch built on
+Vercel — but as PREVIEW deployments; the project's production branch
+setting doesn't match `master`, so production still runs pre-Batch-4
+code. Promoting a build to production is deliberately left to Alter
+(the auto-mode permission boundary agrees): either promote the latest
+preview (`npx vercel promote <latest-preview-url>`) or — the permanent
+fix — set the production branch to `master` in Vercel → Settings →
+Git, after which the next push deploys production automatically. The
+backfill has already run against the live database (shared by preview
+and production), so the data is ready the moment the code lands.
+
+**Consequences:** New `app/(protected)/loading.tsx`,
+`scripts/backfill-batch4.mjs` (run + verified live),
+`e2e/full-lifecycle-flow.spec.ts`, `e2e/polish-qa-flow.spec.ts`, and
+the lifecycle-flow scoping fix. Full suite green: 41 passed, 3
+intentionally skipped; zero leftover test data; the org's two real
+projects positioned correctly with auditable backfill overrides.
+
+---
+
 ## ADR-046: Batch 4, Sub-phase I — closeout autopsy
 
 **Decision date:** 2026-07-06

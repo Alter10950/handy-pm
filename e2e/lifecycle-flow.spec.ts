@@ -72,11 +72,21 @@ test("stage-gate lifecycle: 8-stage stepper, checklist, complete a stage, overri
   await test.step("check off one item, confirm it persists", async () => {
     const checkbox = page.getByLabel("Existing racking condition recorded");
     await checkbox.check();
+    // Scoped to THIS project's handoff stage — the same seeded label
+    // exists on every project with bootstrapped stages (incl. the two
+    // real backfilled ones), so an unscoped label+single() is ambiguous.
     await expect
       .poll(async () => {
+        const { data: stage } = await admin
+          .from("project_stages")
+          .select("id")
+          .eq("project_id", projectId!)
+          .eq("stage_key", "handoff")
+          .single();
         const { data } = await admin
           .from("project_gate_items")
           .select("done")
+          .eq("project_stage_id", stage!.id)
           .eq("label", "Existing racking condition recorded")
           .single();
         return data?.done;
