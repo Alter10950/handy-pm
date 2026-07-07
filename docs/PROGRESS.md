@@ -1332,6 +1332,32 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
       intentionally skipped; confirmed zero leftover test data (projects,
       auth users, and `handoff_surveys` rows all back to zero) afterward.
 
+## Projects page upgrade — search, view toggle, A–Z, completed section ✅ done (2026-07-07)
+
+- [x] Instant case-insensitive name search with a clear (×) button,
+      filtering both sections; a completed-section match auto-expands it.
+- [x] Cards/list view toggle (grid/rows icons) — list is a compact
+      table (name, status badge, % bar, target date, PM incl. the
+      "No PM assigned" warning), one row per project, click anywhere to
+      open (name stays a real link). Choice persists per user via
+      localStorage (`useSyncExternalStore` — hydration-safe, satisfies
+      the react-hooks setState-in-effect rule).
+- [x] Always A–Z by name in both views and both sections.
+- [x] Active projects only in the main section; completed live in a
+      muted "Completed (N)" section at the bottom, collapsed by default,
+      expandable. On-hold projects stay in the main section (their badge
+      distinguishes them; hiding them with finished work would lose
+      them).
+- [x] Empty states: no projects at all → original empty state; search
+      with no matches → "No projects match" + clear-search action.
+      "My projects only" filter retained and composes with search.
+- [x] UI only — no schema changes.
+- [x] `npm run lint`/`typecheck`/`build` all pass. New
+      `e2e/projects-page-flow.spec.ts` (search across sections,
+      completed-only-in-bottom, A–Z DOM order, row-click navigation,
+      view persistence across reloads both ways, 390px no-overflow pass
+      for both views). Full suite green.
+
 ## Batch 4, Sub-phase J — Polish, QA, backfill, deploy ✅ done (2026-07-07)
 
 - [x] Loading state: one segment-level skeleton

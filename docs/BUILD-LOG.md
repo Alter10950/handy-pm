@@ -4,6 +4,46 @@ Engineering journal. Newest entries at top.
 
 ---
 
+## 2026-07-07 — Projects page upgrade: search, cards/list toggle, A–Z, completed section
+
+**What:** office Projects page quality-of-life pass (UI only, no schema
+changes): an instant case-insensitive name search with a clear (×)
+button; a cards/list view toggle (grid/rows icons) persisted per user
+in localStorage; always-A–Z ordering in both views; active projects in
+the main section with completed ones in a muted, collapsed
+"Completed (N)" section at the bottom (search auto-expands it when it
+holds matches); and both empty states (none at all vs "No projects
+match" + clear-search).
+
+**Build:** all inside `components/projects/project-list.tsx` (the
+Sub-phase B client component, which keeps its "My projects only"
+filter). The list view is a compact table — name (a real link, so
+middle-click works, on top of the row-wide click), status badge, a
+small % bar, target date, and PM (the Batch 4 field, rendering the
+same "No PM assigned" warning as the cards). The view choice reads
+through `useSyncExternalStore` over localStorage rather than
+setState-in-an-effect — the new react-hooks lint rule rejects the
+effect pattern, and the store approach is hydration-safe with no
+first-frame flash (server snapshot "cards", client snapshot whatever's
+stored, a custom event notifies on switch). Sorting is
+`localeCompare(..., { sensitivity: "base" })`; the active/completed
+split is `status === "complete"` (on-hold projects stay in the main
+section with their badge — hiding them with the finished work would
+lose track of them).
+
+**Verified:** `npm run lint`/`typecheck`/`build` green. New
+`e2e/projects-page-flow.spec.ts` — active-only main section with A–Z
+order asserted by DOM position, completed hidden until expanded (and
+only in the bottom section), instant search across both sections with
+auto-expand on a completed match, both clear-search paths (the ×'s
+accessible name collided with the no-matches button — scoped), list
+rows rendering status/%/PM with row-click navigation, view persistence
+across full reloads in BOTH directions (list→reload→list,
+cards→reload→cards), and a 390×844 pass asserting zero page overflow
+in both views. Full suite green — see PROGRESS.
+
+---
+
 ## 2026-07-07 — Batch 4 Sub-phase J: polish, QA, backfill, deploy — BATCH 4 COMPLETE
 
 **What:** the closing pass. Full reasoning in `docs/DECISIONS.md`
