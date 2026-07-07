@@ -1400,6 +1400,93 @@ and wires non-install work into the estimator and scheduler.
   quick failure. Fixed by showing the pair whenever `view` is `"rows"`
   *or* `"row"`.
 
+## Sales→ops handoff (Batch 4, Sub-phase D, 2026-07-06)
+
+Builds the Handoff tab on `handoff_surveys` (schema-only since
+Sub-phase 0): a structured site-visit survey, photos, dual sign-off, a
+PDF summary, and an optional AI draft assist.
+
+- **Hidden per-role, not just per-status — a first for this codebase:**
+  every other project tab (Layout/Materials/Scope/Receiving/Progress/
+  Portal/Estimate) is visible to any signed-in role and gates writes
+  internally via a `canManage` flag; reads are never restricted.
+  `handoff_surveys_select` RLS is owner/pm only, so showing the tab to a
+  scheduler/crew user would render a permanently-empty form regardless
+  of whether a real survey exists underneath (RLS silently filters it to
+  nothing) — actively misleading, not just an inert extra tab.
+  `app/(protected)/app/project/[id]/layout.tsx` now fetches the caller's
+  role and passes `canViewHandoff` into `ProjectTabs`; the Handoff page
+  itself additionally redirects a direct URL visit by any other role to
+  the Overview page — the same two-layer posture (hidden nav + page
+  redirect) `/app/team` already uses for the same reason.
+- **Teardown answers auto-create exactly one draft scope item:**
+  `saveHandoffSurvey` checks for an existing `scope_items` row
+  (`source='handoff'`, `work_type='teardown'`) before inserting, so
+  repeat saves never duplicate it. This is the second of `scope_items`'
+  three `source` values actually wired up (`handoff`, alongside
+  `estimate`/`change_order` from Sub-phase C's own schema).
+- **Best-effort, label-matched checklist auto-sync, survey stays the
+  real source of truth:** `markHandoffItemDone`/`signOffHandoffItem`
+  (`lib/handoff/actions.ts`) look up the Handoff stage's
+  `project_gate_items` row by its exact seeded label text and silently
+  no-op if it's missing (Template Management renamed/removed it) or a
+  signoff-role check fails. No foreign key links a survey field to a
+  specific gate item — deliberately, so Template Management edits never
+  need a matching code change here. The survey's own columns are what
+  actually gate downstream behavior (the auto-created scope item); the
+  checklist sync is pure convenience.
+- **Dual sign-off is two clicks, not two system roles:**
+  `signHandoffAsEstimator`/`signHandoffAsPm` are both gated
+  `requireRole(["owner","pm"])` — this codebase's `ProfileRole` enum has
+  no separate `estimator` role, so either can be clicked by any
+  owner/pm, including the same person clicking both. The Handoff stage's
+  seeded "PM sign-off" checklist item alone carries
+  `requires_signoff_role='pm'` (pre-existing `signOffGateItem` behavior,
+  not new here) — an owner calling `signHandoffAsPm` still correctly
+  updates the survey's PM sign-off columns, but that specific checklist
+  item only flips for a caller whose own role is literally `pm`.
+- **Photo uploads go straight to `daily-photos`, no re-encode:** unlike
+  `drawings` (which runs through `lib/pdf/render-drawing-file.ts`'s
+  client-side PDF/image→JPEG conversion for a specific marking/materials
+  workflow), handoff site photos follow the same raw-upload pattern as
+  blocker/day-log photos in this same bucket — real camera photos are
+  already a normal raster format, nothing to convert. Unlike those
+  append-only logs, though, this photo array is mutable: removing one
+  calls `storage.remove([path])` too, not just clearing the DB array
+  entry, or the object would sit orphaned in Storage forever (found in
+  self-review, not by a test — fixed before it shipped).
+- **PDF and AI-draft features copy existing patterns wholesale:**
+  `lib/pdf/handoff-survey-pdf.tsx` +
+  `/api/projects/[id]/handoff-survey-pdf` copy the closeout-PDF route's
+  exact shape (react-pdf `Document`/`Page`/`View`/`Text`/`Image`,
+  `requireRole` + `Promise.all`-batched queries + signed URLs,
+  `renderToBuffer` → `Uint8Array` → `content-disposition: attachment`).
+  `/api/handoff/draft` copies the packing-slip/voice-note routes' exact
+  AI shape (bare `fetch`, no SDK, `model: "claude-sonnet-5"`, forced
+  `tool_choice`, `requireOrg` since the call itself touches no role-gated
+  data). One deviation: the AI-draft block is hidden entirely when
+  `ANTHROPIC_API_KEY` is unset (the newer `estimates/explain` precedent)
+  rather than shown-with-a-clean-error (the older packing-slip/
+  voice-note precedent) — a judgment call for a full secondary feature
+  living inside a form with plenty else to do, versus "the upload button
+  already exists for other reasons." Drafted fields only ever land in
+  local form state; nothing reaches `saveHandoffSurvey` until the
+  estimator reviews and clicks Save themselves.
+- **A real bug, caught by a test:** `saveHandoffSurvey` was marking
+  "Site survey completed with photos" done whenever
+  `siteVisitDate && existingRackingCondition` were both present — never
+  actually checking for a photo, despite that item's own seeded
+  `requires_photo: true` flag. Fixed by dropping that item from
+  `saveHandoffSurvey` entirely; it's now only ever flipped by
+  `addHandoffPhoto`, once a photo genuinely exists.
+- **An upsert-clobbering assumption, verified empirically:** whether
+  `.upsert({partialFields}, {onConflict:"project_id"})` against an
+  existing `handoff_surveys` row resets columns absent from that call's
+  payload was an open question. Confirmed live: teardown/constraints
+  data survived both the estimator's and a real second PM user's
+  sign-off calls (each of which upserts only its own two sign-off
+  columns), checked directly against the database after each.
+
 ## Testing
 
 `npm run test:e2e` (`npm run seed && playwright test`) runs a Playwright
@@ -1837,7 +1924,7 @@ transitively via `project_id` → `projects.org_id` or `crew_id` →
 | `project_stages` / `project_gate_items`  | `project_id` / via `project_stages` | Batch 4 (2026-07-06) — the actual per-project copy of the above. `project_stages.status` ∈ `locked`/`active`/`complete`/`overridden` (one enum, not separate booleans) + `overridden_by`/`override_reason` when a gate is overridden. `project_gate_items.done`/`done_by`/`done_at` + optional `photo_path`/`signoff_user_id`/`due_date`, plus `position` (int, added in a Sub-phase A follow-up migration — see that section for why: no ordering column originally existed, and ordering by `created_at` wasn't reliable for bulk-inserted rows). The stage-gate lifecycle UI (stepper, What's Next, template management, gate nags) is Sub-phase A — built and live; see that section. |
 | `scope_items`                            | `project_id` (+ optional `row_id`/`phase_id`) | Batch 4 (2026-07-06) — work beyond install (`work_type` ∈ `install`/`teardown`/`remove_levels`/`add_levels`/`relocate`/`repair`/`other`) — the category of work an earlier real project ("iBuy") lost two weeks to leaving unscoped. `source` ∈ `handoff`/`estimate`/`change_order` tracks where an item came from; `change_order_id` links one added via a CO. Built out in Sub-phase C: a Scope tab (owner/pm CRUD) + field progress tracking (below) + folded into the estimator/scheduler's own labor-hours math. |
 | `scope_item_updates` / `scope_item_progress` | via `scope_items` | Sub-phase C (2026-07-06) — an append-only progress log (`status` ∈ `partial`/`done`, `note`, `photo_path`, `logged_by`) any org member can insert (crew included — mirrors `installs`/`blockers`), never updates an existing row; `scope_item_progress` is the latest-update-per-item view every consumer actually reads. |
-| `handoff_surveys`                        | `project_id` (unique)          | Batch 4 (2026-07-06) — the sales→ops handoff: site conditions, `constraints` (jsonb: live_warehouse/access_notes/forklift_onsite/working_hours/floor_condition/permits_needed), `photo_paths` (same array convention as `day_logs`), and dual estimator+PM sign-off columns/timestamps. One row per project. |
+| `handoff_surveys`                        | `project_id` (unique)          | Batch 4 (2026-07-06) — the sales→ops handoff: site conditions, `constraints` (jsonb: live_warehouse/access_notes/forklift_onsite/working_hours/floor_condition/permits_needed), `photo_paths` (same array convention as `day_logs`), and dual estimator+PM sign-off columns/timestamps. One row per project. Built out in Sub-phase D: a Handoff tab (hidden pre-sale AND per-role, owner/pm only), teardown auto-creating a draft `scope_items` row, a printable PDF, and an optional AI draft-from-notes assist. |
 | `change_orders`                          | `project_id`                  | Batch 4 (2026-07-06) — numbered per project (`unique(project_id, number)`), `reason`/`status` enums, `labor_units`/`added_days`/`price`, customer-approval tracking (`customer_approved_via`/`_at`/`_approver_name`). |
 | `project_comms`                          | `project_id`                  | Batch 4 (2026-07-06) — an auditable log of everything the customer was told (`kind` ∈ `milestone`/`weekly_report`/`manual`/`schedule_change`, `channel` ∈ `email`/`portal`/`logged_call`/`logged_other`). The push channel — the customer portal (Batch 3) stays the pull channel. |
 | `project_autopsies`                      | `project_id` (unique)          | Batch 4 (2026-07-06) — estimated vs actual, generated at the Closeout stage: days/hours/labor units/`material_variance` (jsonb)/change-order count+days/blocker days, plus an optional narrative. |

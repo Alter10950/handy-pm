@@ -4,6 +4,72 @@ Engineering journal. Newest entries at top.
 
 ---
 
+## 2026-07-06 — Batch 4 Sub-phase D: sales→ops handoff survey
+
+**What:** iBuy's second failure — "the sale closed and ops never got a
+real briefing" — made structurally impossible: a Handoff tab on
+`handoff_surveys` (schema-only since Sub-phase 0) collecting a
+structured site-visit survey, site photos, dual estimator+PM sign-off,
+a printable PDF, and an optional AI draft-from-notes assist. Full
+reasoning in `docs/DECISIONS.md` ADR-041; summary here.
+
+**Build:** New "Handoff" tab, hidden for pre-sale `estimate`-status
+projects (same rule as Layout/Receiving/Progress/Portal) AND hidden
+per-role for anyone but owner/pm — a first for this codebase, since
+every other tab is visible-to-all/write-gated-internally, but
+`handoff_surveys` RLS is read-restricted too. `lib/handoff/actions.ts`:
+`saveHandoffSurvey` (upserts the survey, auto-creates exactly one draft
+Scope-tab teardown item when teardown is required and notes are given),
+`addHandoffPhoto`/`removeHandoffPhoto` (straight to the existing
+`daily-photos` bucket, same raw-upload pattern as blocker/day-log
+photos), `signHandoffAsEstimator`/`signHandoffAsPm`. Each write also
+best-effort syncs the Handoff stage's own checklist by label lookup —
+silently no-ops if a label was renamed via Template Management, since
+the survey's own columns are the actual source of truth. A "walk the
+drawing" panel shows whatever reference drawing already exists (empty
+state otherwise — handoff usually happens before Layout marking). PDF
+summary (`lib/pdf/handoff-survey-pdf.tsx` + `/api/projects/[id]/
+handoff-survey-pdf`) copies the closeout-PDF's construction pattern
+exactly. Optional AI draft-from-notes (`/api/handoff/draft`, gated on
+`ANTHROPIC_API_KEY`, hidden entirely rather than shown-with-an-error when
+unset) copies the packing-slip/voice-note forced-tool-use pattern —
+drafts land in editable form state only, nothing saves until the
+estimator reviews and clicks Save themselves.
+
+**Two real bugs found, one by a test and one by self-review:** (1)
+`saveHandoffSurvey` was marking "Site survey completed with photos" done
+based on site-visit-date + condition text alone — never actually
+checking for a photo, despite that item's own `requires_photo` flag. An
+E2E assertion (`expect(...).toBe(false)` before any photo upload) caught
+it immediately; fixed by moving that item's completion solely into
+`addHandoffPhoto`. (2) `removeHandoffPhoto` only cleared the DB array,
+never deleted the Storage object — unlike the append-only day-log/
+blocker photo logs where nothing is ever unlinked, this array is
+mutable, so a removed photo would sit orphaned in `daily-photos`
+forever. Found during self-review (no test had exercised removal yet);
+fixed by calling `storage.remove([path])`, then added an E2E step
+asserting the object is actually gone via `storage.list()`.
+
+**Verified empirically, not just assumed:** whether upserting one or two
+sign-off columns onto an existing `handoff_surveys` row clobbers the
+rest of the row was an open question going into this sub-phase. Live
+E2E confirmed it doesn't — full teardown/constraints data survived both
+the estimator's and a real second PM user's sign-off calls, checked
+directly against the database after each.
+
+**Verified:** `npm run lint`/`typecheck`/`build` all green. New
+`e2e/handoff-survey-flow.spec.ts` (3 tests) — full survey→teardown-
+scope-item→photo-upload→remove→dual-sign-off→PDF flow, with the PM half
+of sign-off performed by a genuinely separate `pm`-role user in a
+separate browser session (not the seeded owner playing both parts);
+AI draft populates form fields without saving until Save is clicked;
+AI block hidden when unconfigured (skips in this environment since a
+key IS configured here). Full suite green: 33 passed, 3 intentionally
+skipped; confirmed zero leftover test data (projects, auth users, and
+`handoff_surveys` rows all back to zero) afterward.
+
+---
+
 ## 2026-07-06 — Batch 4 Sub-phase C: scope-of-work builder (non-install work)
 
 **What:** iBuy's first failure — "teardown/level-change work was never

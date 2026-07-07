@@ -4,6 +4,7 @@ import { ConvertEstimateButton } from "@/components/estimating/convert-estimate-
 import { ProjectStatusBadge } from "@/components/projects/project-status-badge";
 import { ProjectTabs } from "@/components/projects/project-tabs";
 import { getProject } from "@/lib/projects/queries";
+import { createClient } from "@/lib/supabase/server";
 
 export default async function ProjectLayout({
   params,
@@ -15,6 +16,18 @@ export default async function ProjectLayout({
   const { id } = await params;
   const project = await getProject(id);
   if (!project) notFound();
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const { data: profile } = user
+    ? await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle()
+    : { data: null };
+  // handoff_surveys is office-only both ways (RLS), same posture as Team —
+  // hide the tab entirely rather than show it empty for a role that can
+  // never read the row.
+  const canViewHandoff = profile?.role === "owner" || profile?.role === "pm";
 
   return (
     <div className="flex flex-col gap-4">
@@ -30,7 +43,11 @@ export default async function ProjectLayout({
         </div>
       </div>
 
-      <ProjectTabs projectId={project.id} status={project.status} />
+      <ProjectTabs
+        projectId={project.id}
+        status={project.status}
+        canViewHandoff={canViewHandoff}
+      />
 
       {children}
     </div>

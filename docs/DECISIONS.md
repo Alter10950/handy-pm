@@ -5,6 +5,142 @@ Consequences.
 
 ---
 
+## ADR-041: Batch 4, Sub-phase D — sales→ops handoff survey
+
+**Decision date:** 2026-07-06
+
+**Context:** iBuy's second failure was "the sale closed and ops never got a
+real briefing — no site survey, no photo record, no one owned confirming
+what the crew would actually walk into." Sub-phase D builds the Handoff
+tab on Sub-phase 0's `handoff_surveys` schema: a structured survey, site
+photos, a reference to whatever drawing already exists, dual estimator+PM
+sign-off, a printable PDF, and an optional AI draft-from-notes assist.
+
+**Choice — hide the Handoff tab per-role, not just per-status:** every
+other tab in this codebase (Layout/Materials/Scope/Receiving/Progress/
+Portal/Estimate) is visible to any signed-in role and gates WRITE access
+internally via a `canManage` flag — reading is never restricted. Handoff
+breaks that pattern deliberately: `handoff_surveys` RLS
+(`handoff_surveys_select`) is owner/pm-only, matching its own migration
+comment ("office-only both ways ... not crew-facing concerns anywhere
+else in this codebase either"). Showing the tab to a scheduler/crew user
+would render a permanently-empty form regardless of whether a real survey
+exists (RLS silently filters the row to nothing), which is actively
+misleading, not just an inert extra tab. `app/(protected)/app/project/
+[id]/layout.tsx` now fetches the caller's role once and passes
+`canViewHandoff` to `ProjectTabs`; the page itself additionally redirects
+a direct URL visit by any other role to the Overview page — the exact
+same two-layer posture (hidden nav + page-level redirect) already
+established by `/app/team` for the same reason (fully office-only data,
+not partially-role-gated).
+
+**Choice — dual sign-off is two clicks, not two system roles:** the
+brief calls for "dual sign-off (estimator AND PM)," but this codebase's
+`ProfileRole` enum has no `estimator` role — only owner/pm/scheduler/crew
+exist. `signHandoffAsEstimator`/`signHandoffAsPm` are therefore both
+gated identically (`requireRole(["owner","pm"])`); either can be clicked
+by any owner/pm, including the same person clicking both. "Dual" here
+means two distinct affirmative records (two user ids, two timestamps),
+not two technically-exclusive roles — appropriate for a small operation
+where the estimator and the PM are often the same person, or where
+either could plausibly stand in for the other. The one place this
+distinction bites is `signOffGateItem`'s pre-existing (not new)
+`requires_signoff_role` check on the Handoff stage's seeded "PM sign-off"
+checklist item (`requires_signoff_role='pm'`, but NOT set on "Estimator
+sign-off") — an owner calling `signHandoffAsPm` still correctly updates
+`handoff_surveys.pm_signoff_user_id`/`pm_signed_at` (HANDOFF_MANAGERS
+allows it), but the checklist item itself only flips for a caller whose
+own role is literally `pm`. Confirmed this live with a real second
+`pm`-role user in a separate browser session rather than asserting around
+it — the survey field is the source of truth either way (see the next
+choice), so the checklist gap for an owner-as-PM signer is cosmetic, not
+a correctness bug.
+
+**Choice — best-effort, label-matched checklist auto-sync, survey fields
+stay the real source of truth:** `markHandoffItemDone`/
+`signOffHandoffItem` (`lib/handoff/actions.ts`) look up the Handoff
+stage's `project_gate_items` row by its exact seeded label text and
+silently no-op (try/catch, `console.error`) if it's missing or the
+signoff role check fails. There is no foreign key from `handoff_surveys`
+back to a specific gate item — deliberately, since Template Management
+(Sub-phase A) lets an owner rename or remove any seeded item, and this
+sub-phase shouldn't need a migration every time that happens. The
+survey's own columns are what actually gate downstream behavior (e.g.
+the auto-created scope item); the checklist sync is purely a convenience
+so a PM doesn't have to duplicate a manual click.
+
+**Choice — PDF and AI-draft features copy existing patterns wholesale,
+zero new conventions:** a dispatched research pass confirmed the
+closeout-PDF route's exact construction shape (react-pdf `Document`/
+`Page`/`View`/`Text`/`Image`, `requireRole` + `Promise.all`-batched
+queries + signed URLs, `renderToBuffer` → `Uint8Array` →
+`content-disposition: attachment`) and the packing-slip/voice-note
+routes' exact AI shape (bare `fetch` to the Messages API, no SDK per
+ADR-025, `model: "claude-sonnet-5"`, forced `tool_choice`, `requireOrg`
+not `requireRole` since the call itself touches no role-gated data,
+clean JSON 500 on a missing key). Both are copied directly rather than
+reinvented. One deliberate deviation: the AI-draft block is hidden
+entirely when `ANTHROPIC_API_KEY` is unset (the newer `estimates/explain`
+precedent), not shown-with-a-clean-error (the older packing-slip/voice-
+note precedent) — this is a full secondary feature living inside a form
+that has plenty else to do, not "the upload button already exists for
+other reasons and just gained an AI option." Drafted fields only ever
+land in local form state (`existingCondition`/`teardownRequired`/
+`teardownNotes`/`constraints`) — nothing reaches `saveHandoffSurvey`
+until the estimator reviews and clicks Save themselves, same
+never-auto-saves posture as the packing-slip review table and the
+voice-note draft card.
+
+**Real bug found during E2E verification:** `saveHandoffSurvey` was
+marking the "Site survey completed with photos" checklist item done
+whenever `siteVisitDate && existingRackingCondition` were both present —
+never checking whether a photo actually existed, despite that item's own
+seeded `requires_photo: true` template flag. A test asserting the item
+should still be `false` before any photo upload caught this immediately.
+Fixed by dropping that item from `saveHandoffSurvey`'s block entirely —
+it's now ONLY ever flipped by `addHandoffPhoto`, which already correctly
+calls `markHandoffItemDone` after a photo is genuinely added.
+
+**Real gap found and fixed during self-review (not caught by any
+test):** `removeHandoffPhoto` only removed the path from
+`handoff_surveys.photo_paths` — it never deleted the underlying object
+from the `daily-photos` bucket. Unlike `day_logs`/`blockers` photos
+(append-only logs; nothing is ever unlinked, so this never comes up),
+this array is mutable — a PM removing a wrong-angle photo would leave it
+orphaned in Storage forever. Fixed by calling `supabase.storage.from(
+"daily-photos").remove([photoPath])` after the DB update; added an E2E
+step asserting the object is actually gone from `storage.list()`, not
+just absent from the DB array.
+
+**Verified empirically — previously an unconfirmed assumption:**
+`.upsert({partialFields}, {onConflict:"project_id"})` against an
+existing `handoff_surveys` row does not reset columns absent from that
+specific call's payload. Confirmed live: a survey saved with full
+teardown/constraints data, then signed by the estimator (which upserts
+only `estimator_signoff_user_id`/`estimator_signed_at`), then signed by a
+real second PM user (which upserts only the PM columns) — all
+teardown/constraints/condition data was still intact after both sign-offs
+in the actual database, not just asserted from apparent behavior.
+
+**Consequences:** New modules: `lib/handoff/{shared,queries,actions}.ts`,
+`components/handoff/handoff-survey-form.tsx`, `lib/pdf/
+handoff-survey-pdf.tsx`, `app/api/handoff/draft/route.ts`, `app/api/
+projects/[id]/handoff-survey-pdf/route.tsx`. New "Handoff" tab
+(`app/(protected)/app/project/[id]/handoff/page.tsx`) between Overview
+and Layout, hidden for `estimate`-status projects and for any role other
+than owner/pm. `project-tabs.tsx` and the project `layout.tsx` both now
+take a `canViewHandoff` flag — the first tab in this codebase gated by
+role as well as status. New `e2e/handoff-survey-flow.spec.ts` (survey
+CRUD, teardown auto-creates one draft scope item, photo upload/remove
+incl. real Storage-object deletion, dual sign-off via a real second
+`pm`-role user in a separate browser session, upsert-doesn't-clobber
+verification, PDF download, AI draft populate-without-save, AI hidden
+when unconfigured). Full suite green: 33 passed, 3 intentionally skipped;
+confirmed zero leftover test data (including `handoff_surveys` rows)
+afterward.
+
+---
+
 ## ADR-040: Batch 4, Sub-phase C — scope-of-work builder (non-install work)
 
 **Decision date:** 2026-07-06

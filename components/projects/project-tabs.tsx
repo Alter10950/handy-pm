@@ -9,9 +9,11 @@ import type { ProjectStatus } from "@/lib/supabase/database.types";
 export function ProjectTabs({
   projectId,
   status,
+  canViewHandoff,
 }: {
   projectId: string;
   status: ProjectStatus;
+  canViewHandoff: boolean;
 }) {
   const pathname = usePathname();
   const base = `/app/project/${projectId}`;
@@ -24,6 +26,12 @@ export function ProjectTabs({
   // scheduler, see ADR-030).
   const tabs = [
     { href: base, label: "Overview" },
+    // Handoff formalizes a sale becoming an ops job — doesn't exist
+    // pre-sale, and hidden per-role (not just per-status) since
+    // handoff_surveys RLS is owner/pm-only both ways.
+    ...(status !== "estimate" && canViewHandoff
+      ? [{ href: `${base}/handoff`, label: "Handoff" }]
+      : []),
     ...(status !== "estimate"
       ? [{ href: `${base}/mark`, label: "Layout" }]
       : []),

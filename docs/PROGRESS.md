@@ -272,6 +272,34 @@ bug was an unscoped E2E assertion substring-matching button labels
 instead of the status it meant to check. Full suite green: 31 passed, 2
 intentionally skipped.
 
+**Sub-phase D — Sales→ops handoff — done and verified live (2026-07-06,
+see ADR-041):** a new Handoff tab (hidden pre-sale, and hidden per-role
+since `handoff_surveys` RLS is owner/pm-only both ways) collects a
+structured site-visit survey — condition, teardown, a six-field site-
+constraints checklist, site photos, and a "walk the drawing" reference
+panel — plus dual sign-off ("Sign as estimator" / "Sign as PM," both
+gated to owner/pm since this system has no separate estimator role;
+"dual" means two distinct clicks, not two distinct system roles).
+Teardown answers auto-create exactly one draft Scope-tab item, and a
+best-effort label lookup auto-syncs the Handoff stage's own checklist —
+the survey's own fields stay the actual source of truth either way. A
+printable PDF (`/api/projects/[id]/handoff-survey-pdf`) copies the
+closeout-PDF's exact construction pattern; an optional AI draft-from-
+notes feature (gated on `ANTHROPIC_API_KEY`, hidden entirely rather than
+shown-then-erroring when unset) copies the packing-slip/voice-note
+forced-tool-use pattern, always landing in editable form state, never
+saving anything until the estimator reviews and clicks Save themselves.
+Found and fixed a real bug during verification (a checklist item was
+flipping done based on the wrong condition — site-visit-date-and-
+condition-text instead of an actual photo existing, despite its own
+`requires_photo` flag) and empirically confirmed a previously-unverified
+assumption: upserting one or two sign-off columns onto an existing
+`handoff_surveys` row does not clobber the rest of that row's data.
+Verified live with a real second `pm`-role user in a separate browser
+session, not just the seeded owner playing both parts. Full suite green:
+33 passed, 3 intentionally skipped; confirmed zero leftover test data
+(including `handoff_surveys` rows) afterward.
+
 **Batch 3 — ✅ COMPLETE (2026-07-06):** a large flagship push — full user
 management/org settings, Field and Scheduler taken to "flagship," a
 rules-based estimation engine, an exception-first dashboard + emailed
@@ -1059,6 +1087,82 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
       tab bucket appears, office partial-log, Field done-log, estimator
       excludes it once done. Full suite green: 31 passed, 2 intentionally
       skipped.
+
+## Batch 4, Sub-phase D — Sales→ops handoff ✅ done (2026-07-06)
+
+- [x] New "Handoff" project tab (`/app/project/[id]/handoff`) — hidden
+      for pre-sale `estimate`-status projects (same as Layout/Receiving/
+      Progress/Portal) AND hidden per-role for scheduler/crew, since
+      `handoff_surveys` RLS is owner/pm-only both ways; a direct URL visit
+      by any other role redirects to the Overview page, same posture as
+      `/app/team`.
+- [x] Structured survey (site visit date, existing racking condition,
+      teardown required + notes, a site-constraints checklist —
+      live/operating warehouse, forklift onsite, permits needed, working
+      hours, floor condition, access notes) + a "walk the drawing"
+      reference panel showing whatever's already on file (empty state if
+      nothing's been uploaded yet — handoff usually happens before Layout
+      marking).
+- [x] Site photo upload straight to the existing `daily-photos` bucket
+      (same pattern as blocker/day-log photos — raw upload, no
+      client-side re-encode, unlike drawing uploads); removal deletes the
+      Storage object too, not just the DB array entry (this array is
+      mutable, unlike the append-only logs elsewhere that never unlink a
+      photo).
+- [x] Teardown answers auto-create exactly one draft `scope_items` row
+      (`source='handoff'`, `work_type='teardown'`) — checked by
+      `(project_id, source, work_type)` so repeat saves never duplicate it.
+- [x] Best-effort, label-based auto-sync into the Handoff stage's own
+      checklist (`markHandoffItemDone`/`signOffHandoffItem` in
+      `lib/handoff/actions.ts`, silently no-ops if a label was renamed via
+      Template Management) — the survey's own fields are the actual
+      source of truth; this just saves a duplicate manual checklist click.
+- [x] Dual sign-off — "Sign as estimator" / "Sign as PM" buttons, each
+      gated `requireRole(["owner","pm"])` (this codebase has no distinct
+      "estimator" system role, so either button is available to any
+      owner/pm — "dual" means two distinct affirmative clicks, not two
+      technically-distinct roles). Confirmed live with a real second
+      `pm`-role user in a separate browser session: their sign-off both
+      updates `handoff_surveys` AND flips the "PM sign-off" checklist item
+      (which has `requires_signoff_role='pm'` — an owner's own sign-off
+      updates the survey but can't flip that specific role-gated item,
+      pre-existing `signOffGateItem` behavior, not new to this sub-phase).
+- [x] Printable/PDF summary (`lib/pdf/handoff-survey-pdf.tsx` +
+      `/api/projects/[id]/handoff-survey-pdf`) — copied the closeout-PDF's
+      exact construction pattern (react-pdf Document/Page/View/Text/Image,
+      `requireRole` + `Promise.all`-batched queries + signed URLs,
+      `renderToBuffer` → `Uint8Array` → `application/pdf` attachment).
+- [x] Optional AI draft-from-notes (`/api/handoff/draft`, gated on
+      `ANTHROPIC_API_KEY`) — same bare-`fetch`/forced-`tool_choice`
+      pattern as the packing-slip/voice-note routes; drafts existing
+      racking condition, teardown, and all six constraint fields from a
+      freeform notes textarea. Whole block hidden (not shown-then-erroring)
+      when the key is unset, matching the newer `estimates/explain`
+      precedent rather than the older packing-slip/voice-note one — this
+      is a full secondary feature within the survey, not "the button
+      already exists for other reasons." Nothing the AI drafts reaches the
+      database until the estimator reviews/edits and clicks Save
+      themselves.
+- [x] Found and fixed a real bug during E2E verification: `saveHandoffSurvey`
+      was marking "Site survey completed with photos" done based on
+      site-visit-date + condition text alone, never checking whether a
+      photo actually existed — despite that item's own `requires_photo`
+      template flag. Fixed to only flip via `addHandoffPhoto`, once a
+      photo genuinely exists.
+- [x] Verified empirically (previously a flagged, unconfirmed assumption):
+      `.upsert({partialFields}, {onConflict:"project_id"})` against an
+      existing `handoff_surveys` row does NOT clobber columns absent from
+      the payload — teardown/constraints/existing-condition data all
+      survived both the estimator and PM sign-off calls (each of which
+      upserts only its own two sign-off columns) in the live E2E run.
+- [x] `npm run lint`/`typecheck`/`build` all pass. New
+      `e2e/handoff-survey-flow.spec.ts` (3 tests: full flow incl. a real
+      second `pm`-role user in a separate session, AI draft populates
+      fields without auto-saving, AI block hidden when unconfigured —
+      this last one skips whenever a key IS configured, so it never
+      actually runs in this environment). Full suite green: 33 passed, 3
+      intentionally skipped; confirmed zero leftover test data (projects,
+      auth users, and `handoff_surveys` rows all back to zero) afterward.
 
 ## Batch 3, Sub-phase 0 — Schema for estimating/readiness/versioning ✅ done (2026-07-06)
 
