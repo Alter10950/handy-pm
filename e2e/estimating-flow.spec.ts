@@ -74,9 +74,14 @@ test("estimating: draft an estimate, classify materials, save a forecast, conver
     await sizeInput.fill("96");
     await sizeInput.blur();
 
-    // labor_standards seeds beam at base_labor_units=0.05, per_linear_ft —
-    // 0.05 × 96 = 4.80 standard hours for this one unit.
-    await expect(row.getByText("4.80")).toBeVisible({ timeout: 10_000 });
+    // Phase 13 REGRESSION GUARD: the old engine multiplied the raw size
+    // number by a per-linear-FOOT rate (0.05 × 96 "feet" = 4.80 h for ONE
+    // beam — the inches-as-feet bug). Beam labor is per PIECE now: a 96"
+    // beam books 0.08 h. 4.80 must never come back.
+    await expect(row.getByText("0.08", { exact: true })).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(row.getByText("4.80")).toHaveCount(0);
   });
 
   await test.step("the Estimate tab shows a real forecast and saves a history entry", async () => {
@@ -84,9 +89,8 @@ test("estimating: draft an estimate, classify materials, save a forecast, conver
     await expect(page.getByText("Full scope")).toBeVisible();
     await expect(page.getByText("Remaining to finish")).toBeVisible();
     await expect(page.getByText(/Confidence:/)).toBeVisible();
-    await expect(page.getByText("Remaining hours by task")).toBeVisible();
-    await expect(page.getByText("beam")).toBeVisible();
-    await expect(page.getByText("general")).toBeVisible();
+    await expect(page.getByText("Remaining hours by SKU")).toBeVisible();
+    await expect(page.getByTestId("estimate-sku-lines")).toContainText("beam");
 
     await expect(
       page.getByText("No saved estimates yet")

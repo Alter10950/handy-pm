@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { StatusPill, type PillTone } from "@/components/ui/status-pill";
 import { sendFinishChangedNotice } from "@/lib/comms/actions";
 import {
   computeEstimatePreview,
@@ -19,10 +20,12 @@ const CONFIDENCE_CLASS: Record<ComputedEstimate["confidence"], string> = {
   low: "text-destructive",
 };
 
-const RATE_SOURCE_LABEL: Record<string, string> = {
-  crew: "crew-specific rate",
-  company: "company-wide blend",
-  standard: "standard pace (no data yet)",
+// Per-SKU line source labels + tones (Phase 13 engine).
+const LINE_SOURCE: Record<string, { label: string; tone: PillTone }> = {
+  learned: { label: "learned", tone: "success" },
+  sku: { label: "SKU standard", tone: "info" },
+  category: { label: "category default", tone: "neutral" },
+  none: { label: "no standard", tone: "danger" },
 };
 
 function formatNumber(n: number, digits = 1): string {
@@ -196,6 +199,23 @@ export function ProjectEstimatePanel({
 
   return (
     <div className="flex flex-col gap-6">
+      {estimate.engineWarnings.length > 0 ? (
+        <div
+          role="alert"
+          data-testid="estimate-warnings"
+          className="rounded-lg border border-warning/40 bg-warning-subtle p-3 text-sm text-foreground"
+        >
+          <p className="font-semibold text-warning-fg">
+            Check these before trusting the forecast
+          </p>
+          <ul className="mt-1 list-disc pl-5">
+            {estimate.engineWarnings.map((warning, i) => (
+              <li key={i}>{warning}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat
           label="Full scope"
@@ -354,45 +374,102 @@ export function ProjectEstimatePanel({
       </div>
 
       <div className="rounded-lg border border-border bg-card shadow-e1 p-4">
-        <h3 className="mb-3 text-sm font-semibold text-foreground">
-          Remaining hours by task
+        <h3 className="mb-1 text-sm font-semibold text-foreground">
+          Remaining hours by SKU
         </h3>
-        {estimate.breakdown.length === 0 ? (
+        <p className="mb-3 text-xs text-muted-foreground">
+          Each line resolves its own standard — learned crew rate first,
+          then a per-SKU standard, then the category default with size
+          modifiers. No more one-rate-fits-all.
+        </p>
+        {estimate.lines.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            Nothing left to install — every material is fully accounted for.
+            No materials yet — paste or import a material list first.
           </p>
         ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-xs uppercase tracking-wide text-muted-foreground">
-                <th className="pb-2">Task</th>
-                <th className="pb-2 text-right">Labor units</th>
-                <th className="pb-2 text-right">Rate</th>
-                <th className="pb-2 text-right">Hours</th>
-                <th className="pb-2 text-right">Source</th>
-              </tr>
-            </thead>
-            <tbody>
-              {estimate.breakdown.map((entry) => (
-                <tr key={entry.taskKey} className="border-t border-border">
-                  <td className="py-1.5 text-foreground">{entry.taskKey}</td>
-                  <td className="py-1.5 text-right tabular-nums text-foreground">
-                    {formatNumber(entry.laborUnits, 2)}
-                  </td>
-                  <td className="py-1.5 text-right tabular-nums text-foreground">
-                    {formatNumber(entry.unitsPerHour, 2)}/hr
-                  </td>
-                  <td className="py-1.5 text-right tabular-nums text-foreground">
-                    {formatNumber(entry.hours, 2)}
-                  </td>
-                  <td className="py-1.5 text-right text-xs text-muted-foreground">
-                    {RATE_SOURCE_LABEL[entry.rateSource]}
-                  </td>
+          <div className="max-h-[28rem] overflow-auto rounded-md border border-border-subtle">
+            <table className="w-full border-separate border-spacing-0 text-sm">
+              <thead>
+                <tr className="text-left text-xs text-muted-foreground">
+                  <th className="sticky top-0 border-b border-border bg-surface-sunken px-2 py-1.5 font-semibold">
+                    Material
+                  </th>
+                  <th className="sticky top-0 border-b border-border bg-surface-sunken px-2 py-1.5 text-right font-semibold">
+                    Remaining
+                  </th>
+                  <th className="sticky top-0 border-b border-border bg-surface-sunken px-2 py-1.5 text-right font-semibold">
+                    h/unit
+                  </th>
+                  <th className="sticky top-0 border-b border-border bg-surface-sunken px-2 py-1.5 text-right font-semibold">
+                    Hours
+                  </th>
+                  <th className="sticky top-0 border-b border-border bg-surface-sunken px-2 py-1.5 text-right font-semibold">
+                    Standard
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody data-testid="estimate-sku-lines">
+                {[...estimate.lines]
+                  .sort((a, b) => b.remainingHours - a.remainingHours)
+                  .map((line, i) => {
+                    const source = LINE_SOURCE[line.source] ?? LINE_SOURCE.none;
+                    return (
+                      <tr key={line.skuId ?? `${line.name}-${i}`}>
+                        <td className="border-b border-border-subtle px-2 py-1.5 text-foreground">
+                          <span className="block max-w-64 truncate" title={line.name}>
+                            {line.name}
+                          </span>
+                          <span className="text-[11px] capitalize text-muted-foreground">
+                            {line.category.replace("_", " ")}
+                            {line.modifiers.length > 0
+                              ? ` · ${line.modifiers.join(", ")}`
+                              : ""}
+                          </span>
+                        </td>
+                        <td className="num border-b border-border-subtle px-2 py-1.5 text-right text-foreground">
+                          {formatNumber(line.remainingQuantity)}
+                        </td>
+                        <td className="num border-b border-border-subtle px-2 py-1.5 text-right text-foreground">
+                          {formatNumber(line.hoursPerUnit, 4)}
+                        </td>
+                        <td className="num border-b border-border-subtle px-2 py-1.5 text-right font-medium text-foreground">
+                          {formatNumber(line.remainingHours, 2)}
+                        </td>
+                        <td className="border-b border-border-subtle px-2 py-1.5 text-right">
+                          <StatusPill tone={source.tone}>{source.label}</StatusPill>
+                        </td>
+                      </tr>
+                    );
+                  })}
+              </tbody>
+            </table>
+          </div>
         )}
+
+        {estimate.breakdown.some(
+          (entry) => !estimate.lines.some((line) => line.category === entry.taskKey)
+        ) ? (
+          <div className="mt-3 border-t border-border-subtle pt-3">
+            <p className="mb-1 text-xs font-semibold text-muted-foreground">
+              Other scope work (teardown, relocation, …)
+            </p>
+            <ul className="flex flex-col gap-0.5 text-sm text-foreground">
+              {estimate.breakdown
+                .filter(
+                  (entry) =>
+                    !estimate.lines.some((line) => line.category === entry.taskKey)
+                )
+                .map((entry) => (
+                  <li key={entry.taskKey} className="flex justify-between">
+                    <span className="capitalize">
+                      {entry.taskKey.replace("_", " ")}
+                    </span>
+                    <span className="num">{formatNumber(entry.hours, 2)} h</span>
+                  </li>
+                ))}
+            </ul>
+          </div>
+        ) : null}
       </div>
 
       <div className="rounded-lg border border-border bg-card shadow-e1 p-4">

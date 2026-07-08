@@ -4,8 +4,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireRole } from "@/lib/auth/session";
-import { laborUnitsFor } from "@/lib/estimating/labor";
-import { loadLaborStandardsMap } from "@/lib/estimating/queries";
+import { loadCategoryTiers } from "@/lib/estimating/queries";
+import { hoursPerUnitForMaterial } from "@/lib/estimating/standards";
+import { classifyCategory } from "@/lib/skus/parse";
 import { notifyUsers } from "@/lib/notifications/create";
 import { parseMaterialList } from "@/lib/projects/parse-material-list";
 import { createClient } from "@/lib/supabase/server";
@@ -151,11 +152,12 @@ export async function addMaterial(projectId: string, name: string) {
   await requireRole(PROJECT_EDITORS);
 
   const supabase = await createClient();
-  const standards = await loadLaborStandardsMap();
+  const tiers = await loadCategoryTiers();
   const { error } = await supabase.from("materials").insert({
     project_id: projectId,
     name: trimmed,
-    labor_units: laborUnitsFor(standards, "general", null),
+    task_key: classifyCategory(trimmed),
+    labor_units: hoursPerUnitForMaterial(trimmed, null, tiers),
   });
   if (error) throw error;
 
@@ -187,15 +189,27 @@ export async function updateMaterial(
   // sync with labor_standards. Every other field is a plain passthrough
   // update with no extra read.
   let fullPatch: typeof patch & { labor_units?: number } = patch;
-  if (patch.task_key !== undefined || patch.size !== undefined) {
-    const [standards, { data: current, error: currentError }] = await Promise.all([
-      loadLaborStandardsMap(),
-      supabase.from("materials").select("task_key, size").eq("id", materialId).single(),
+  if (
+    patch.task_key !== undefined ||
+    patch.size !== undefined ||
+    patch.name !== undefined
+  ) {
+    const [tiers, { data: current, error: currentError }] = await Promise.all([
+      loadCategoryTiers(),
+      supabase
+        .from("materials")
+        .select("name, task_key, size")
+        .eq("id", materialId)
+        .single(),
     ]);
     if (currentError) throw currentError;
+    const name = patch.name ?? current.name;
     const taskKey = patch.task_key ?? current.task_key;
     const size = patch.size !== undefined ? patch.size : current.size;
-    fullPatch = { ...patch, labor_units: laborUnitsFor(standards, taskKey, size) };
+    fullPatch = {
+      ...patch,
+      labor_units: hoursPerUnitForMaterial(name, size, tiers, taskKey),
+    };
   }
 
   const { error } = await supabase
@@ -232,7 +246,7 @@ export async function pasteMaterialList(
   await requireRole(PROJECT_EDITORS);
 
   const supabase = await createClient();
-  const standards = await loadLaborStandardsMap();
+  const tiers = await loadCategoryTiers();
 
   if (replaceExisting) {
     const { error: deleteError } = await supabase
@@ -242,17 +256,17 @@ export async function pasteMaterialList(
     if (deleteError) throw deleteError;
   }
 
-  // A plain "name, qty" paste line carries no task classification — every
-  // line lands as 'general' (the labor_standards catch-all) and can be
-  // reclassified afterward in the Materials grid, same as a manually
-  // added material.
+  // A "name, qty" paste line still classifies from its NAME (Phase 13) —
+  // "144x6 Stepbeam, 500" lands as a beam with per-piece labor, not the
+  // old blanket 'general'. Reclassifiable afterward in the grid.
   const { error } = await supabase.from("materials").insert(
     parsed.map((line) => ({
       project_id: projectId,
       name: line.name,
       total_needed: line.qty,
       received: line.qty,
-      labor_units: laborUnitsFor(standards, "general", null),
+      task_key: classifyCategory(line.name),
+      labor_units: hoursPerUnitForMaterial(line.name, null, tiers),
     }))
   );
   if (error) throw error;
@@ -316,7 +330,7 @@ export async function confirmExtractedMaterials(
   await requireRole(PROJECT_EDITORS);
 
   const supabase = await createClient();
-  const standards = await loadLaborStandardsMap();
+  const tiers = await loadCategoryTiers();
 
   if (replaceExisting) {
     const { error: deleteError } = await supabase
@@ -334,7 +348,7 @@ export async function confirmExtractedMaterials(
       task_key: item.taskKey,
       total_needed: item.qty,
       received: item.qty,
-      labor_units: laborUnitsFor(standards, item.taskKey, item.size),
+      labor_units: hoursPerUnitForMaterial(item.name, item.size, tiers, item.taskKey),
     }))
   );
   if (error) throw error;
@@ -388,7 +402,7 @@ export async function importMaterials(
   await requireRole(PROJECT_EDITORS);
 
   const supabase = await createClient();
-  const standards = await loadLaborStandardsMap();
+  const tiers = await loadCategoryTiers();
 
   if (replaceExisting) {
     const { error: deleteError } = await supabase
@@ -411,7 +425,7 @@ export async function importMaterials(
       capacity: item.capacity,
       condition: item.condition,
       compatible_system: item.compatibleSystem,
-      labor_units: laborUnitsFor(standards, item.taskKey, item.size),
+      labor_units: hoursPerUnitForMaterial(item.name, item.size, tiers, item.taskKey),
     }))
   );
   if (error) throw error;

@@ -143,3 +143,18 @@ export function parseSizeText(
 export function requiresLift(heightIn: number | null): boolean {
   return heightIn !== null && heightIn >= 192;
 }
+
+// Pasted BOM lines usually carry dimensions in the NAME ('144"x6"
+// Stepbeam') with no separate size column. Pull the first AxB token (or a
+// single explicitly-united dimension) out of a name so those lines still
+// get size-aware modifiers. Fractions like 1/2" (anchor diameters) don't
+// match — they're not install-relevant dimensions.
+export function extractSizeFromName(name: string): string | null {
+  const pair =
+    /(\d+(?:\.\d+)?\s*(?:"|in(?:ch(?:es)?)?|'|ft|feet)?)\s*[x×]\s*(\d+(?:\.\d+)?\s*(?:"|in(?:ch(?:es)?)?|'|ft|feet)?)/i.exec(
+      name
+    );
+  if (pair) return `${pair[1]}x${pair[2]}`;
+  const single = /(?:^|\s)(\d+(?:\.\d+)?\s*(?:"|in\b|'|ft\b))/i.exec(name);
+  return single ? single[1].trim() : null;
+}

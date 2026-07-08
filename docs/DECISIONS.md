@@ -5,6 +5,66 @@ Consequences.
 
 ---
 
+## ADR-053: Phase 16 — application-level, append-only audit log
+
+**Decision date:** 2026-07-08
+
+**Context:** the batch calls for an audit trail (role changes, gate
+overrides, CO approvals, destructive actions). Options: trigger-based CDC
+on every table, or application-level events at the moments that matter.
+
+**Choice:** one narrow `audit_events` table (org, actor, action,
+entity, project, human `summary`, jsonb detail), written by
+`lib/audit/log.ts#recordAudit` from the server actions themselves —
+the same pattern `pm_history` already established. RLS: owner/pm read;
+insert-only (no update/delete policies at all → append-only at the
+policy level). Audit writes are fire-and-forget: a logging failure
+(including the table not existing until the migration is approved) never
+breaks the action it documents.
+
+**Consequences:** auditable actions opt in explicitly (grep
+`recordAudit` for coverage); no write amplification on hot paths
+(installs/QC ticks deliberately not audited — they ARE the product's own
+append-only records).
+
+---
+
+## ADR-052: Phase 14/15 — QC, punch list, photo phases, per-SKU flywheel
+
+**Decision date:** 2026-07-08
+
+**Context:** product depth on execution: "is each row DONE-done"
+(quality), "what blocks closeout" (punch), a before/after photo story,
+and estimates that sharpen from actuals. Receiving/staging, readiness,
+targets/SPI, closeout PDF, and reports already exist from prior batches
+— Phase 14/15 fill the genuine gaps rather than rebuild.
+
+**Choices:**
+
+- **`row_qc_checks`** — per-row checklist rows keyed by an app-defined
+  vocabulary (`lib/qc/shared.ts`: plumb/anchors/shims/beam locks/decks/
+  labels). Crew-writable (same trust as logging installs). Row QC status
+  derives from passed-count; no separate status column to drift.
+- **`punch_items`** — open/done items, optional row link + photo,
+  crew-raisable, `resolved_by/at` stamped. Open items are surfaced as
+  the closeout blocker signal.
+- **`approved_photos.phase`** (before/during/after) — the CURATED set
+  (portal + closeout) gets the story arc; raw `day_logs.photo_paths`
+  stay untagged.
+- **`recomputeCrewSkuRates`** (`lib/estimating/flywheel.ts`) — learns
+  hours-per-unit per (crew, SKU) from the same rolling window /
+  blocker-exclusion / proportional-attribution rules the task-key
+  learner uses (weights = engine STANDARD hours, not the poisoned stored
+  labor_units). Only SKU-linked materials teach, so the flywheel
+  self-activates after the Phase 13 backfill and feeds
+  `resolveStandard()`'s top tier.
+- **Everything ships dark behind guarded reads** (ADR-051 pattern):
+  missing relations render "awaiting migration" panels, actions throw a
+  clear pending-migration message, and the new E2E spec skips itself
+  until `punch_items` exists.
+
+---
+
 ## ADR-051: Phase 13 wiring — read-time attributes now, catalog tiers on migration
 
 **Decision date:** 2026-07-08

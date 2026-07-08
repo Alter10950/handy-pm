@@ -4,6 +4,7 @@ import { test } from "node:test";
 
 import {
   classifyCategory,
+  extractSizeFromName,
   parseSizeText,
   requiresLift,
 } from "../../lib/skus/parse.ts";
@@ -62,4 +63,18 @@ test("lift threshold at 16 ft (192 in)", () => {
   assert.equal(requiresLift(191), false);
   assert.equal(requiresLift(192), true);
   assert.equal(requiresLift(null), false);
+});
+
+test("size extraction from NAMES (pasted BOMs put dims in the name)", () => {
+  assert.equal(extractSizeFromName('144"x6" Stepbeam'), '144"x6"');
+  assert.equal(extractSizeFromName('42"x288" Teardrop Upright'), '42"x288"');
+  assert.equal(extractSizeFromName("Wire Deck 42x46"), "42x46");
+  assert.equal(extractSizeFromName("8ft Beam"), "8ft");
+  // Anchor fractions are NOT dimensions.
+  assert.equal(extractSizeFromName('1/2" Wedge Anchor'), null);
+  assert.equal(extractSizeFromName("Post Protector"), null);
+
+  // End-to-end: a pasted beam line engages the long-length modifier.
+  const attrs = parseSizeText("beam", extractSizeFromName('168" Stepbeam'));
+  assert.equal(attrs.lengthIn, 168);
 });

@@ -138,9 +138,10 @@ test("change orders: draft with lines, manual approval merges scope+materials an
       .eq("id", projectId!)
       .single();
     expect(after!.original_estimate_saved_at).not.toBeNull();
-    // Original BOM: 10 Beams × the "general" 0.1 labor units = 1 hour —
-    // NOT including the CO's own 1.2.
-    expect(after!.original_estimate_labor_units).toBe(1);
+    // Original BOM: 10 Beams — Phase 13 classifies from the NAME, so each
+    // books the beam per-piece standard (0.08 h) = 0.8 hours, NOT the old
+    // blanket-'general' 1.0. Excludes the CO's own 1.2.
+    expect(after!.original_estimate_labor_units).toBe(0.8);
   });
 
   await test.step("estimate tab shows original vs current approved", async () => {
@@ -148,8 +149,8 @@ test("change orders: draft with lines, manual approval merges scope+materials an
     const card = page.getByTestId("estimate-baseline-card");
     await expect(card).toBeVisible();
     await expect(card).toContainText("1 approved change order");
-    // Approved hours = original 1 + CO 1.2 = 2.2, rendered with the delta.
-    await expect(card).toContainText("2.2");
+    // Approved hours = original 0.8 + CO 1.2 = 2, rendered with the delta.
+    await expect(card).toContainText("2");
     await expect(card).toContainText("(+1.2)");
   });
 

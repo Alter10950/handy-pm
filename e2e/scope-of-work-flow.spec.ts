@@ -63,10 +63,13 @@ test("scope of work: add a project-level item, labor suggested, log partial then
     // Before this sub-phase, "teardown" never appeared here at all — the
     // breakdown was materials task_keys only. Its mere presence proves
     // the integration; the exact number is already verified against the
-    // DB directly above (labor_units: 0.6) and the row's own resolveRate
-    // math is exercised, but not duplicated, by that DB check.
-    const breakdownRow = page.locator("tr").filter({ hasText: "teardown" });
-    await expect(breakdownRow).toBeVisible();
+    // DB directly above (labor_units: 0.6). Phase 13's panel renders
+    // scope work as the "Other scope work" list under the SKU table.
+    const scopeEntry = page
+      .locator("li")
+      .filter({ hasText: "teardown" });
+    await expect(scopeEntry).toBeVisible();
+    await expect(scopeEntry).toContainText("0.6");
   });
 
   // lib/scheduler/queries.ts#getProjectRemainingLaborUnits was extended

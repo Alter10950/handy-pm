@@ -4,6 +4,58 @@ Engineering journal. Newest entries at top.
 
 ---
 
+## 2026-07-08 — Phase 13: per-SKU labor model live; 25,268 h → 1,302.7 h
+
+**The bug, fixed and verified end-to-end.** A Bingo-Warehouse-scale BOM
+(700 uprights 42"×288", 2,200 144" stepbeams, 1,500 96" stepbeams, 3,000
+wire decks, 2,800 anchors) pasted through the real UI now computes
+**1,302.7 hours full scope** (was 25,268) — 191.6 crew-days at one crew,
+~64 at three. Screenshot in the session log shows each SKU line with its
+modifier trail ("Height >192in ×1.4, Lift required ×1.25", "Length
+97–144in ×1.15") and an honest "Confidence: low" (everything rides
+category defaults until per-SKU/learned data lands).
+
+**How it's wired (ADR-049/051):**
+
+- `computeProjectEstimate` rebuilt around the pure engine: typed
+  attributes per material (SKU catalog when it exists, read-time parse
+  until then — including `extractSizeFromName`, since pasted BOMs carry
+  dims in the name), learned→SKU→category resolution, crew-day math with
+  shift×efficiency, guardrail warnings surfaced in a banner. Same
+  `ComputedEstimate` interface for the panel/save/CO snapshot consumers,
+  plus new `lines` + `engineWarnings`.
+- Poisoned `labor_standards` rows (`per_linear_ft` beam,
+  `per_ft_height` upright) are IGNORED at read time in favor of in-code
+  `CATEGORY_DEFAULT_HOURS`; per-each/per-piece rows are honored (an
+  org's own tuned numbers win). Old task_key `crew_rates` are quarantined
+  — they were learned against poisoned labor_units.
+- Material WRITE paths (add/paste/extract/import/update) now classify
+  from the name and store engine-computed `labor_units`; "Beam, 10"
+  lands as a beam at 0.08 h/pc, not 'general' 0.1.
+- Estimate tab: warnings banner + per-SKU lines table (remaining, h/unit
+  to 4 places, modifier trail, source pill) + "other scope work" rollup.
+- `tests/unit`: 15 tests incl. the 144"-beam regression and name
+  extraction. E2E: estimating-flow now GUARDS the fix (0.08 visible,
+  4.80 banned); change-order baseline numbers updated to the corrected
+  model (0.8 h for 10 beams).
+
+**NEEDS ME (blocked on approval, everything else shipped):**
+
+1. `npx supabase db push` — applies
+   `supabase/migrations/20260708120000_sku_catalog_labor_standards.sql`
+   (SKU catalog + per-SKU standards + crew×SKU rates tables, corrective
+   UPDATEs to the four still-at-seed labor_standards rows). The session's
+   permission gate blocks data-mutating pushes to the live DB — run it
+   once, or paste the file into the SQL editor.
+2. `node --env-file=.env.local scripts/backfill-skus.mjs` — builds the
+   SKU catalog from existing materials, links `materials.sku_id`, and
+   repairs stored `labor_units` (derived data; raw inputs untouched).
+   Idempotent; run after the push.
+   The app is correct WITHOUT these (read-time parsing); they unlock the
+   editable catalog, per-SKU overrides, and the Phase 15 flywheel.
+
+---
+
 ## 2026-07-08 — Phase 11: component library + AppShell (and Phase 13 core landed early)
 
 **What:** the shared component layer every Phase 12 screen will compose,

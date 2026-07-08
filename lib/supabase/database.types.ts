@@ -1066,6 +1066,114 @@ export type Database = {
           },
         ]
       }
+      material_skus: {
+        Row: {
+          category: string
+          created_at: string
+          depth_in: number | null
+          height_in: number | null
+          id: string
+          length_in: number | null
+          name: string
+          needs_review: boolean
+          org_id: string
+          requires_lift: boolean
+          size_text: string | null
+          weight_lbs: number | null
+          width_in: number | null
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          depth_in?: number | null
+          height_in?: number | null
+          id?: string
+          length_in?: number | null
+          name: string
+          needs_review?: boolean
+          org_id: string
+          requires_lift?: boolean
+          size_text?: string | null
+          weight_lbs?: number | null
+          width_in?: number | null
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          depth_in?: number | null
+          height_in?: number | null
+          id?: string
+          length_in?: number | null
+          name?: string
+          needs_review?: boolean
+          org_id?: string
+          requires_lift?: boolean
+          size_text?: string | null
+          weight_lbs?: number | null
+          width_in?: number | null
+        }
+        Relationships: []
+      }
+      sku_labor_standards: {
+        Row: {
+          created_at: string
+          hours_per_unit: number
+          id: string
+          note: string | null
+          org_id: string
+          sku_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          hours_per_unit: number
+          id?: string
+          note?: string | null
+          org_id: string
+          sku_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          hours_per_unit?: number
+          id?: string
+          note?: string | null
+          org_id?: string
+          sku_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      crew_sku_rates: {
+        Row: {
+          crew_id: string
+          hours_per_unit: number
+          id: string
+          org_id: string
+          samples: number
+          sku_id: string
+          updated_at: string
+        }
+        Insert: {
+          crew_id: string
+          hours_per_unit: number
+          id?: string
+          org_id: string
+          samples?: number
+          sku_id: string
+          updated_at?: string
+        }
+        Update: {
+          crew_id?: string
+          hours_per_unit?: number
+          id?: string
+          org_id?: string
+          samples?: number
+          sku_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       materials: {
         Row: {
           capacity: string | null
@@ -1080,6 +1188,7 @@ export type Database = {
           project_id: string
           received: number
           size: string | null
+          sku_id: string | null
           task_key: string
           total_needed: number
           unit: string
@@ -1097,6 +1206,7 @@ export type Database = {
           project_id: string
           received?: number
           size?: string | null
+          sku_id?: string | null
           task_key?: string
           total_needed?: number
           unit?: string
@@ -1114,6 +1224,7 @@ export type Database = {
           project_id?: string
           received?: number
           size?: string | null
+          sku_id?: string | null
           task_key?: string
           total_needed?: number
           unit?: string

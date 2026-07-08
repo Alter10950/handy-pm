@@ -113,7 +113,23 @@ export function forecastFinishDate(
   workingDaysOfWeek: readonly number[],
   startDate: string
 ): { finishDate: string; crewDaysNeeded: number } {
-  const crewDaysNeeded = remainingHours / HOURS_PER_CREW_DAY;
+  return forecastFinishFromCrewDays(
+    remainingHours / HOURS_PER_CREW_DAY,
+    crewCount,
+    workingDaysOfWeek,
+    startDate
+  );
+}
+
+// Same walk, but fed crew-days directly — the Phase 13 engine computes
+// crew-days itself (shift × efficiency, lib/estimating/engine.ts) so the
+// date walker must not re-derive them from a bare hours/8.
+export function forecastFinishFromCrewDays(
+  crewDaysNeeded: number,
+  crewCount: number,
+  workingDaysOfWeek: readonly number[],
+  startDate: string
+): { finishDate: string; crewDaysNeeded: number } {
   const effectiveCrewCount = Math.max(1, crewCount);
   if (crewDaysNeeded <= 0) {
     return { finishDate: startDate, crewDaysNeeded: 0 };

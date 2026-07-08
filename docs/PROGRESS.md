@@ -20,15 +20,22 @@ domain model, and adds operational depth.
   deleted) and the full `/styleguide` gallery. Engine core + SKU parser
   + 14 unit tests landed early for Phase 13 (`npm run test:unit`).
   ADR-049, ADR-050.
-- **12 — Screen-by-screen redesign**: every screen reassembled on the new
-  system (Login, shell/nav, Projects, Overview, Layout, Materials,
-  Receiving, Progress, Portal, Estimate/Estimating, Scheduler, Dashboard,
-  Field, Team, Settings) with real empty/loading/error states and a mobile
-  pass. No route or data regressions; Bingo Warehouse must load at every step.
-- **13 — Per-SKU material & labor model + estimate engine rewrite**: fix
-  the inches-as-feet / per-linear-ft / lumped-rate bugs with a structured
-  SKU catalog, three-tier layered standards, a pure unit-typed engine with
-  guardrails and unit tests, and a lossless backfill migration.
+- ✅ **12 — Screen-by-screen redesign** (2026-07-08): Login (brand-glyph
+  card), Projects (PageHeader + raised-chip toggle + elevated cards),
+  project header/tabs, Dashboard (toned StatTiles), Portal (customer
+  shell + big progress), Field home (44px controls), Estimating/Team/
+  Settings/Account/Scheduler headers, materials grid + projects table
+  restyle, global sweeps (panel elevation, slab → brand-subtle selected
+  states, AA link/text tokens). Full E2E green after two spec
+  presentation alignments.
+- ✅ **13 — Per-SKU material & labor model + estimate engine rewrite**
+  (2026-07-08): pure unit-typed engine live behind the Estimate tab —
+  Bingo-scale BOM: **25,268 h → 1,302.7 h**, per-SKU lines with modifier
+  trails + source pills + guardrail banner, corrected write paths,
+  15 unit tests + E2E regression guard (4.80 banned). SKU catalog
+  migration + lossless backfill authored; `db push` + backfill run are
+  the two NEEDS ME items (app is correct without them via read-time
+  parsing). ADR-049, ADR-051.
 - **14 — Product depth I**: receiving/staging pipeline + reorder urgency +
   next-day readiness, per-row QC gates, punch list, before/after photos,
   closeout package.

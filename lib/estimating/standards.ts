@@ -5,8 +5,13 @@
 // office-editable, the parse is only a first guess).
 
 import type { EstimateLineInput, LearnedRate, SkuCategory } from "@/lib/estimating/engine";
-import { CATEGORY_DEFAULT_HOURS } from "@/lib/estimating/engine";
-import { classifyCategory, parseSizeText, requiresLift } from "@/lib/skus/parse";
+import { CATEGORY_DEFAULT_HOURS, resolveStandard } from "@/lib/estimating/engine";
+import {
+  classifyCategory,
+  extractSizeFromName,
+  parseSizeText,
+  requiresLift,
+} from "@/lib/skus/parse";
 
 export interface MaterialForEstimate {
   id: string;
@@ -34,11 +39,38 @@ export interface StandardTiers {
   learned: Map<string, LearnedRate>;
 }
 
-export const EMPTY_TIERS: StandardTiers = {
-  categoryHours: {},
-  skuHours: new Map(),
-  learned: new Map(),
-};
+// The material WRITE path stores labor_units (hours/unit at standard
+// pace) on each row — scheduler remaining-labor math reads it. This is
+// the corrected computation for that stored figure: parse once, resolve
+// through the engine. (The Estimate tab itself recomputes live and never
+// trusts the stored value.) An explicit task_key that names a known
+// category (user reclassified in the grid) outranks name classification.
+export function hoursPerUnitForMaterial(
+  name: string,
+  size: string | null,
+  tiers: StandardTiers,
+  taskKeyHint?: string | null
+): number {
+  const category: SkuCategory =
+    taskKeyHint && taskKeyHint in CATEGORY_DEFAULT_HOURS
+      ? (taskKeyHint as SkuCategory)
+      : classifyCategory(name);
+  const parsed = parseSizeText(
+    category,
+    size?.trim() ? size : extractSizeFromName(name)
+  );
+  const resolved = resolveStandard({
+    attrs: {
+      category,
+      heightIn: parsed.heightIn,
+      lengthIn: parsed.lengthIn,
+      weightLbs: parsed.weightLbs,
+      requiresLift: requiresLift(parsed.heightIn),
+    },
+    categoryDefault: resolveCategoryDefault(category, tiers),
+  });
+  return resolved.hoursPerUnit;
+}
 
 // A labor_standards row only participates if its semantics are per-piece.
 // The pre-Phase-13 seeds ('per_linear_ft' beam, 'per_ft_height' upright)
@@ -74,7 +106,10 @@ export function materialToLineInput(
   const category = catalog?.category ?? classifyCategory(material.name);
   const parsed = catalog
     ? null
-    : parseSizeText(category, material.size);
+    : parseSizeText(
+        category,
+        material.size?.trim() ? material.size : extractSizeFromName(material.name)
+      );
   const heightIn = catalog ? catalog.heightIn : (parsed?.heightIn ?? null);
   const skuId = material.skuId ?? null;
   return {
