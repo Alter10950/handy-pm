@@ -48,6 +48,7 @@ export type MaterialReceiptStatus =
   | "wrong";
 export type RowReadinessStatus = "ready" | "partial" | "blocked" | "complete";
 export type PhotoSource = "day_log" | "blocker";
+export type PhotoPhase = "before" | "during" | "after";
 export type GateStageKey =
   | "handoff"
   | "scope"
@@ -128,6 +129,7 @@ export type Database = {
           approved_by: string | null
           caption: string | null
           id: string
+          phase: PhotoPhase
           project_id: string
           source: PhotoSource
           storage_path: string
@@ -137,6 +139,7 @@ export type Database = {
           approved_by?: string | null
           caption?: string | null
           id?: string
+          phase?: PhotoPhase
           project_id: string
           source: PhotoSource
           storage_path: string
@@ -146,6 +149,7 @@ export type Database = {
           approved_by?: string | null
           caption?: string | null
           id?: string
+          phase?: PhotoPhase
           project_id?: string
           source?: PhotoSource
           storage_path?: string
@@ -1065,6 +1069,117 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      punch_items: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          detail: string | null
+          id: string
+          photo_path: string | null
+          project_id: string
+          resolved_at: string | null
+          resolved_by: string | null
+          row_id: string | null
+          status: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          detail?: string | null
+          id?: string
+          photo_path?: string | null
+          project_id: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          row_id?: string | null
+          status?: string
+          title: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          detail?: string | null
+          id?: string
+          photo_path?: string | null
+          project_id?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          row_id?: string | null
+          status?: string
+          title?: string
+        }
+        Relationships: []
+      }
+      row_qc_checks: {
+        Row: {
+          check_key: string
+          checked_at: string
+          checked_by: string | null
+          id: string
+          note: string | null
+          passed: boolean
+          row_id: string
+        }
+        Insert: {
+          check_key: string
+          checked_at?: string
+          checked_by?: string | null
+          id?: string
+          note?: string | null
+          passed?: boolean
+          row_id: string
+        }
+        Update: {
+          check_key?: string
+          checked_at?: string
+          checked_by?: string | null
+          id?: string
+          note?: string | null
+          passed?: boolean
+          row_id?: string
+        }
+        Relationships: []
+      }
+      audit_events: {
+        Row: {
+          action: string
+          actor_id: string | null
+          created_at: string
+          detail: Json | null
+          entity_id: string | null
+          entity_type: string
+          id: string
+          org_id: string
+          project_id: string | null
+          summary: string
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          created_at?: string
+          detail?: Json | null
+          entity_id?: string | null
+          entity_type?: string
+          id?: string
+          org_id: string
+          project_id?: string | null
+          summary: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          created_at?: string
+          detail?: Json | null
+          entity_id?: string | null
+          entity_type?: string
+          id?: string
+          org_id?: string
+          project_id?: string | null
+          summary?: string
+        }
+        Relationships: []
       }
       material_skus: {
         Row: {

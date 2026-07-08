@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 
 import { requireOrg, requireRole } from "@/lib/auth/session";
 import { ensureOriginalEstimate } from "@/lib/change-orders/actions";
+import { recomputeCrewSkuRates } from "@/lib/estimating/flywheel";
 import { ROLLING_WINDOW_DAYS } from "@/lib/estimating/labor";
 import { computeProjectEstimate, type ComputedEstimate } from "@/lib/estimating/queries";
 import { createClient } from "@/lib/supabase/server";
@@ -30,6 +31,8 @@ export async function updateLaborStandard(
 export interface RecomputeCrewRatesResult {
   crewsUpdated: number;
   taskKeysUpdated: number;
+  /** per-SKU flywheel pass (Phase 15) — null until its tables exist */
+  skuFlywheel: { crewsUpdated: number; skusUpdated: number } | null;
 }
 
 // Relearns crew_rates.units_per_hour from the last ROLLING_WINDOW_DAYS of
@@ -75,7 +78,11 @@ export async function recomputeCrewRates(): Promise<RecomputeCrewRatesResult> {
     (log) => !blockedKeys.has(`${log.crew_id}|${log.project_id}|${log.work_date}`)
   );
   if (qualifyingLogs.length === 0) {
-    return { crewsUpdated: 0, taskKeysUpdated: 0 };
+    // Still run the per-SKU flywheel — installs may exist on days whose
+    // day_log lacked start/end times in the window edge cases; it applies
+    // its own qualifying rules.
+    const skuFlywheelEarly = await runSkuFlywheel();
+    return { crewsUpdated: 0, taskKeysUpdated: 0, skuFlywheel: skuFlywheelEarly };
   }
 
   const projectIds = [...new Set(qualifyingLogs.map((l) => l.project_id))];
@@ -171,7 +178,18 @@ export async function recomputeCrewRates(): Promise<RecomputeCrewRatesResult> {
 
   revalidatePath("/app/estimate");
   revalidatePath("/scheduler/calendar");
-  return { crewsUpdated: perCrew.size, taskKeysUpdated: taskKeysSeen.size };
+  const skuFlywheel = await runSkuFlywheel();
+  return { crewsUpdated: perCrew.size, taskKeysUpdated: taskKeysSeen.size, skuFlywheel };
+
+  // One button, both learners: the task-key tier (above, legacy) and the
+  // Phase 15 per-SKU tier. The flywheel guards its own table existence.
+}
+
+async function runSkuFlywheel(): Promise<RecomputeCrewRatesResult["skuFlywheel"]> {
+  const result = await recomputeCrewSkuRates();
+  return result.available
+    ? { crewsUpdated: result.crewsUpdated, skusUpdated: result.skusUpdated }
+    : null;
 }
 
 // Read-only — called directly from the what-if tool (client component) on

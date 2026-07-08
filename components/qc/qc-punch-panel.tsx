@@ -253,7 +253,7 @@ export function QcPunchPanel({
                     </DialogHeader>
                     <div className="flex flex-col gap-3">
                       <div className="flex flex-col gap-1.5">
-                        <Label htmlFor="punch-title">What's wrong?</Label>
+                        <Label htmlFor="punch-title">What&apos;s wrong?</Label>
                         <Input
                           id="punch-title"
                           value={title}

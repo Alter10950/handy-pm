@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { requireRole } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
-import type { PhotoSource } from "@/lib/supabase/database.types";
+import type { PhotoPhase, PhotoSource } from "@/lib/supabase/database.types";
 
 // Matches share_tokens_write / approved_photos_write RLS exactly.
 const PORTAL_EDITORS = ["owner", "pm"] as const;
@@ -46,21 +46,29 @@ export async function approvePhoto(
   projectId: string,
   storagePath: string,
   source: PhotoSource,
-  caption: string | null
+  caption: string | null,
+  phase: PhotoPhase = "during"
 ): Promise<void> {
   const { userId } = await requireRole(PORTAL_EDITORS);
   const supabase = await createClient();
-  const { error } = await supabase.from("approved_photos").upsert(
-    {
-      project_id: projectId,
-      storage_path: storagePath,
-      source,
-      caption: caption?.trim() || null,
-      approved_by: userId,
-    },
-    { onConflict: "project_id,storage_path" }
-  );
-  if (error) throw error;
+  const base = {
+    project_id: projectId,
+    storage_path: storagePath,
+    source,
+    caption: caption?.trim() || null,
+    approved_by: userId,
+  };
+  const conflict = { onConflict: "project_id,storage_path" };
+  const withPhase = await supabase
+    .from("approved_photos")
+    .upsert({ ...base, phase }, conflict);
+  if (withPhase.error) {
+    // phase column lands with the Phase 14 migration — retry without it
+    // so approvals keep working pre-push (everything defaults 'during').
+    if (!/phase/.test(withPhase.error.message)) throw withPhase.error;
+    const { error } = await supabase.from("approved_photos").upsert(base, conflict);
+    if (error) throw error;
+  }
 
   revalidatePath(`/app/project/${projectId}/portal`);
 }

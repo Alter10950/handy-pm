@@ -127,24 +127,43 @@ export default async function CustomerPortalPage({
         {data.photos.length > 0 ? (
           <div className="rounded-xl border border-border bg-surface p-6 shadow-e2 sm:p-8">
             <h2 className="type-overline text-muted-foreground">Photos</h2>
-            <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
-              {data.photos.map((photo, index) => (
-                <div key={index} className="flex flex-col gap-1">
-                  <div className="relative aspect-[4/3] overflow-hidden rounded-lg bg-surface-sunken">
-                    <Image
-                      src={photo.url}
-                      alt={photo.caption ?? "Project photo"}
-                      fill
-                      unoptimized
-                      className="object-cover"
-                    />
+            {(
+              [
+                ["before", "Before"],
+                ["during", "During install"],
+                ["after", "After"],
+              ] as const
+            ).map(([phase, label]) => {
+              const group = data.photos.filter((photo) => photo.phase === phase);
+              if (group.length === 0) return null;
+              return (
+                <div key={phase} className="mt-4 first-of-type:mt-3">
+                  <p className="mb-2 text-sm font-semibold text-foreground">
+                    {label}
+                  </p>
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                    {group.map((photo, index) => (
+                      <div key={index} className="flex flex-col gap-1">
+                        <div className="relative aspect-[4/3] overflow-hidden rounded-lg bg-surface-sunken">
+                          <Image
+                            src={photo.url}
+                            alt={photo.caption ?? "Project photo"}
+                            fill
+                            unoptimized
+                            className="object-cover"
+                          />
+                        </div>
+                        {photo.caption ? (
+                          <p className="text-xs text-muted-foreground">
+                            {photo.caption}
+                          </p>
+                        ) : null}
+                      </div>
+                    ))}
                   </div>
-                  {photo.caption ? (
-                    <p className="text-xs text-muted-foreground">{photo.caption}</p>
-                  ) : null}
                 </div>
-              ))}
-            </div>
+              );
+            })}
           </div>
         ) : null}
       </div>

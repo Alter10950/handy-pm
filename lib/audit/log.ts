@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import type { Json } from "@/lib/supabase/database.types";
 
 // Append-only audit trail (Phase 16, ADR-053). Fire-and-forget by
 // design: an audit-write failure (including the table not existing until
@@ -37,7 +38,8 @@ export async function recordAudit(event: AuditEvent): Promise<void> {
       entity_id: event.entityId ?? null,
       project_id: event.projectId ?? null,
       summary: event.summary,
-      detail: event.detail ?? null,
+      // Plain data by contract (callers pass serializable objects only).
+      detail: (event.detail ?? null) as Json,
     });
   } catch {
     // Swallowed on purpose — see module comment.

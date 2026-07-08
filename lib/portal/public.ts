@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import type { ProjectStatus } from "@/lib/supabase/database.types";
+import type { PhotoPhase, ProjectStatus } from "@/lib/supabase/database.types";
 
 // The public /portal/[token] route has no user session at all — RLS has
 // nothing to scope against (auth.uid() is null), so every read here goes
@@ -38,6 +38,7 @@ export async function resolveShareToken(
 export interface PortalPhoto {
   url: string;
   caption: string | null;
+  phase: "before" | "during" | "after";
 }
 
 export interface PortalData {
@@ -83,11 +84,26 @@ export async function getPortalData(projectId: string): Promise<PortalData> {
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
+    // phase lands with the Phase 14 migration — named-select with a
+    // fallback keeps the narrow-select policy AND pre-migration behavior.
     admin
       .from("approved_photos")
-      .select("storage_path, caption")
+      .select("storage_path, caption, phase")
       .eq("project_id", projectId)
-      .order("approved_at", { ascending: false }),
+      .order("approved_at", { ascending: false })
+      .then((result) =>
+        result.error
+          ? admin
+              .from("approved_photos")
+              .select("storage_path, caption")
+              .eq("project_id", projectId)
+              .order("approved_at", { ascending: false })
+              .then(({ data, error }) => ({
+                data: data?.map((p) => ({ ...p, phase: "during" as PhotoPhase })) ?? null,
+                error,
+              }))
+          : result
+      ),
   ]);
   if (projectError) throw projectError;
   if (dayLogError) throw dayLogError;
@@ -95,12 +111,16 @@ export async function getPortalData(projectId: string): Promise<PortalData> {
   if (photosError) throw photosError;
 
   const photos = await Promise.all(
-    approvedPhotos.map(async (photo) => {
+    (approvedPhotos ?? []).map(async (photo) => {
       const { data: signed, error } = await admin.storage
         .from("daily-photos")
         .createSignedUrl(photo.storage_path, 3600);
       if (error) throw error;
-      return { url: signed.signedUrl, caption: photo.caption };
+      return {
+        url: signed.signedUrl,
+        caption: photo.caption,
+        phase: (photo.phase ?? "during") as PortalPhoto["phase"],
+      };
     })
   );
 

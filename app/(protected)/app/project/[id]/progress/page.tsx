@@ -1,8 +1,11 @@
 import { AutopsyPanel } from "@/components/autopsy/autopsy-panel";
 import { PhaseProgress } from "@/components/projects/phase-progress";
+import { QcPunchPanel } from "@/components/qc/qc-punch-panel";
 import { getAutopsy } from "@/lib/autopsy/queries";
 import { listPhases } from "@/lib/phases/queries";
 import { getProjectProgress, listRowProgress } from "@/lib/projects/queries";
+import { listPunchItems } from "@/lib/punch/queries";
+import { getProjectQc } from "@/lib/qc/queries";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function ProjectProgressPage({
@@ -11,10 +14,12 @@ export default async function ProjectProgressPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [progress, phases, rowProgress] = await Promise.all([
+  const [progress, phases, rowProgress, qc, punch] = await Promise.all([
     getProjectProgress(id),
     listPhases(id),
     listRowProgress(id),
+    getProjectQc(id),
+    listPunchItems(id),
   ]);
   const pct = Math.round((progress?.pct ?? 0) * 100);
 
@@ -82,6 +87,16 @@ export default async function ProjectProgressPage({
       </div>
 
       <PhaseProgress phases={phases} rowProgress={rowProgress} />
+
+      <QcPunchPanel
+        projectId={id}
+        rows={rowProgress.map((row) => ({ id: row.row_id, label: row.label }))}
+        qcAvailable={qc.available}
+        qcByRow={Object.fromEntries(qc.byRow)}
+        punchAvailable={punch.available}
+        punchItems={punch.items}
+        canWrite={Boolean(profile?.role)}
+      />
 
       {canManage ? (
         <AutopsyPanel

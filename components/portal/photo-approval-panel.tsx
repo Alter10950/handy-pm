@@ -6,8 +6,10 @@ import { useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Segmented } from "@/components/ui/segmented";
 import { approvePhoto, unapprovePhoto } from "@/lib/portal/actions";
 import type { CandidatePhoto } from "@/lib/portal/queries";
+import type { PhotoPhase } from "@/lib/supabase/database.types";
 
 function PhotoCard({
   photo,
@@ -17,10 +19,16 @@ function PhotoCard({
 }: {
   photo: CandidatePhoto;
   isPending: boolean;
-  onApprove: (storagePath: string, source: CandidatePhoto["source"], caption: string) => void;
+  onApprove: (
+    storagePath: string,
+    source: CandidatePhoto["source"],
+    caption: string,
+    phase: PhotoPhase
+  ) => void;
   onUnapprove: (photoId: string) => void;
 }) {
   const [caption, setCaption] = useState("");
+  const [phase, setPhase] = useState<PhotoPhase>("during");
   const isApproved = photo.approvedPhotoId !== null;
 
   return (
@@ -59,11 +67,22 @@ function PhotoCard({
             disabled={isPending}
             className="h-8 text-xs"
           />
+          <Segmented<PhotoPhase>
+            ariaLabel="Photo phase"
+            size="sm"
+            value={phase}
+            onChange={setPhase}
+            options={[
+              { value: "before", label: "Before" },
+              { value: "during", label: "During" },
+              { value: "after", label: "After" },
+            ]}
+          />
           <Button
             type="button"
             size="sm"
             disabled={isPending}
-            onClick={() => onApprove(photo.storagePath, photo.source, caption)}
+            onClick={() => onApprove(photo.storagePath, photo.source, caption, phase)}
           >
             Show to customer
           </Button>
@@ -87,12 +106,13 @@ export function PhotoApprovalPanel({
   function handleApprove(
     storagePath: string,
     source: CandidatePhoto["source"],
-    caption: string
+    caption: string,
+    phase: PhotoPhase
   ) {
     setError(null);
     startTransition(async () => {
       try {
-        await approvePhoto(projectId, storagePath, source, caption || null);
+        await approvePhoto(projectId, storagePath, source, caption || null, phase);
         router.refresh();
       } catch (err) {
         setError(err instanceof Error ? err.message : "Could not approve photo.");
