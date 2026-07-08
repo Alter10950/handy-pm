@@ -11,6 +11,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "seed": "node --env-file=.env.local scripts/seed.mjs",
+    "test:unit": "node --test \"tests/unit/engine.test.ts\" \"tests/unit/parse.test.ts\"",
     "test:e2e": "npm run seed && playwright test"
   },
   "dependencies": {
