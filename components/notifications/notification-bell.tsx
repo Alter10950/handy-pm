@@ -38,7 +38,9 @@ export function NotificationBell({
   // actually needed); here the prop is always rendered fresh, this just
   // layers "shown as read" on top until router.refresh() lands the real
   // read_at from the DB, at which point this overlay becomes redundant.
-  const [locallyRead, setLocallyRead] = useState<ReadonlySet<string>>(new Set());
+  const [locallyRead, setLocallyRead] = useState<ReadonlySet<string>>(
+    new Set()
+  );
   const containerRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
@@ -87,7 +89,9 @@ export function NotificationBell({
       <button
         type="button"
         aria-label={
-          unreadCount > 0 ? `${unreadCount} unread notifications` : "Notifications"
+          unreadCount > 0
+            ? `${unreadCount} unread notifications`
+            : "Notifications"
         }
         onClick={() => setOpen((value) => !value)}
         className="relative flex size-9 items-center justify-center rounded-md text-foreground transition-colors hover:bg-accent"

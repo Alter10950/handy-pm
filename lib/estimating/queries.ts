@@ -70,7 +70,8 @@ export async function getCrewRatesLookup(): Promise<
   const byCrew = new Map<string, Map<string, CrewRateLookup>>();
   for (const rate of data) {
     if (rate.units_per_hour === null) continue;
-    const perTask = byCrew.get(rate.crew_id) ?? new Map<string, CrewRateLookup>();
+    const perTask =
+      byCrew.get(rate.crew_id) ?? new Map<string, CrewRateLookup>();
     perTask.set(rate.task_key, {
       unitsPerHour: rate.units_per_hour,
       samples: rate.samples,
@@ -90,10 +91,16 @@ export async function getCompanyRatesByTaskKey(): Promise<Map<string, number>> {
     .select("task_key, units_per_hour, samples");
   if (error) throw error;
 
-  const totals = new Map<string, { weightedSum: number; totalSamples: number }>();
+  const totals = new Map<
+    string,
+    { weightedSum: number; totalSamples: number }
+  >();
   for (const rate of data) {
     if (rate.units_per_hour === null || rate.samples <= 0) continue;
-    const entry = totals.get(rate.task_key) ?? { weightedSum: 0, totalSamples: 0 };
+    const entry = totals.get(rate.task_key) ?? {
+      weightedSum: 0,
+      totalSamples: 0,
+    };
     entry.weightedSum += rate.units_per_hour * rate.samples;
     entry.totalSamples += rate.samples;
     totals.set(rate.task_key, entry);
@@ -161,7 +168,9 @@ export async function getProjectLaborUnitsByTaskKey(
   if (reconError) throw reconError;
   if (scopeError) throw scopeError;
 
-  const installedByMaterial = new Map(reconciliation.map((r) => [r.material_id, r.installed]));
+  const installedByMaterial = new Map(
+    reconciliation.map((r) => [r.material_id, r.installed])
+  );
 
   const totalByTaskKey = new Map<string, number>();
   const remainingByTaskKey = new Map<string, number>();
@@ -176,7 +185,8 @@ export async function getProjectLaborUnitsByTaskKey(
     const remainingQty = Math.max(0, material.total_needed - installed);
     remainingByTaskKey.set(
       material.task_key,
-      (remainingByTaskKey.get(material.task_key) ?? 0) + remainingQty * material.labor_units
+      (remainingByTaskKey.get(material.task_key) ?? 0) +
+        remainingQty * material.labor_units
     );
   }
 
@@ -291,12 +301,15 @@ async function loadStandardTiers(crewIds: string[]): Promise<StandardTiers> {
 
   const [skuStandards, learnedRates] = await Promise.all([
     supabase.from("sku_labor_standards").select("sku_id, hours_per_unit"),
-    supabase.from("crew_sku_rates").select("crew_id, sku_id, hours_per_unit, samples"),
+    supabase
+      .from("crew_sku_rates")
+      .select("crew_id, sku_id, hours_per_unit, samples"),
   ]);
   // Missing relation (migration not yet applied) → tier stays empty.
   if (!skuStandards.error) {
     for (const row of skuStandards.data) {
-      if (row.hours_per_unit > 0) tiers.skuHours.set(row.sku_id, row.hours_per_unit);
+      if (row.hours_per_unit > 0)
+        tiers.skuHours.set(row.sku_id, row.hours_per_unit);
     }
   }
   if (!learnedRates.error) {
@@ -460,10 +473,14 @@ export async function computeProjectEstimate(
   const byCategory = new Map<string, { hours: number; source: RateSource }>();
   for (const line of project.lines) {
     if (line.remainingHours <= 0) continue;
-    const entry = byCategory.get(line.category) ?? { hours: 0, source: "standard" };
+    const entry = byCategory.get(line.category) ?? {
+      hours: 0,
+      source: "standard",
+    };
     entry.hours += line.remainingHours;
     if (line.source === "learned") entry.source = "crew";
-    else if (line.source === "sku" && entry.source !== "crew") entry.source = "company";
+    else if (line.source === "sku" && entry.source !== "crew")
+      entry.source = "company";
     byCategory.set(line.category, entry);
   }
   const breakdown: TaskKeyBreakdownEntry[] = [

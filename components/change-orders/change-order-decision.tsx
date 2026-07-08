@@ -56,7 +56,9 @@ export function ChangeOrderDecision({ token }: { token: string }) {
         data-testid="co-decision-done"
         className="rounded-lg border border-success/50 bg-success/10 p-6 text-center"
       >
-        <p className="text-lg font-semibold text-success-fg">Approved — thank you!</p>
+        <p className="text-lg font-semibold text-success-fg">
+          Approved — thank you!
+        </p>
         <p className="mt-1 text-sm text-foreground">
           The team has been notified and will proceed with the change.
         </p>
@@ -83,7 +85,10 @@ export function ChangeOrderDecision({ token }: { token: string }) {
       {!showDecline ? (
         <div className="mt-3 flex flex-col gap-3">
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="approver-name" className="text-xs text-muted-foreground">
+            <label
+              htmlFor="approver-name"
+              className="text-xs text-muted-foreground"
+            >
               Your name
             </label>
             <Input
@@ -115,7 +120,10 @@ export function ChangeOrderDecision({ token }: { token: string }) {
       ) : (
         <div className="mt-3 flex flex-col gap-3">
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="decline-note" className="text-xs text-muted-foreground">
+            <label
+              htmlFor="decline-note"
+              className="text-xs text-muted-foreground"
+            >
               Anything you&apos;d like us to know? (optional)
             </label>
             <textarea

@@ -32,12 +32,16 @@ export function ScheduleBuilder({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [start, setStart] = useState(new Date().toISOString().slice(0, 10));
-  const [end, setEnd] = useState(addDays(new Date().toISOString().slice(0, 10), 13));
+  const [end, setEnd] = useState(
+    addDays(new Date().toISOString().slice(0, 10), 13)
+  );
   const [skipWeekends, setSkipWeekends] = useState(true);
   const [candidateDates, setCandidateDates] = useState<string[] | null>(null);
   const [excluded, setExcluded] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
-  const [conflicts, setConflicts] = useState<CapacityConflictDay[] | null>(null);
+  const [conflicts, setConflicts] = useState<CapacityConflictDay[] | null>(
+    null
+  );
   const [suggestedStart, setSuggestedStart] = useState<string | null>(null);
   const [numCrews, setNumCrews] = useState<number | null>(null);
   const [overrideReason, setOverrideReason] = useState("");
@@ -116,7 +120,12 @@ export function ScheduleBuilder({
             ? "No schedule set yet"
             : `${schedule.length} scheduled day${schedule.length === 1 ? "" : "s"} (${schedule[0].work_date} → ${schedule[schedule.length - 1].work_date})`}
         </span>
-        <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => setOpen(true)}
+        >
           {schedule.length === 0 ? "Build schedule" : "Rebuild schedule"}
         </Button>
       </div>
@@ -127,7 +136,10 @@ export function ScheduleBuilder({
     <div className="flex flex-col gap-3 rounded-lg border border-border bg-card shadow-e1 p-3">
       <div className="flex flex-wrap items-end gap-3">
         <div className="flex flex-col gap-1">
-          <label htmlFor="schedule-start" className="text-xs text-muted-foreground">
+          <label
+            htmlFor="schedule-start"
+            className="text-xs text-muted-foreground"
+          >
             Start
           </label>
           <Input
@@ -138,7 +150,10 @@ export function ScheduleBuilder({
           />
         </div>
         <div className="flex flex-col gap-1">
-          <label htmlFor="schedule-end" className="text-xs text-muted-foreground">
+          <label
+            htmlFor="schedule-end"
+            className="text-xs text-muted-foreground"
+          >
             End
           </label>
           <Input
@@ -159,7 +174,12 @@ export function ScheduleBuilder({
         <Button type="button" size="sm" onClick={generateCandidates}>
           Generate days
         </Button>
-        <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(false)}>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => setOpen(false)}
+        >
           Cancel
         </Button>
       </div>
@@ -202,7 +222,8 @@ export function ScheduleBuilder({
           className="flex flex-col gap-2 rounded-md border border-destructive/50 bg-destructive/10 p-3"
         >
           <p className="text-sm font-semibold text-destructive">
-            Over capacity — the org has {numCrews} crew{numCrews === 1 ? "" : "s"}
+            Over capacity — the org has {numCrews} crew
+            {numCrews === 1 ? "" : "s"}
           </p>
           <ul className="flex flex-col gap-0.5 text-xs text-foreground">
             {conflicts.slice(0, 8).map((c) => (
@@ -225,7 +246,12 @@ export function ScheduleBuilder({
                   {suggestedStart}
                 </span>
               </span>
-              <Button type="button" size="sm" variant="outline" onClick={useSuggestedStart}>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={useSuggestedStart}
+              >
                 Use this start
               </Button>
             </div>

@@ -41,7 +41,9 @@ export function ProjectCard({
 
       <div className="flex items-center gap-3">
         <ProgressBar pct={pct} className="flex-1" />
-        <span className="num text-sm font-medium text-text-secondary">{pct}%</span>
+        <span className="num text-sm font-medium text-text-secondary">
+          {pct}%
+        </span>
       </div>
 
       <div className="flex items-center justify-between gap-2 text-[13px]">

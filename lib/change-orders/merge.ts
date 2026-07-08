@@ -62,7 +62,8 @@ export async function mergeApprovedChangeOrder(
         // the line total (perUnit × qty at entry time).
         labor_units:
           line.qty && line.qty > 0
-            ? Math.round(((line.labor_units ?? line.qty) / line.qty) * 10000) / 10000
+            ? Math.round(((line.labor_units ?? line.qty) / line.qty) * 10000) /
+              10000
             : (line.labor_units ?? 1),
         change_order_id: changeOrderId,
       }))

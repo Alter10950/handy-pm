@@ -3,7 +3,10 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { requireRole } from "@/lib/auth/session";
 import { parseConstraints } from "@/lib/handoff/shared";
-import { HandoffPdfDocument, type HandoffPdfData } from "@/lib/pdf/handoff-survey-pdf";
+import {
+  HandoffPdfDocument,
+  type HandoffPdfData,
+} from "@/lib/pdf/handoff-survey-pdf";
 import { createClient } from "@/lib/supabase/server";
 
 const PDF_VIEWERS = ["owner", "pm"] as const;
@@ -34,21 +37,19 @@ export async function GET(
     return NextResponse.json({ error: "Project not found." }, { status: 404 });
   }
 
-  const [
-    { data: org, error: orgError },
-    { data: survey, error: surveyError },
-  ] = await Promise.all([
-    supabase
-      .from("organizations")
-      .select("name, address, logo_path")
-      .eq("id", project.org_id)
-      .single(),
-    supabase
-      .from("handoff_surveys")
-      .select("*")
-      .eq("project_id", projectId)
-      .maybeSingle(),
-  ]);
+  const [{ data: org, error: orgError }, { data: survey, error: surveyError }] =
+    await Promise.all([
+      supabase
+        .from("organizations")
+        .select("name, address, logo_path")
+        .eq("id", project.org_id)
+        .single(),
+      supabase
+        .from("handoff_surveys")
+        .select("*")
+        .eq("project_id", projectId)
+        .maybeSingle(),
+    ]);
   if (orgError) throw orgError;
   if (surveyError) throw surveyError;
 
@@ -61,7 +62,10 @@ export async function GET(
   ];
   const { data: signers, error: signersError } =
     signerIds.length > 0
-      ? await supabase.from("profiles").select("id, full_name").in("id", signerIds)
+      ? await supabase
+          .from("profiles")
+          .select("id, full_name")
+          .in("id", signerIds)
       : { data: [] as { id: string; full_name: string | null }[], error: null };
   if (signersError) throw signersError;
   const nameById = new Map(signers.map((s) => [s.id, s.full_name]));
@@ -88,7 +92,9 @@ export async function GET(
     existingRackingCondition: survey?.existing_racking_condition ?? null,
     teardownRequired: survey?.teardown_required ?? false,
     teardownNotes: survey?.teardown_notes ?? null,
-    constraints: survey ? parseConstraints(survey.constraints) : parseConstraints(null),
+    constraints: survey
+      ? parseConstraints(survey.constraints)
+      : parseConstraints(null),
     photoUrls: photoUrlResults
       .map((r) => r.data?.signedUrl)
       .filter((url): url is string => Boolean(url)),

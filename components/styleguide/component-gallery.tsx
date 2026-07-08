@@ -39,7 +39,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { EmptyState, ErrorState, TableSkeleton } from "@/components/ui/empty-state";
+import {
+  EmptyState,
+  ErrorState,
+  TableSkeleton,
+} from "@/components/ui/empty-state";
 import { FileDropzone } from "@/components/ui/file-dropzone";
 import { Label } from "@/components/ui/label";
 import { NumberStepper } from "@/components/ui/number-stepper";
@@ -56,7 +60,11 @@ import { StatTile } from "@/components/ui/stat-tile";
 import { StatusPill } from "@/components/ui/status-pill";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Toolbar, ToolbarButton, ToolbarDivider } from "@/components/ui/toolbar";
+import {
+  Toolbar,
+  ToolbarButton,
+  ToolbarDivider,
+} from "@/components/ui/toolbar";
 import {
   Tooltip,
   TooltipContent,
@@ -83,10 +91,22 @@ interface DemoRow {
 }
 
 const DEMO_ROWS: DemoRow[] = [
-  { id: "1", name: "Teardrop Upright", size: '42"x288"', required: 84, installed: 84 },
+  {
+    id: "1",
+    name: "Teardrop Upright",
+    size: '42"x288"',
+    required: 84,
+    installed: 84,
+  },
   { id: "2", name: "Stepbeam", size: '144"x6"', required: 512, installed: 306 },
   { id: "3", name: "Stepbeam", size: '96"x4"', required: 128, installed: 0 },
-  { id: "4", name: "Wire Deck", size: '42"x46"', required: 640, installed: 320 },
+  {
+    id: "4",
+    name: "Wire Deck",
+    size: '42"x46"',
+    required: 640,
+    installed: 320,
+  },
 ];
 
 const DEMO_COLUMNS: DataGridColumn<DemoRow>[] = [
@@ -127,7 +147,13 @@ const DEMO_COLUMNS: DataGridColumn<DemoRow>[] = [
   },
 ];
 
-function Block({ title, children }: { title: string; children: React.ReactNode }) {
+function Block({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
     <div>
       <p className="type-overline mb-2 text-muted-foreground">{title}</p>
@@ -139,7 +165,13 @@ function Block({ title, children }: { title: string; children: React.ReactNode }
 export function ComponentGallery() {
   const [qty, setQty] = useState<number | null>(12);
   const [view, setView] = useState<"cards" | "list">("cards");
-  const [days, setDays] = useState<string[]>(["mon", "tue", "wed", "thu", "fri"]);
+  const [days, setDays] = useState<string[]>([
+    "mon",
+    "tue",
+    "wed",
+    "thu",
+    "fri",
+  ]);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -239,7 +271,11 @@ export function ComponentGallery() {
 
       <Block title="Inputs — stepper, combobox, select, checks">
         <div className="flex max-w-xl flex-wrap items-center gap-4">
-          <NumberStepper ariaLabel="Quantity" value={qty} onValueChange={setQty} />
+          <NumberStepper
+            ariaLabel="Quantity"
+            value={qty}
+            onValueChange={setQty}
+          />
           <NumberStepper
             ariaLabel="Quantity (field size)"
             size="field"
@@ -300,13 +336,22 @@ export function ComponentGallery() {
               <TabsTrigger value="layout">Layout</TabsTrigger>
               <TabsTrigger value="materials">Materials</TabsTrigger>
             </TabsList>
-            <TabsContent value="overview" className="pt-2 text-sm text-text-secondary">
+            <TabsContent
+              value="overview"
+              className="pt-2 text-sm text-text-secondary"
+            >
               Tab panels keep focus management + arrow keys from Base UI.
             </TabsContent>
-            <TabsContent value="layout" className="pt-2 text-sm text-text-secondary">
+            <TabsContent
+              value="layout"
+              className="pt-2 text-sm text-text-secondary"
+            >
               Layout tab content.
             </TabsContent>
-            <TabsContent value="materials" className="pt-2 text-sm text-text-secondary">
+            <TabsContent
+              value="materials"
+              className="pt-2 text-sm text-text-secondary"
+            >
               Materials tab content.
             </TabsContent>
           </Tabs>
@@ -328,7 +373,9 @@ export function ComponentGallery() {
             </DropdownMenuContent>
           </DropdownMenu>
           <Tooltip>
-            <TooltipTrigger render={<Button variant="ghost">Hover me</Button>} />
+            <TooltipTrigger
+              render={<Button variant="ghost">Hover me</Button>}
+            />
             <TooltipContent>Tooltips are 120ms in, token-timed.</TooltipContent>
           </Tooltip>
           <Button variant="outline" onClick={() => setConfirmOpen(true)}>
@@ -344,7 +391,10 @@ export function ComponentGallery() {
               toast.success("Row 12 deleted");
             }}
           />
-          <Button variant="outline" onClick={() => toast.success("Saved 4 rows")}>
+          <Button
+            variant="outline"
+            onClick={() => toast.success("Saved 4 rows")}
+          >
             Success toast
           </Button>
           <Button
@@ -425,7 +475,11 @@ export function ComponentGallery() {
             title="Couldn't load materials"
             description="The request timed out."
             retry={
-              <Button variant="outline" size="sm" onClick={() => toast.info("Retrying…")}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => toast.info("Retrying…")}
+              >
                 Retry
               </Button>
             }

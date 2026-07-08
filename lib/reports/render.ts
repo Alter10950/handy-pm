@@ -53,7 +53,9 @@ export function renderProjectReportHtml(data: ProjectReportData): string {
           .map(
             (co) =>
               `<li style="font-size:14px;margin-bottom:4px;">CO-${co.number}: ${escapeHtml(co.title)} — ${escapeHtml(co.status)}${
-                co.addedDays !== null && co.addedDays > 0 ? `, +${co.addedDays} day(s)` : ""
+                co.addedDays !== null && co.addedDays > 0
+                  ? `, +${co.addedDays} day(s)`
+                  : ""
               }${co.price !== null ? `, $${co.price.toLocaleString()}` : ""}</li>`
           )
           .join("")}</ul>`;
@@ -81,7 +83,9 @@ export function renderProjectReportHtml(data: ProjectReportData): string {
         <tr>
           <td style="padding:8px;border:1px solid #eee;font-size:13px;color:#666;">Forecast finish</td>
           <td style="padding:8px;border:1px solid #eee;font-size:15px;font-weight:bold;">${
-            data.forecastFinish ? formatDate(data.forecastFinish) : "Not yet estimated"
+            data.forecastFinish
+              ? formatDate(data.forecastFinish)
+              : "Not yet estimated"
           }</td>
         </tr>
       </table>
@@ -98,7 +102,10 @@ export function renderProjectReportHtml(data: ProjectReportData): string {
   `;
 }
 
-export function reportSubject(data: ProjectReportData, period: "daily" | "weekly"): string {
+export function reportSubject(
+  data: ProjectReportData,
+  period: "daily" | "weekly"
+): string {
   const kind = period === "daily" ? "Daily" : "Weekly";
   return `${kind} update: ${data.projectName} — ${Math.round(data.pct * 100)}% complete (${data.riskLabel})`;
 }

@@ -23,7 +23,9 @@ async function drawRow(
   // the box for pointer math — sidesteps the effect-timing question
   // entirely rather than guessing how long to wait for it.
   await page.getByRole("button", { name: "Fit to screen" }).click();
-  const stageBox = (await page.locator('img[alt="Layout drawing"]').boundingBox())!;
+  const stageBox = (await page
+    .locator('img[alt="Layout drawing"]')
+    .boundingBox())!;
   await page.mouse.move(
     stageBox.x + stageBox.width * box.x,
     stageBox.y + stageBox.height * box.y
@@ -57,7 +59,9 @@ test("import/bulk: CSV materials + row-assignment import, bulk select/condition/
     await page
       .getByTestId("drawing-upload-input")
       .setInputFiles("e2e/fixtures/test-drawing.svg");
-    await expect(page.getByText(/uploaded\.$/)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(/uploaded\.$/)).toBeVisible({
+      timeout: 30_000,
+    });
 
     await drawRow(page, { x: 0.05, y: 0.05, w: 0.1, h: 0.1 });
     await expect(page.getByText("Row 1", { exact: true })).toBeVisible();
@@ -133,9 +137,7 @@ test("import/bulk: CSV materials + row-assignment import, bulk select/condition/
     await page.getByTestId(`material-select-${anchorId}`).check();
     await expect(page.getByText("2 selected")).toBeVisible();
 
-    await page
-      .getByLabel("Set condition for selected")
-      .selectOption("used");
+    await page.getByLabel("Set condition for selected").selectOption("used");
     await expect
       .poll(async () => {
         const { data } = await admin

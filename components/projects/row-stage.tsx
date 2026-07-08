@@ -4,7 +4,11 @@ import { useEffect, useRef, useState } from "react";
 
 import { RowFillMarker } from "@/components/projects/row-fill-marker";
 import { ZoomControls } from "@/components/projects/zoom-controls";
-import { MAX_ZOOM, MIN_ZOOM, useZoomPan } from "@/components/projects/use-zoom-pan";
+import {
+  MAX_ZOOM,
+  MIN_ZOOM,
+  useZoomPan,
+} from "@/components/projects/use-zoom-pan";
 import type { RowReadinessStatus, Tables } from "@/lib/supabase/database.types";
 import { cn, isTypingTarget } from "@/lib/utils";
 
@@ -101,7 +105,12 @@ function boxesIntersect(a: Box, b: Box): boolean {
 // Generic resize for any of the 8 handles: each affects the edge(s) it
 // sits on, leaving the opposite edge(s) fixed — e.g. dragging "w" changes
 // x and w but never y/h; dragging "nw" changes all four.
-function applyResize(origin: Box, handle: HandleId, dx: number, dy: number): Box {
+function applyResize(
+  origin: Box,
+  handle: HandleId,
+  dx: number,
+  dy: number
+): Box {
   let { x, y, w, h } = origin;
   const right = origin.x + origin.w;
   const bottom = origin.y + origin.h;
@@ -578,7 +587,12 @@ export function RowStage({
       drag.resizeOrigin &&
       drag.resizeHandle
     ) {
-      const geometry = applyResize(drag.resizeOrigin, drag.resizeHandle, dx, dy);
+      const geometry = applyResize(
+        drag.resizeOrigin,
+        drag.resizeHandle,
+        dx,
+        dy
+      );
       setDrag({ ...drag, moved: true });
       setDraftGeometries(new Map([[drag.resizeRowId, geometry]]));
     }
@@ -638,13 +652,19 @@ export function RowStage({
       } else if (drag.deferredSelectRowId) {
         onSelectSingle(drag.deferredSelectRowId);
       }
-    } else if (drag.mode === "resize" && drag.resizeRowId && drag.resizeOrigin) {
+    } else if (
+      drag.mode === "resize" &&
+      drag.resizeRowId &&
+      drag.resizeOrigin
+    ) {
       const after = draftGeometries?.get(drag.resizeRowId);
       if (after) {
         const resizeRowId = drag.resizeRowId;
-        onResizeRow({ rowId: resizeRowId, before: drag.resizeOrigin, after }).catch(
-          () => revertDraft([resizeRowId])
-        );
+        onResizeRow({
+          rowId: resizeRowId,
+          before: drag.resizeOrigin,
+          after,
+        }).catch(() => revertDraft([resizeRowId]));
         setDrag(null);
         return;
       }
@@ -749,71 +769,71 @@ export function RowStage({
         {rows
           .filter((row) => !row.phaseId || !hiddenPhaseIds.has(row.phaseId))
           .map((row) => {
-          const draft = draftGeometries?.get(row.id);
-          const geometry = draft ?? row;
-          const isSelected = selectedRowIds.has(row.id);
-          const isSingleSelected = isSelected && selectedRowIds.size === 1;
-          const isVertical =
-            geometry.h * effectiveHeight >= geometry.w * effectiveWidth;
-          const phase = row.phaseId
-            ? phases.find((p) => p.id === row.phaseId)
-            : undefined;
+            const draft = draftGeometries?.get(row.id);
+            const geometry = draft ?? row;
+            const isSelected = selectedRowIds.has(row.id);
+            const isSingleSelected = isSelected && selectedRowIds.size === 1;
+            const isVertical =
+              geometry.h * effectiveHeight >= geometry.w * effectiveWidth;
+            const phase = row.phaseId
+              ? phases.find((p) => p.id === row.phaseId)
+              : undefined;
 
-          return (
-            <div
-              key={row.id}
-              data-testid={`row-box-${row.label}`}
-              onPointerDown={(event) => handleRowPointerDown(event, row)}
-              className={cn(
-                "absolute rounded border-2 border-white/50 bg-[#5b6675]/30",
-                !row.hasMaterials &&
-                  "border-dashed border-destructive bg-destructive/15",
-                isSelected &&
-                  "outline outline-2 outline-primary outline-offset-1"
-              )}
-              style={{
-                left: `${geometry.x * 100}%`,
-                top: `${geometry.y * 100}%`,
-                width: `${geometry.w * 100}%`,
-                height: `${geometry.h * 100}%`,
-                ...(phase && { borderColor: phase.color }),
-              }}
-            >
-              {/* Own overflow-hidden wrapper, separate from the row box
+            return (
+              <div
+                key={row.id}
+                data-testid={`row-box-${row.label}`}
+                onPointerDown={(event) => handleRowPointerDown(event, row)}
+                className={cn(
+                  "absolute rounded border-2 border-white/50 bg-[#5b6675]/30",
+                  !row.hasMaterials &&
+                    "border-dashed border-destructive bg-destructive/15",
+                  isSelected &&
+                    "outline outline-2 outline-primary outline-offset-1"
+                )}
+                style={{
+                  left: `${geometry.x * 100}%`,
+                  top: `${geometry.y * 100}%`,
+                  width: `${geometry.w * 100}%`,
+                  height: `${geometry.h * 100}%`,
+                  ...(phase && { borderColor: phase.color }),
+                }}
+              >
+                {/* Own overflow-hidden wrapper, separate from the row box
                   itself: the resize handles below are deliberately
                   positioned outside the row's box (centered on its corners
                   and edges), and clipping them along with the fill bar
                   would leave a handle's own geometric center sitting right
                   on the clip boundary — an unreliably-hittable target. */}
-              <div className="absolute inset-0 overflow-hidden rounded">
-                <RowFillMarker
-                  label={row.label}
-                  pct={row.pct}
-                  hasMaterials={row.hasMaterials}
-                  isComplete={row.isComplete}
-                  isVertical={isVertical}
-                  readinessStatus={row.readinessStatus}
-                />
+                <div className="absolute inset-0 overflow-hidden rounded">
+                  <RowFillMarker
+                    label={row.label}
+                    pct={row.pct}
+                    hasMaterials={row.hasMaterials}
+                    isComplete={row.isComplete}
+                    isVertical={isVertical}
+                    readinessStatus={row.readinessStatus}
+                  />
+                </div>
+                {isSingleSelected && !readOnly
+                  ? HANDLES.map((handle) => (
+                      <div
+                        key={handle.id}
+                        data-testid={`resize-handle-${handle.id}`}
+                        onPointerDown={(event) =>
+                          beginResize(event, row, handle.id)
+                        }
+                        className={cn(
+                          "absolute size-4 rounded-full border-2 border-primary bg-white",
+                          handle.position,
+                          handle.cursor
+                        )}
+                      />
+                    ))
+                  : null}
               </div>
-              {isSingleSelected && !readOnly
-                ? HANDLES.map((handle) => (
-                    <div
-                      key={handle.id}
-                      data-testid={`resize-handle-${handle.id}`}
-                      onPointerDown={(event) =>
-                        beginResize(event, row, handle.id)
-                      }
-                      className={cn(
-                        "absolute size-4 rounded-full border-2 border-primary bg-white",
-                        handle.position,
-                        handle.cursor
-                      )}
-                    />
-                  ))
-                : null}
-            </div>
-          );
-        })}
+            );
+          })}
 
         {(drag?.mode === "draw" || drag?.mode === "marquee") &&
         drag.currentBox ? (
@@ -834,7 +854,12 @@ export function RowStage({
         ) : null}
       </div>
 
-      <ZoomControls zoom={zoom} onZoomIn={zoomIn} onZoomOut={zoomOut} onFit={fit} />
+      <ZoomControls
+        zoom={zoom}
+        onZoomIn={zoomIn}
+        onZoomOut={zoomOut}
+        onFit={fit}
+      />
     </div>
   );
 }

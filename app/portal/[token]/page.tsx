@@ -115,7 +115,8 @@ export default async function CustomerPortalPage({
           {data.mostRecentUpdate ? (
             <div className="mt-6 border-t border-border-subtle pt-4">
               <p className="type-overline text-muted-foreground">
-                Latest from the site — {formatDate(data.mostRecentUpdate.workDate)}
+                Latest from the site —{" "}
+                {formatDate(data.mostRecentUpdate.workDate)}
               </p>
               <p className="mt-1.5 text-foreground">
                 {data.mostRecentUpdate.note || "Work was logged on site."}
@@ -134,7 +135,9 @@ export default async function CustomerPortalPage({
                 ["after", "After"],
               ] as const
             ).map(([phase, label]) => {
-              const group = data.photos.filter((photo) => photo.phase === phase);
+              const group = data.photos.filter(
+                (photo) => photo.phase === phase
+              );
               if (group.length === 0) return null;
               return (
                 <div key={phase} className="mt-4 first-of-type:mt-3">

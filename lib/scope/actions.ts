@@ -5,7 +5,10 @@ import { revalidatePath } from "next/cache";
 import { requireOrg, requireRole } from "@/lib/auth/session";
 import { touchProjectActivity } from "@/lib/projects/actions";
 import { createClient } from "@/lib/supabase/server";
-import type { ScopeItemStatus, ScopeWorkType } from "@/lib/supabase/database.types";
+import type {
+  ScopeItemStatus,
+  ScopeWorkType,
+} from "@/lib/supabase/database.types";
 
 // Matches scope_items_write RLS exactly (owner/pm). Crew's own write
 // path is logScopeItemProgress below, against the separate append-only
@@ -85,7 +88,10 @@ export async function removeScopeItem(
 ): Promise<void> {
   await requireRole(SCOPE_MANAGERS);
   const supabase = await createClient();
-  const { error } = await supabase.from("scope_items").delete().eq("id", scopeItemId);
+  const { error } = await supabase
+    .from("scope_items")
+    .delete()
+    .eq("id", scopeItemId);
   if (error) throw error;
 
   revalidateProject(projectId);
@@ -98,7 +104,11 @@ export async function removeScopeItem(
 export async function logScopeItemProgress(
   scopeItemId: string,
   projectId: string,
-  input: { status: ScopeItemStatus; note?: string | null; photoPath?: string | null }
+  input: {
+    status: ScopeItemStatus;
+    note?: string | null;
+    photoPath?: string | null;
+  }
 ): Promise<void> {
   const { userId } = await requireOrg();
   const supabase = await createClient();

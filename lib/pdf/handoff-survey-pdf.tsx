@@ -1,4 +1,11 @@
-import { Document, Image, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
+import {
+  Document,
+  Image,
+  Page,
+  StyleSheet,
+  Text,
+  View,
+} from "@react-pdf/renderer";
 
 export interface HandoffPdfConstraints {
   liveWarehouse: boolean;
@@ -47,11 +54,26 @@ const styles = StyleSheet.create({
   empty: { fontSize: 9, color: "#999999", marginBottom: 8 },
   table: { display: "flex", width: "auto" },
   tableRow: { flexDirection: "row", borderBottom: "1 solid #eeeeee" },
-  th: { flex: 1, fontWeight: 700, fontSize: 8, color: "#666666", paddingVertical: 3 },
+  th: {
+    flex: 1,
+    fontWeight: 700,
+    fontSize: 8,
+    color: "#666666",
+    paddingVertical: 3,
+  },
   td: { flex: 1, fontSize: 9, paddingVertical: 3 },
-  photoGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 8 },
+  photoGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 8,
+  },
   photo: { width: 150, height: 112, objectFit: "cover" },
-  signRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 32 },
+  signRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 32,
+  },
   signBlock: { width: "45%" },
   signLine: { borderBottom: "1 solid #333333", marginBottom: 4, height: 24 },
   signLabel: { fontSize: 9, color: "#666666" },
@@ -114,23 +136,31 @@ export function HandoffPdfDocument({ data }: { data: HandoffPdfData }) {
         </Text>
 
         <Text style={styles.sectionTitle}>Existing racking condition</Text>
-        <Text style={data.existingRackingCondition ? styles.body : styles.empty}>
+        <Text
+          style={data.existingRackingCondition ? styles.body : styles.empty}
+        >
           {data.existingRackingCondition ?? "Not recorded."}
         </Text>
 
         <Text style={styles.sectionTitle}>Teardown</Text>
         <Text style={styles.body}>
-          {data.teardownRequired ? "Teardown required." : "No teardown required."}
+          {data.teardownRequired
+            ? "Teardown required."
+            : "No teardown required."}
         </Text>
         {data.teardownRequired && data.teardownNotes ? (
-          <Text style={[styles.body, { marginTop: 3 }]}>{data.teardownNotes}</Text>
+          <Text style={[styles.body, { marginTop: 3 }]}>
+            {data.teardownNotes}
+          </Text>
         ) : null}
 
         <Text style={styles.sectionTitle}>Site constraints</Text>
         <View style={styles.table}>
           <View style={styles.tableRow}>
             <Text style={styles.th}>Warehouse live during install</Text>
-            <Text style={styles.td}>{data.constraints.liveWarehouse ? "Yes" : "No"}</Text>
+            <Text style={styles.td}>
+              {data.constraints.liveWarehouse ? "Yes" : "No"}
+            </Text>
           </View>
           <View style={styles.tableRow}>
             <Text style={styles.th}>Forklift onsite</Text>
@@ -146,11 +176,15 @@ export function HandoffPdfDocument({ data }: { data: HandoffPdfData }) {
           </View>
           <View style={styles.tableRow}>
             <Text style={styles.th}>Working hours allowed</Text>
-            <Text style={styles.td}>{data.constraints.workingHours || "—"}</Text>
+            <Text style={styles.td}>
+              {data.constraints.workingHours || "—"}
+            </Text>
           </View>
           <View style={styles.tableRow}>
             <Text style={styles.th}>Floor condition</Text>
-            <Text style={styles.td}>{data.constraints.floorCondition || "—"}</Text>
+            <Text style={styles.td}>
+              {data.constraints.floorCondition || "—"}
+            </Text>
           </View>
           <View style={styles.tableRow}>
             <Text style={styles.th}>Access notes</Text>
@@ -176,7 +210,11 @@ export function HandoffPdfDocument({ data }: { data: HandoffPdfData }) {
             name={data.estimatorName}
             signedAt={data.estimatorSignedAt}
           />
-          <SignBlock role="PM sign-off" name={data.pmName} signedAt={data.pmSignedAt} />
+          <SignBlock
+            role="PM sign-off"
+            name={data.pmName}
+            signedAt={data.pmSignedAt}
+          />
         </View>
       </Page>
     </Document>

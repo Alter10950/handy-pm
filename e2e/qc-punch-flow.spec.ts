@@ -78,7 +78,9 @@ test("QC checklist and punch list: crew passes checks, raises and closes a punch
     await expect(panel.getByText(/1 open item/)).toBeVisible();
 
     await panel.getByRole("button", { name: "Mark done" }).click();
-    await expect(panel.getByText(/Nothing open/)).toBeVisible({ timeout: 10_000 });
+    await expect(panel.getByText(/Nothing open/)).toBeVisible({
+      timeout: 10_000,
+    });
 
     // DB truth: resolved_at stamped.
     await expect

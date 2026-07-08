@@ -35,9 +35,7 @@ test("estimating: draft an estimate, classify materials, save a forecast, conver
       .click();
     await page.locator("textarea").fill("Test Beam, 100\nTest Anchor, 300");
     await page.getByRole("button", { name: "Add materials" }).click();
-    await expect(
-      page.locator('[data-testid^="material-row-"]')
-    ).toHaveCount(2);
+    await expect(page.locator('[data-testid^="material-row-"]')).toHaveCount(2);
   });
 
   await test.step("classify a material's task/size and see labor units recompute", async () => {
@@ -92,16 +90,12 @@ test("estimating: draft an estimate, classify materials, save a forecast, conver
     await expect(page.getByText("Remaining hours by SKU")).toBeVisible();
     await expect(page.getByTestId("estimate-sku-lines")).toContainText("beam");
 
-    await expect(
-      page.getByText("No saved estimates yet")
-    ).toBeVisible();
+    await expect(page.getByText("No saved estimates yet")).toBeVisible();
     await page.getByRole("button", { name: "Save this estimate" }).click();
     await expect(page.getByText("Estimate saved.")).toBeVisible({
       timeout: 10_000,
     });
-    await expect(
-      page.getByText("No saved estimates yet")
-    ).not.toBeVisible();
+    await expect(page.getByText("No saved estimates yet")).not.toBeVisible();
 
     await expect
       .poll(async () => {
@@ -133,7 +127,9 @@ test("estimating: draft an estimate, classify materials, save a forecast, conver
 
   await test.step("convert the draft to a real active project", async () => {
     await page.goto(`/app/project/${projectId}`);
-    await page.getByRole("button", { name: "Convert to active project" }).click();
+    await page
+      .getByRole("button", { name: "Convert to active project" })
+      .click();
     await page.waitForURL(new RegExp(`/app/project/${projectId}$`));
     await expect(page.getByText("Active", { exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "Layout" })).toBeVisible();

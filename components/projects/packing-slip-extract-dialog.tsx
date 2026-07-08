@@ -146,9 +146,9 @@ export function PackingSlipExtractDialog({
           <DialogHeader>
             <DialogTitle>Extract materials from {slipName}</DialogTitle>
             <DialogDescription>
-              Review what the AI found before adding it — fix any misread
-              code, description, size, or quantity, or remove lines that
-              aren&apos;t materials (freight, permits, discounts, etc.).
+              Review what the AI found before adding it — fix any misread code,
+              description, size, or quantity, or remove lines that aren&apos;t
+              materials (freight, permits, discounts, etc.).
             </DialogDescription>
           </DialogHeader>
 
@@ -166,8 +166,8 @@ export function PackingSlipExtractDialog({
             <div className="flex flex-col gap-3">
               {rows.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  No material lines found. Add one manually below or close
-                  this and use &ldquo;Paste from packing slip&rdquo; instead.
+                  No material lines found. Add one manually below or close this
+                  and use &ldquo;Paste from packing slip&rdquo; instead.
                 </p>
               ) : (
                 <div className="max-h-[50vh] overflow-auto rounded-md border border-border">

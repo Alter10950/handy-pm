@@ -9,14 +9,14 @@
 | `/account`                    | protected | Self-service change-password + display-name edit. Any signed-in role.                                                                                                                                                           |
 | `/app`                        | protected | Projects list (from `project_progress`) + New project dialog.                                                                                                                                                                   |
 | `/app/team`                   | protected | Team/user management — owner/pm only. Create accounts (email + temp password + role), change an existing member's role, reset their password, deactivate/reactivate, assign to a crew.                                          |
-| `/app/settings`               | protected | Org settings — owner/pm only. Name, address, logo, default working days.                                                                                                                                                         |
+| `/app/settings`               | protected | Org settings — owner/pm only. Name, address, logo, default working days.                                                                                                                                                        |
 | `/app/project/[id]`           | protected | Overview tab — meta, quick stats, drawing thumbnail.                                                                                                                                                                            |
 | `/app/project/[id]/mark`      | protected | "Layout" tab — drawing upload/viewer + row marking workspace (auto/draw/edit tools). Named `mark`, not `layout`, to avoid colliding with the Next.js `layout.tsx` file convention in the same folder — see `docs/DECISIONS.md`. |
 | `/app/project/[id]/materials` | protected | Materials tab — packing-slip/paste-list upload, reference drawing overlay, materials × rows grid, reconciliation card.                                                                                                          |
 | `/app/project/[id]/progress`  | protected | Project-level progress rollup (row counts, hazards, overall %). Per-material reconciliation lives on the Materials tab instead.                                                                                                 |
-| `/scheduler`                  | protected | Crew/install scheduling — owner/pm/scheduler only (redirects crew to `/app`; their equivalent is Field). See Scheduler section below.                                                                                            |
+| `/scheduler`                  | protected | Crew/install scheduling — owner/pm/scheduler only (redirects crew to `/app`; their equivalent is Field). See Scheduler section below.                                                                                           |
 | `/field`                      | protected | Crew phone app (installable PWA). Placeholder until Phase 6.                                                                                                                                                                    |
-| `/portal/[token]`             | public    | Customer-facing read-only project status, gated by an unguessable share token. Built (Batch 3, Sub-phase H).                                                                                                                       |
+| `/portal/[token]`             | public    | Customer-facing read-only project status, gated by an unguessable share token. Built (Batch 3, Sub-phase H).                                                                                                                    |
 
 Protected routes live under the `app/(protected)/` route group, which shares
 one layout (`app/(protected)/layout.tsx`) that fetches the current user,
@@ -60,7 +60,7 @@ Every mutating Server Action that maps to a role-restricted RLS policy
 calls `requireRole([...])` as its first line — it re-derives the
 caller's own org/role from the DB (never trusts the client) and throws a
 friendly error if they don't hold one of the listed roles. This exists
-*alongside* RLS, not instead of it: RLS is the real security boundary
+_alongside_ RLS, not instead of it: RLS is the real security boundary
 (a disallowed write is rejected by Postgres regardless of what
 application code does or doesn't check), but relying on it exclusively
 meant a disallowed attempt surfaced as a raw Postgres RLS error, and
@@ -69,7 +69,7 @@ client without re-deriving the caller's role first. Each call site's
 allowed-role list matches its table's RLS policy exactly — see ADR-027
 for the full audit. `requireOrg()` is the same shape with no role
 restriction, for actions any signed-in org member should reach (Field's
-installs/blockers/day_logs — crew *should* write these).
+installs/blockers/day_logs — crew _should_ write these).
 
 ### Team management (`/app/team`)
 
@@ -104,7 +104,7 @@ to this org's own member count, never a whole-project user dump, since
 `auth.users` isn't exposed through RLS/PostgREST at all.
 
 **Self-service name edit needs a narrow RPC, not a plain update.**
-`profiles_update`'s RLS policy only lets owner/pm update *any* profile
+`profiles_update`'s RLS policy only lets owner/pm update _any_ profile
 row, including their own — a crew/scheduler user can't touch their own
 `full_name` through it at all. Postgres RLS is row-level, not
 column-level, so there's no way to write a policy granting "any user may
@@ -197,7 +197,7 @@ state, undo/redo, fullscreen state, the active page, and orchestrates:
   are only directly comparable when the stage happens to be square.
   Caught in self-review; see `docs/BUILD-LOG.md`.
   - **Resize handles live outside their row's own clipping wrapper.**
-    Corner/edge handles are deliberately centered *on* the row's own
+    Corner/edge handles are deliberately centered _on_ the row's own
     border (extending a few pixels past it in every direction) — as
     children of the row's own `overflow-hidden` box (needed to clip the
     fill-bar/label to the row's rounded rectangle), a corner handle's
@@ -209,7 +209,7 @@ state, undo/redo, fullscreen state, the active page, and orchestrates:
     `e2e/row-workspace.spec.ts`, not self-review; see ADR-020.
 - **Zoom/pan** (`use-zoom-pan.ts` + `zoom-controls.tsx`) — unchanged by
   the interaction-model rework: a pure CSS `transform: translate()
-  scale()` on the stage element, inside a fixed-size `overflow: hidden`
+scale()` on the stage element, inside a fixed-size `overflow: hidden`
   viewport. Row geometry stays normalized 0..1 in the DB; the
   draw/move/resize math above needs **no changes** to stay correct
   under this transform, because every formula reads the stage's
@@ -400,7 +400,7 @@ new query for either tab's filter.
   `'estimate'`-status projects — same convention as Layout/Progress in
   `project-tabs.tsx`) — `ReceivingPanel` renders a reorder list (a
   straight filter/sort of the existing `material_reconciliation.
-  to_order`, no new shortage math), a per-material status breakdown
+to_order`, no new shortage math), a per-material status breakdown
   (count per `MaterialReceiptStatus`, a flagged banner when short/
   damaged/wrong has ever been logged), a check-in form, and an
   expandable "History" disclosure (`listMaterialReceiptHistoryByProject`
@@ -408,7 +408,7 @@ new query for either tab's filter.
   material, same shape as `getMaterialReceiptTotals`).
 - **`material_receipts` stays an append-only event log.**
   `recordMaterialReceipt` always inserts a row; only `status ===
-  'received'` additionally does a read-modify-write on
+'received'` additionally does a read-modify-write on
   `materials.received`, the one aggregate `material_reconciliation`
   actually depends on for its `to_order`/`assigned` math. Every other
   status (`ordered`/`verified`/`staged`/`short`/`damaged`/`wrong`) has
@@ -424,15 +424,15 @@ new query for either tab's filter.
   there, not here (see Testing).
 - **Row readiness** — `rows.materials_ready`/`area_accessible`/
   `drawing_approved` (booleans, sub-phase 0) feed `row_progress.
-  readiness_status` (view-computed precedence: `complete` if all
+readiness_status` (view-computed precedence: `complete` if all
   materials met → `blocked` if not materials_ready OR not
   area_accessible → `ready` if all three manual inputs are true AND a
   crew is assigned → else `partial`; a brand-new row defaults to
   `blocked`, since both manual inputs default false). `updateRowReadiness`
   (`lib/rows/actions.ts`) patches whichever subset of the three inputs
   changed (an explicit `{materials_ready?; area_accessible?;
-  drawing_approved?}` object type — a loosely-typed `Record<string,
-  boolean>` doesn't satisfy Supabase's generated `Update` shape).
+drawing_approved?}` object type — a loosely-typed `Record<string,
+boolean>` doesn't satisfy Supabase's generated `Update` shape).
   `RowReadinessPanel` (opened via a "Readiness" button in
   `row-command-panel.tsx`, single-row selection only) is a **local-first
   optimistic** component: its three checkboxes seed `useState` from
@@ -479,7 +479,7 @@ Full design reasoning in `docs/DECISIONS.md` ADR-034.
   the mapping `<select>`s and preview table render generically off
   whichever field list is active. Materials mode calls the new
   `lib/projects/actions.ts#importMaterials` (same `received =
-  total_needed` packing-slip assumption as `pasteMaterialList`/
+total_needed` packing-slip assumption as `pasteMaterialList`/
   `confirmExtractedMaterials`, same `replaceExisting` toggle). Row-
   assignments mode resolves row label + material name against the
   `rows`/`materials` lists already passed into `MaterialsGrid` as props
@@ -491,23 +491,23 @@ Full design reasoning in `docs/DECISIONS.md` ADR-034.
   draw a row from, and a silently-created near-duplicate material from
   a typo would be worse than a visible, named skip reason per line.
 - **Duplicate range** — `components/projects/duplicate-range-dialog.tsx`
-  + `handleDuplicateRange` in `row-marking-workspace.tsx`. Treats the
-  current multi-row selection's own bounding box (not each row's
-  individual size) as the repeating unit, offsetting every selected row
-  by `n × blockWidth` (direction "right") or `n × blockHeight`
-  ("below") for `n` in `1..repeatCount`, then calls the pre-existing
-  `duplicateRows(projectId, drawingId, sourceRowId, newRows[],
-  copyMaterials)` once per source row — that action already accepted
-  *multiple* new rows per source (the single-row "Copy" button just
-  always passed exactly one), so generating N pre-offset geometries
-  client-side was the entire feature; no new Server Action. The dialog
-  computes `maxRepeatsRight`/`maxRepeatsBelow` from the selection's own
-  bounding box (how many repeats fit before the drawing's 0..1 edge) and
-  disables/caps accordingly rather than silently clamping into an
-  overlapping stack. Also the first UI to expose `copyMaterials` as a
-  real checkbox — it's existed as a `duplicateRows` parameter since the
-  original Copy button shipped, just hardcoded `true` at that one call
-  site.
+  - `handleDuplicateRange` in `row-marking-workspace.tsx`. Treats the
+    current multi-row selection's own bounding box (not each row's
+    individual size) as the repeating unit, offsetting every selected row
+    by `n × blockWidth` (direction "right") or `n × blockHeight`
+    ("below") for `n` in `1..repeatCount`, then calls the pre-existing
+    `duplicateRows(projectId, drawingId, sourceRowId, newRows[],
+copyMaterials)` once per source row — that action already accepted
+    _multiple_ new rows per source (the single-row "Copy" button just
+    always passed exactly one), so generating N pre-offset geometries
+    client-side was the entire feature; no new Server Action. The dialog
+    computes `maxRepeatsRight`/`maxRepeatsBelow` from the selection's own
+    bounding box (how many repeats fit before the drawing's 0..1 edge) and
+    disables/caps accordingly rather than silently clamping into an
+    overlapping stack. Also the first UI to expose `copyMaterials` as a
+    real checkbox — it's existed as a `duplicateRows` parameter since the
+    original Copy button shipped, just hardcoded `true` at that one call
+    site.
 - **Materials bulk ops** — `MaterialsGrid` gained a leading checkbox
   column and a `selectedIds` Set, reusing its own existing
   `useTransition`/`error`/`run()` machinery (no separate undo-tracked
@@ -564,7 +564,7 @@ Full design reasoning in `docs/DECISIONS.md` ADR-035.
   - `resolveShareToken(token)` — looks up `share_tokens` by token;
     invalid if missing, `revoked_at` is set, or `expires_at` has
     passed. Collapses all three into one `null` return — the public
-    page never explains *which* reason, just "no longer valid."
+    page never explains _which_ reason, just "no longer valid."
   - `getPortalData(projectId)` — `project_progress` (name/status/pct/
     deadline only), the single most recent `day_logs` row across every
     crew (`order by work_date desc, created_at desc limit 1`) for
@@ -652,7 +652,7 @@ Full design reasoning in `docs/DECISIONS.md` ADR-036.
 - **Mobile layout fix, root cause not per-page patches**:
   `app/(protected)/layout.tsx`'s `<main>` had no `min-w-0` — a flex
   item containing a wide table (the materials grid) refused to shrink
-  below the table's intrinsic content width, pushing the *entire page*
+  below the table's intrinsic content width, pushing the _entire page_
   wider than the viewport, not just the grid. One `min-w-0` on `<main>`
   fixes this for every current and future wide-content page at once.
   Found via a real 390px-viewport Playwright pass (screenshots +
@@ -764,9 +764,9 @@ taps a crew member expects to feel instant.
 - **Both AI routes (`packing-slips/extract`, `field/voice-note`) now
   call `requireOrg()` explicitly** (2026-07-06) — found while building
   voice-note that neither had a real auth check: packing-slip was only
-  *indirectly* protected (an unauthenticated caller eventually fails
+  _indirectly_ protected (an unauthenticated caller eventually fails
   inside `getSignedPackingSlipUrl`, but as an uncaught exception, not a
-  clean response), and voice-note had *no* protection at all, since it
+  clean response), and voice-note had _no_ protection at all, since it
   never touches Supabase — nothing stopped an anonymous caller from
   spending the `ANTHROPIC_API_KEY` quota. Both now return a clean `401`
   instead.
@@ -830,7 +830,7 @@ equivalent view is "My assignments today" in Field.
   actual. `AssignCrewForm` (`assign-crew-form.tsx`) offers three
   assignment scopes — whole project (`assignments.row_id: null`),
   specific rows (multi-select), or a phase (resolved client-side to that
-  phase's *current* row ids and inserted as one `assignments` row per
+  phase's _current_ row ids and inserted as one `assignments` row per
   row — a snapshot at assignment time, not a live link to the phase).
 - **SPI badge** (`SchedulerWorkspace`) — cumulative actual ÷ cumulative
   planned (sum of all targets) through today, green ≥1.0 / amber ≥0.8 /
@@ -902,7 +902,7 @@ Full design reasoning in `docs/DECISIONS.md` ADR-030.
 
 - **Labor units are standard hours.** `labor_standards.base_labor_units`
   is hours-per-unit at a baseline pace; `materials.labor_units =
-  base_labor_units × size_factor` (via `computeLaborUnits`/
+base_labor_units × size_factor` (via `computeLaborUnits`/
   `parseLeadingNumber` — only `per_ft_height`/`per_linear_ft` unit bases
   scale with size, a leading numeric token pulled from the free-text
   `size` field). This makes `crew_rates.units_per_hour` a clean
@@ -1106,7 +1106,7 @@ via `fetch()` — no `@anthropic-ai/sdk` dependency for one call site.
   uploaded. "Replace the current list" mirrors `PasteMaterialsDialog`.
 - **Save:** `confirmExtractedMaterials` (`lib/projects/actions.ts`)
   composes one `name` string per line — `[code, description,
-  size].filter(Boolean).join(" ")` — which is what keeps two lines
+size].filter(Boolean).join(" ")` — which is what keeps two lines
   sharing a product code but differing in size (e.g. two beam lengths)
   distinguishable as separate rows. As of Batch 3 sub-phase D, `size` is
   ALSO persisted to its own `materials.size` column (previously folded
@@ -1129,9 +1129,9 @@ of Batch 4, built first and most carefully per the batch's own framing.
   zero server-only imports, safe for a Client Component to import
   directly. `queries.ts` is server-only (imports `lib/supabase/server.ts`
   → `next/headers`) and re-exports `shared.ts` (`export * from
-  "@/lib/gates/shared"`) so server call sites get everything from one
+"@/lib/gates/shared"`) so server call sites get everything from one
   import. This split exists because a Client Component importing
-  *anything* — even just a type — from a module that also exports
+  _anything_ — even just a type — from a module that also exports
   server-only code drags the whole module (and `next/headers`) into the
   client bundle and fails the build; `components/gates/lifecycle-panel.tsx`
   hit this for real and was the reason the split was introduced.
@@ -1196,7 +1196,7 @@ of Batch 4, built first and most carefully per the batch's own framing.
   since it's a best-effort side signal, not the caller's primary write.
 - **Template management (`/app/settings`, owner-only write, pm read)** —
   `components/gates/template-editor.tsx` renders all 8 stage cards (fixed
-  set — only a stage's *items* are editable content, not the stages
+  set — only a stage's _items_ are editable content, not the stages
   themselves); an owner can add/edit-label/toggle-photo-required/set a
   sign-off role/remove an item, a pm sees the same content with no
   controls. Edits only ever touch the org's shared `gate_template_items`
@@ -1213,7 +1213,7 @@ of Batch 4, built first and most carefully per the batch's own framing.
   `shared.ts`/`queries.ts` client-boundary split as `lib/gates/`, plus
   `actions.ts` (`markNotificationRead`/`markAllNotificationsRead`, "use
   server", client-callable) and `create.ts` (`notifyUsers`, a plain
-  server-only helper — deliberately *not* a "use server" export, since
+  server-only helper — deliberately _not_ a "use server" export, since
   it's called from other server code, not directly from a client — takes
   an already-scoped Supabase client as a parameter so callers choose
   cookie-scoped vs. admin). `notifications_insert`'s RLS only requires
@@ -1262,7 +1262,7 @@ of Batch 4, built first and most carefully per the batch's own framing.
 - **Real regression found and fixed, unrelated to this sub-phase's own
   code:** `e2e/project-flow.spec.ts`'s Progress-tab check
   (`getByText("0%")`) started intermittently — then, once isolated,
-  *reliably* — matching 4 elements instead of 1: the 3 row buttons'
+  _reliably_ — matching 4 elements instead of 1: the 3 row buttons'
   own "N% ... Blocked — materials" readiness badges (Batch 3, Sub-phase
   F), plus (during the brief window where a fast client-side tab switch
   hasn't yet unmounted the previous tab) the Materials tab's
@@ -1341,7 +1341,7 @@ and wires non-install work into the estimator and scheduler.
   entirely — crew always inserts an entirely new row, never touches an
   existing one — mirroring `installs`/`material_receipts`/`day_logs`'s
   own event-sourced shape. `scope_item_progress` (a view, `left join
-  lateral` selecting each item's most-recently-logged update) gives
+lateral` selecting each item's most-recently-logged update) gives
   every consumer (Scope tab, Field app, estimator, scheduler) a
   convenient "current status" read — same convention as
   `row_progress`/`project_progress`. `org_id_of_scope_item` mirrors the
@@ -1353,12 +1353,12 @@ and wires non-install work into the estimator and scheduler.
   existing `task_key` lookup (with its own "general" fallback) works
   unchanged for scope items — no new lookup code needed. The Scope
   tab's "Suggested: N hrs" is a dismissible hint (`baseLaborUnits *
-  qty`, click to fill), not an auto-overwrite like materials'
+qty`, click to fill), not an auto-overwrite like materials'
   labor_units — non-install work is more judgment-based per job.
 - **Estimator and scheduler both fold scope items in as a
   `work_type`-keyed bucket:** `lib/estimating/
-  queries.ts#getProjectLaborUnitsByTaskKey` and `lib/scheduler/
-  queries.ts#getProjectRemainingLaborUnits` both already reduced
+queries.ts#getProjectLaborUnitsByTaskKey` and `lib/scheduler/
+queries.ts#getProjectRemainingLaborUnits` both already reduced
   materials into a `Map<string, number>` keyed by `task_key`; extending
   the same reduce with `scope_item_progress.work_type` as the key reuses
   100% of the existing `resolveRate` rate-resolution logic (crew rate →
@@ -1368,12 +1368,12 @@ and wires non-install work into the estimator and scheduler.
   concept applies to non-install work the way it does to materials.
 - **Scope tab visible even for `estimate`-status projects** — unlike
   Layout/Receiving/Progress/Portal (execution-only, hidden pre-sale),
-  scope-of-work needs to be capturable *before* a job is sold, so a
+  scope-of-work needs to be capturable _before_ a job is sold, so a
   draft estimate's hours can account for known non-install work from
   the start. Project-level items (no row/phase attachment) work fine
   before any rows exist.
 - **Field app gains a "Scope" view** (`components/field/
-  field-scope-panel.tsx`), reachable from the rows list and from within
+field-scope-panel.tsx`), reachable from the rows list and from within
   a specific row's own detail screen — mirrors the office Scope tab's
   photo-attach pattern (`BlockerForm`'s client-upload-then-Server-Action
   shape) for "Photo + mark done."
@@ -1387,7 +1387,7 @@ and wires non-install work into the estimator and scheduler.
   showed the Server Action completing in under 200ms every time; a
   temporary debug marker confirmed the prop updated correctly. The real
   bug was in the E2E test: an unscoped `getByText("Done")` (no `exact:
-  true`) case-insensitively substring-matches "Mark done" and "Photo +
+true`) case-insensitively substring-matches "Mark done" and "Photo +
   mark done," which correctly remain rendered (disabled) during a
   transition's brief pending window. Fixed with `{ exact: true }`. Kept
   the two component changes anyway — not because they were the actual
@@ -1396,11 +1396,11 @@ and wires non-install work into the estimator and scheduler.
 - **A real regression, found and fixed in the same work:**
   restructuring the Field header's single Rows/Day toggle into a
   Scope/Day pair initially only showed the new pair when `view ===
-  "rows"`, silently removing the pre-existing shortcut of reaching Day
+"rows"`, silently removing the pre-existing shortcut of reaching Day
   directly from within a row's own detail screen (`view === "row"`) —
   broke `e2e/field-flow.spec.ts` with a full 60-second timeout, not a
   quick failure. Fixed by showing the pair whenever `view` is `"rows"`
-  *or* `"row"`.
+  _or_ `"row"`.
 
 ## Sales→ops handoff (Batch 4, Sub-phase D, 2026-07-06)
 
@@ -1644,7 +1644,7 @@ schedule dates. Full reasoning in ADR-044.
   the board data, and the override list.
 - **Enforcement point:** `setProjectSchedule` (committing dates IS the
   promise) — returns `SetScheduleResult` (`{ok:false, conflicts,
-  suggestedStart, numCrews}`) rather than throwing, so the
+suggestedStart, numCrews}`) rather than throwing, so the
   ScheduleBuilder can render which projects hold each day, a one-click
   "Use this start" (first feasible same-length run over the org's
   working days, bounded at a year, honestly null when full), and the
@@ -1826,7 +1826,7 @@ short:
   Caught another cross-page navigation race: Materials and Progress both
   have a `<select>` labeled "Filter by phase," and interacting with it
   right after clicking the "Progress" nav link — before that client-side
-  navigation actually finishes — silently lands on the *Materials* tab's
+  navigation actually finishes — silently lands on the _Materials_ tab's
   still-mounted select instead. Fixed by waiting for a
   Progress-tab-specific element first; worth remembering for any test
   that reuses label text across pages.
@@ -1834,7 +1834,7 @@ short:
   page; a second upload defaults to view-only (a drag there is confirmed
   to create zero rows via a direct DB count, not just "no error
   appeared"); zoom and fullscreen still work on it; switching the
-  marking page confirms *both* pages' roles flip correctly (the new page
+  marking page confirms _both_ pages' roles flip correctly (the new page
   to `'marking'` and the old one back to `'reference'`), not just the
   new one. This work also caught a real bug unrelated to the test itself
   — see ADR-024 — that broke every drawing upload across the whole
@@ -1882,7 +1882,7 @@ short:
   strips filler words and correctly flags a described stoppage as
   `MISSING_MATERIAL`. Also asserts a `401` for a genuinely
   unauthenticated request — found here that both `browser.newContext()`
-  and `request.newContext()` inconsistently carried *some* valid session
+  and `request.newContext()` inconsistently carried _some_ valid session
   through to the server in this specific scenario (confirmed via a real,
   cookie-less `curl` to the same running server immediately after, which
   correctly got `401` — proving the server-side guard is sound, not the
@@ -1948,7 +1948,7 @@ short:
   bounding box instead.
 - `e2e/dashboard-flow.spec.ts` (2026-07-06) — creates a project with a
   genuine shortage via a direct admin insert (`total_needed=100,
-  received=20`), not the "Paste from packing slip" UI flow — that
+received=20`), not the "Paste from packing slip" UI flow — that
   action sets `received = total_needed` by design (it assumes the
   pasted list IS what shipped), which would make `to_order` 0 and never
   produce a shortage to test against. Confirms the shortage and an open
@@ -1986,7 +1986,7 @@ short:
   `materials_ready: false` for a deterministic check, and confirms
   `window.confirm()` fires with a message naming the row as blocked —
   the row-picker button itself is matched with `getByRole("button", {
-  name: /Row 1/ })` (a regex, not exact text) since a blocked row's
+name: /Row 1/ })` (a regex, not exact text) since a blocked row's
   accessible name is prefixed "⚠ Row 1".
   - **A third distinct Playwright dialog-handling shape**, beyond the
     two already documented for this suite: `AssignCrewForm.handleSubmit`
@@ -1995,10 +1995,10 @@ short:
     first). A synchronous-from-the-click dialog means `.click()` itself
     will not resolve until the dialog is handled — so the calendar
     test's own working pattern, `Promise.all([page.waitForEvent("dialog"),
-    click()])`, **deadlocks** here: `click()` can't resolve without
+click()])`, **deadlocks** here: `click()` can't resolve without
     `dismiss()`, and `dismiss()` never runs because `Promise.all` is
     still awaiting `click()`. Fixed by registering `page.once("dialog",
-    handler)` *before* the click, then `await`-ing the click alone (not
+handler)` _before_ the click, then `await`-ing the click alone (not
     wrapped in `Promise.all`) — the listener fires independently of the
     click's own promise and unblocks it.
   - Regression found and fixed in `estimating-flow.spec.ts`: adding the
@@ -2011,7 +2011,7 @@ short:
     earlier failed runs of this same new spec (each failure happened
     before reaching its own `afterAll` cleanup, back when the dialog
     deadlock above was still unfixed) and broke a `.locator("div",
-    {hasText: CREW_NAME}).first()` locator once more than one crew
+{hasText: CREW_NAME}).first()` locator once more than one crew
     existed on the page (`.first()` in document order matched an
     unrelated outer container, not the intended crew card — the same
     "matches every ancestor" bug class as `phases-flow.spec.ts`'s and
@@ -2035,7 +2035,7 @@ short:
     "duplicate range" step navigates back to the Layout tab (a fast
     client-side route change, unlike the initial upload) and draws
     immediately — the very first run intermittently read the drawing
-    image's bounding box *before* zoom/pan's "fit to screen" `useEffect`
+    image's bounding box _before_ zoom/pan's "fit to screen" `useEffect`
     had recomputed it, silently drawing (or, worse, entirely failing to
     draw) against the image's un-fitted natural size. Polling the
     bounding box for two consecutive stable reads did not reliably fix
@@ -2054,12 +2054,12 @@ short:
   element rather than a second round of `getByText()` calls — "v1"/"v2"
   legitimately appear twice on the page once history is expanded (the
   top badge and the entry's own label), so a bare `getByText("v2", {exact:
-  true})` would be a strict-mode violation, the same "matches more than
+true})` would be a strict-mode violation, the same "matches more than
   one real element" class of issue as elsewhere in this list, caught
   before it ever became a flaky failure rather than after.
 - Regression found and fixed in `multi-page-flow.spec.ts`: a bare
   `input[type="file"]` locator became ambiguous once the new drawing-
-  version panel gave any project with an existing drawing a *second*
+  version panel gave any project with an existing drawing a _second_
   file input on the same Layout tab — fixed with new
   `drawing-upload-input`/`drawing-version-upload-input`
   `data-testid`s on the two inputs, used here and in this sub-phase's
@@ -2094,7 +2094,7 @@ short:
     share-link status badge is styled with a plain CSS `capitalize`
     class over a lowercase literal ("active"/"revoked") — an unscoped
     `getByText("Active", {exact:true})` assertion had been silently
-    matching the *wrong* element (the project header's own status
+    matching the _wrong_ element (the project header's own status
     pill, which genuinely is capitalized text, not CSS-transformed) and
     passing for the wrong reason; the bug only surfaced once a later
     `getByText("Revoked", ...)` assertion had no same-named decoy
@@ -2148,7 +2148,7 @@ order:
    defaults) and `project_estimates` (append-only) for the estimation
    engine; `notifications` (per-user in-app inbox).
 9. `org_settings_crew_assignment.sql` (2026-07-06) — `organizations.
-   address`/`logo_path`/`default_working_days`; `profiles.crew_id`; the
+address`/`logo_path`/`default_working_days`; `profiles.crew_id`; the
    `org-logos` bucket; an `organizations_update` RLS policy (owner/pm).
 10. `self_update_full_name.sql` (2026-07-06) — `update_own_full_name`
     RPC (see ADR-027 for why a narrow `security definer` function, not a
@@ -2182,41 +2182,41 @@ Every table is scoped to an `organizations` row, directly (`org_id`) or
 transitively via `project_id` → `projects.org_id` or `crew_id` →
 `crews.org_id`.
 
-| Table                                    | Scoped via                    | Purpose                                                                                                                                                                                                                                     |
-| ---------------------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `organizations`                          | —                             | Tenant boundary. One per Handy Equip-style deployment (see auth bootstrap below); multi-org support exists in the schema but isn't exercised yet. `address`/`logo_path`/`default_working_days` added 2026-07-06 (Org Settings) — was read-only for every role until then. `num_crews` added Batch 4 Sub-phase 0 (hard capacity constraint, enforced starting Sub-phase G). `stalled_after_days` (int, default 3) added in a Batch 4 Sub-phase A follow-up migration — feeds `isProjectStalled`. |
-| `profiles`                               | `org_id` (nullable)           | One row per `auth.users`, `role` ∈ `owner`/`pm`/`scheduler`/`crew`. `crew_id` (nullable, 2026-07-06) — a user's home crew, assigned from `/app/team`.                                                                                        |
-| `projects`                               | `org_id`                      | A racking-install job. `status` ∈ `estimate`/`active`/`on_hold`/`complete` (`estimate` added 2026-07-06 for pre-sale drafts on the company estimating screen — see ADR-030). `planned_days` (Scheduler target math) and `mark_drawing_id` (the one markable page — see below) added 2026-07-03. `pm_user_id` (nullable at the schema level since Sub-phase 0) is enforced as required at the application level for real (non-estimate) projects starting Batch 4 Sub-phase B — see ADR-039. |
-| `project_pm_history`                     | `project_id`                  | Batch 4 Sub-phase B (2026-07-06) — an append-only audit trail of PM reassignments (`previous_pm_user_id`/`new_pm_user_id`/`changed_by`/`changed_at`). No `reason` column — a reassignment is routine, not exceptional, unlike a gate override. |
-| `crews` / `crew_members`                 | `org_id` / via `crews`        | Install crews and their members (Scheduler sub-phase).                                                                                                                                                                                      |
-| `drawings`                               | `project_id`                  | One row per rendered page (`page_index` 0-based) of an uploaded layout PDF/image. `storage_path` points into the private `drawings` bucket. `role` ∈ `reference`/`marking` — see below.                                                     |
-| `packing_slips`                          | `project_id`                  | Uploaded packing-slip files; `parsed` reserved for future OCR/extraction.                                                                                                                                                                   |
-| `materials`                              | `project_id`                  | The job's material catalog — `total_needed` (job total) and `received` (from packing slips) live here; per-row requirements live in `row_materials`. `size`/`labor_units` (2026-07-03) and `profile`/`capacity`/`condition`/`compatible_system` (2026-07-06, richer identity for the estimating/receiving work) added since. `task_key` (2026-07-06) classifies a material against `labor_standards`, so `labor_units` computes size-aware instead of resting at its bare default — see ADR-030. |
-| `material_receipts`                      | via `materials`                | Append-only receiving event log (2026-07-06) — `status` ∈ `ordered`/`received`/`verified`/`staged`/`short`/`damaged`/`wrong`, each row a fact ("N units reached this status"), not a single mutable state. `materials.received` stays the fast-read aggregate (usable units only — flags never bump it, see ADR-042); a receiving check-in keeps both in sync. Batch 4 Sub-phase E added `resolved_at`/`resolved_by`: a short/damaged/wrong flag is "open" (blocks the Materials gate) until an owner/pm resolves it. |
-| `rows`                                   | `project_id` (+ `drawing_id`) | A marked rack section on a drawing page. `x/y/w/h` are **normalized 0..1** fractions of the drawing's rendered size, so marks stay correct at any zoom/display size. `phase_id` (nullable, 2026-07-03); `materials_ready`/`area_accessible`/`drawing_approved` readiness inputs (2026-07-06) — `crew_assigned` is deliberately NOT a column here, it's derived in `row_progress` from `assignments`.                                |
-| `row_materials`                          | via `rows`                    | Required qty of a material for a specific row. `unique(row_id, material_id)`.                                                                                                                                                               |
-| `installs`                               | via `rows`                    | Append-only log of installed qty per row/material/date. `qty` may be negative (a correction entry) — never edit history in place. `idempotency_key` (unique, nullable) + `device_id` added 2026-07-03 for the field app's offline queue.    |
-| `phases`                                 | `project_id`                  | A named, colored grouping of rows — `color` renders on the drawing, `sort_order` controls legend/list order.                                                                                                                                |
-| `blockers`                               | `project_id`                  | A logged reason work stopped — `code` is one of 10 fixed values, plus note/photo. `resolved_at` null until cleared.                                                                                                                         |
-| `day_logs`                               | `project_id`                  | One row per crew/project/day (`unique(project_id, crew_id, work_date)`), filled in progressively and updated (not re-inserted) as the day closes out.                                                                                       |
-| `assignments` / `targets` / `crew_rates` | `project_id` / `crew_id`      | Scheduling. Created in Phase 2 so FKs were clean from day one; built out by the Scheduler sub-phase. `crew_rates` (`crew_id`, `task_key`, `units_per_hour`, `samples`) sat unused until Batch 3 sub-phase D's `recomputeCrewRates` started actually learning and reading it — see ADR-030. |
-| `project_schedule`                       | `project_id`                  | Presence of a row = a scheduled working day (`unique(project_id, work_date)`) — a date range can be picked and specific days skipped without a separate flag.                                                                               |
-| `drawing_versions`                       | `project_id`                  | Upload history for a page (2026-07-06) — `drawings` stays the current pointer per page (rows.drawing_id keeps referencing it; same `id` across re-uploads), this is the parallel version/approval history. `approved_for_install` gates whether a version is considered safe to mark/install against. |
-| `labor_standards`                        | `org_id`                       | Size-normalized labor baseline (2026-07-06) — `base_labor_units` (hours/unit at a standard pace) per `task_key`, seeded with reasonable defaults per org, editable from `/app/estimate`. Feeds `materials.labor_units` computation directly and `crew_rates`' standard-pace fallback (1.0) indirectly — see ADR-030. |
-| `project_estimates`                      | `project_id`                  | Append-only estimate log (2026-07-06), like `installs` — recomputing inserts a new row rather than overwriting, so an estimate's history over a project's life isn't lost. Latest row = current estimate.                                   |
-| `notifications`                          | `org_id` (+ `user_id`)         | Per-user in-app inbox (schema 2026-07-06, consumed by Batch 4 Sub-phase A) — `select`/`update`/`delete` are strictly own-row (`user_id = auth.uid()`), unlike every other table here which is org-wide-readable; `insert` is org-scoped only, since a Server Action running as the caller creates notifications addressed to *other* org members. `kind` (free-form text) is a self-imposed convention — see `lib/notifications/shared.ts`'s `NotificationKind` union, currently `gate_item_overdue`/`project_stalled`. |
-| `share_tokens`                           | `project_id`                  | Customer portal tokens (project_id/token/scope/expires_at existed since Phase 2; `revoked_at` added Batch 3 Sub-phase H). Not publicly RLS-readable — see below.                                                                                                                                                                    |
-| `approved_photos`                        | `project_id`                  | Customer-visible photo curation (2026-07-06) — keyed by the photo's own `storage_path` (`unique(project_id, storage_path)`), sourced from either `day_logs.photo_paths` or `blockers.photo_path`. Nothing is customer-visible until explicitly approved here; see Customer portal section below. |
-| `gate_templates` / `gate_template_stages` / `gate_template_items` | `org_id` / via `gate_templates` / via `gate_template_stages` | Batch 4 (2026-07-06) — a reusable, org-editable 8-stage checklist definition (`handoff`/`scope`/`schedule`/`materials`/`mobilize`/`execute`/`punch`/`closeout`). Exactly one `is_default` template per org (partial unique index, same convention as "exactly one marking page"). Copied per-project at creation (sub-phase A) so later per-project edits never mutate the template. Seeded with a verbatim 29-item starter checklist — see ADR-037. |
-| `project_stages` / `project_gate_items`  | `project_id` / via `project_stages` | Batch 4 (2026-07-06) — the actual per-project copy of the above. `project_stages.status` ∈ `locked`/`active`/`complete`/`overridden` (one enum, not separate booleans) + `overridden_by`/`override_reason` when a gate is overridden. `project_gate_items.done`/`done_by`/`done_at` + optional `photo_path`/`signoff_user_id`/`due_date`, plus `position` (int, added in a Sub-phase A follow-up migration — see that section for why: no ordering column originally existed, and ordering by `created_at` wasn't reliable for bulk-inserted rows). The stage-gate lifecycle UI (stepper, What's Next, template management, gate nags) is Sub-phase A — built and live; see that section. |
-| `scope_items`                            | `project_id` (+ optional `row_id`/`phase_id`) | Batch 4 (2026-07-06) — work beyond install (`work_type` ∈ `install`/`teardown`/`remove_levels`/`add_levels`/`relocate`/`repair`/`other`) — the category of work an earlier real project ("iBuy") lost two weeks to leaving unscoped. `source` ∈ `handoff`/`estimate`/`change_order` tracks where an item came from; `change_order_id` links one added via a CO. Built out in Sub-phase C: a Scope tab (owner/pm CRUD) + field progress tracking (below) + folded into the estimator/scheduler's own labor-hours math. |
-| `scope_item_updates` / `scope_item_progress` | via `scope_items` | Sub-phase C (2026-07-06) — an append-only progress log (`status` ∈ `partial`/`done`, `note`, `photo_path`, `logged_by`) any org member can insert (crew included — mirrors `installs`/`blockers`), never updates an existing row; `scope_item_progress` is the latest-update-per-item view every consumer actually reads. |
-| `handoff_surveys`                        | `project_id` (unique)          | Batch 4 (2026-07-06) — the sales→ops handoff: site conditions, `constraints` (jsonb: live_warehouse/access_notes/forklift_onsite/working_hours/floor_condition/permits_needed), `photo_paths` (same array convention as `day_logs`), and dual estimator+PM sign-off columns/timestamps. One row per project. Built out in Sub-phase D: a Handoff tab (hidden pre-sale AND per-role, owner/pm only), teardown auto-creating a draft `scope_items` row, a printable PDF, and an optional AI draft-from-notes assist. |
-| `change_orders`                          | `project_id`                  | Batch 4 (2026-07-06) — numbered per project (`unique(project_id, number)`), `reason`/`status` enums, `labor_units`/`added_days`/`price`, customer-approval tracking (`customer_approved_via`/`_at`/`_approver_name`). Built out in Sub-phase F: + `approval_token`/`sent_at`/`sent_to` (single-use public approve/decline token), the COs tab, the public `/portal/co/[token]` page, and merge-on-approval. |
-| `change_order_items`                     | via `change_orders`           | Sub-phase F (2026-07-06) — a CO's own draft lines (`kind` ∈ `scope`/`material`, work_type/description/qty/unit/labor_units). Deliberately NOT in scope_items/materials until approval, so unapproved work is structurally invisible to every consumer; on approval the lines are copied into the real tables (tagged `change_order_id`) and these rows remain as the CO's permanent record. |
-| `project_comms`                          | `project_id`                  | Batch 4 (2026-07-06) — an auditable log of everything the customer was told (`kind` ∈ `milestone`/`weekly_report`/`manual`/`schedule_change`/`change_order`, `channel` ∈ `email`/`portal`/`logged_call`/`logged_other`). The push channel — the customer portal (Batch 3) stays the pull channel. Built out in Sub-phase H: auto milestones, the weekly customer report, manual logging, the Comms tab — and the exact-subject match against this table is the milestone dedupe. |
-| `project_autopsies`                      | `project_id` (unique)          | Batch 4 (2026-07-06) — estimated vs actual, generated at the Closeout stage: days/hours/labor units/`material_variance` (jsonb)/change-order count+days/blocker days, plus an optional narrative. Built out in Sub-phase I: + `blocker_breakdown` (jsonb, days lost per code), generation from ground truth on the Progress tab, verdicts at render, the company accuracy view, and the AI-drafted narrative. |
-| `capacity_overrides`                     | `project_id`                   | Sub-phase G (2026-07-06) — insert-only audit of owner capacity overrides: required `reason`, `conflict_dates` snapshot, who/when. Written only when an owner saves a schedule past the num_crews hard block; surfaced on the dashboard. |
+| Table                                                             | Scoped via                                                   | Purpose                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ----------------------------------------------------------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `organizations`                                                   | —                                                            | Tenant boundary. One per Handy Equip-style deployment (see auth bootstrap below); multi-org support exists in the schema but isn't exercised yet. `address`/`logo_path`/`default_working_days` added 2026-07-06 (Org Settings) — was read-only for every role until then. `num_crews` added Batch 4 Sub-phase 0 (hard capacity constraint, enforced starting Sub-phase G). `stalled_after_days` (int, default 3) added in a Batch 4 Sub-phase A follow-up migration — feeds `isProjectStalled`.                                                                                                                                                                                           |
+| `profiles`                                                        | `org_id` (nullable)                                          | One row per `auth.users`, `role` ∈ `owner`/`pm`/`scheduler`/`crew`. `crew_id` (nullable, 2026-07-06) — a user's home crew, assigned from `/app/team`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `projects`                                                        | `org_id`                                                     | A racking-install job. `status` ∈ `estimate`/`active`/`on_hold`/`complete` (`estimate` added 2026-07-06 for pre-sale drafts on the company estimating screen — see ADR-030). `planned_days` (Scheduler target math) and `mark_drawing_id` (the one markable page — see below) added 2026-07-03. `pm_user_id` (nullable at the schema level since Sub-phase 0) is enforced as required at the application level for real (non-estimate) projects starting Batch 4 Sub-phase B — see ADR-039.                                                                                                                                                                                               |
+| `project_pm_history`                                              | `project_id`                                                 | Batch 4 Sub-phase B (2026-07-06) — an append-only audit trail of PM reassignments (`previous_pm_user_id`/`new_pm_user_id`/`changed_by`/`changed_at`). No `reason` column — a reassignment is routine, not exceptional, unlike a gate override.                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `crews` / `crew_members`                                          | `org_id` / via `crews`                                       | Install crews and their members (Scheduler sub-phase).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `drawings`                                                        | `project_id`                                                 | One row per rendered page (`page_index` 0-based) of an uploaded layout PDF/image. `storage_path` points into the private `drawings` bucket. `role` ∈ `reference`/`marking` — see below.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `packing_slips`                                                   | `project_id`                                                 | Uploaded packing-slip files; `parsed` reserved for future OCR/extraction.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `materials`                                                       | `project_id`                                                 | The job's material catalog — `total_needed` (job total) and `received` (from packing slips) live here; per-row requirements live in `row_materials`. `size`/`labor_units` (2026-07-03) and `profile`/`capacity`/`condition`/`compatible_system` (2026-07-06, richer identity for the estimating/receiving work) added since. `task_key` (2026-07-06) classifies a material against `labor_standards`, so `labor_units` computes size-aware instead of resting at its bare default — see ADR-030.                                                                                                                                                                                          |
+| `material_receipts`                                               | via `materials`                                              | Append-only receiving event log (2026-07-06) — `status` ∈ `ordered`/`received`/`verified`/`staged`/`short`/`damaged`/`wrong`, each row a fact ("N units reached this status"), not a single mutable state. `materials.received` stays the fast-read aggregate (usable units only — flags never bump it, see ADR-042); a receiving check-in keeps both in sync. Batch 4 Sub-phase E added `resolved_at`/`resolved_by`: a short/damaged/wrong flag is "open" (blocks the Materials gate) until an owner/pm resolves it.                                                                                                                                                                     |
+| `rows`                                                            | `project_id` (+ `drawing_id`)                                | A marked rack section on a drawing page. `x/y/w/h` are **normalized 0..1** fractions of the drawing's rendered size, so marks stay correct at any zoom/display size. `phase_id` (nullable, 2026-07-03); `materials_ready`/`area_accessible`/`drawing_approved` readiness inputs (2026-07-06) — `crew_assigned` is deliberately NOT a column here, it's derived in `row_progress` from `assignments`.                                                                                                                                                                                                                                                                                      |
+| `row_materials`                                                   | via `rows`                                                   | Required qty of a material for a specific row. `unique(row_id, material_id)`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `installs`                                                        | via `rows`                                                   | Append-only log of installed qty per row/material/date. `qty` may be negative (a correction entry) — never edit history in place. `idempotency_key` (unique, nullable) + `device_id` added 2026-07-03 for the field app's offline queue.                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `phases`                                                          | `project_id`                                                 | A named, colored grouping of rows — `color` renders on the drawing, `sort_order` controls legend/list order.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `blockers`                                                        | `project_id`                                                 | A logged reason work stopped — `code` is one of 10 fixed values, plus note/photo. `resolved_at` null until cleared.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `day_logs`                                                        | `project_id`                                                 | One row per crew/project/day (`unique(project_id, crew_id, work_date)`), filled in progressively and updated (not re-inserted) as the day closes out.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `assignments` / `targets` / `crew_rates`                          | `project_id` / `crew_id`                                     | Scheduling. Created in Phase 2 so FKs were clean from day one; built out by the Scheduler sub-phase. `crew_rates` (`crew_id`, `task_key`, `units_per_hour`, `samples`) sat unused until Batch 3 sub-phase D's `recomputeCrewRates` started actually learning and reading it — see ADR-030.                                                                                                                                                                                                                                                                                                                                                                                                |
+| `project_schedule`                                                | `project_id`                                                 | Presence of a row = a scheduled working day (`unique(project_id, work_date)`) — a date range can be picked and specific days skipped without a separate flag.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `drawing_versions`                                                | `project_id`                                                 | Upload history for a page (2026-07-06) — `drawings` stays the current pointer per page (rows.drawing_id keeps referencing it; same `id` across re-uploads), this is the parallel version/approval history. `approved_for_install` gates whether a version is considered safe to mark/install against.                                                                                                                                                                                                                                                                                                                                                                                     |
+| `labor_standards`                                                 | `org_id`                                                     | Size-normalized labor baseline (2026-07-06) — `base_labor_units` (hours/unit at a standard pace) per `task_key`, seeded with reasonable defaults per org, editable from `/app/estimate`. Feeds `materials.labor_units` computation directly and `crew_rates`' standard-pace fallback (1.0) indirectly — see ADR-030.                                                                                                                                                                                                                                                                                                                                                                      |
+| `project_estimates`                                               | `project_id`                                                 | Append-only estimate log (2026-07-06), like `installs` — recomputing inserts a new row rather than overwriting, so an estimate's history over a project's life isn't lost. Latest row = current estimate.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `notifications`                                                   | `org_id` (+ `user_id`)                                       | Per-user in-app inbox (schema 2026-07-06, consumed by Batch 4 Sub-phase A) — `select`/`update`/`delete` are strictly own-row (`user_id = auth.uid()`), unlike every other table here which is org-wide-readable; `insert` is org-scoped only, since a Server Action running as the caller creates notifications addressed to _other_ org members. `kind` (free-form text) is a self-imposed convention — see `lib/notifications/shared.ts`'s `NotificationKind` union, currently `gate_item_overdue`/`project_stalled`.                                                                                                                                                                   |
+| `share_tokens`                                                    | `project_id`                                                 | Customer portal tokens (project_id/token/scope/expires_at existed since Phase 2; `revoked_at` added Batch 3 Sub-phase H). Not publicly RLS-readable — see below.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `approved_photos`                                                 | `project_id`                                                 | Customer-visible photo curation (2026-07-06) — keyed by the photo's own `storage_path` (`unique(project_id, storage_path)`), sourced from either `day_logs.photo_paths` or `blockers.photo_path`. Nothing is customer-visible until explicitly approved here; see Customer portal section below.                                                                                                                                                                                                                                                                                                                                                                                          |
+| `gate_templates` / `gate_template_stages` / `gate_template_items` | `org_id` / via `gate_templates` / via `gate_template_stages` | Batch 4 (2026-07-06) — a reusable, org-editable 8-stage checklist definition (`handoff`/`scope`/`schedule`/`materials`/`mobilize`/`execute`/`punch`/`closeout`). Exactly one `is_default` template per org (partial unique index, same convention as "exactly one marking page"). Copied per-project at creation (sub-phase A) so later per-project edits never mutate the template. Seeded with a verbatim 29-item starter checklist — see ADR-037.                                                                                                                                                                                                                                      |
+| `project_stages` / `project_gate_items`                           | `project_id` / via `project_stages`                          | Batch 4 (2026-07-06) — the actual per-project copy of the above. `project_stages.status` ∈ `locked`/`active`/`complete`/`overridden` (one enum, not separate booleans) + `overridden_by`/`override_reason` when a gate is overridden. `project_gate_items.done`/`done_by`/`done_at` + optional `photo_path`/`signoff_user_id`/`due_date`, plus `position` (int, added in a Sub-phase A follow-up migration — see that section for why: no ordering column originally existed, and ordering by `created_at` wasn't reliable for bulk-inserted rows). The stage-gate lifecycle UI (stepper, What's Next, template management, gate nags) is Sub-phase A — built and live; see that section. |
+| `scope_items`                                                     | `project_id` (+ optional `row_id`/`phase_id`)                | Batch 4 (2026-07-06) — work beyond install (`work_type` ∈ `install`/`teardown`/`remove_levels`/`add_levels`/`relocate`/`repair`/`other`) — the category of work an earlier real project ("iBuy") lost two weeks to leaving unscoped. `source` ∈ `handoff`/`estimate`/`change_order` tracks where an item came from; `change_order_id` links one added via a CO. Built out in Sub-phase C: a Scope tab (owner/pm CRUD) + field progress tracking (below) + folded into the estimator/scheduler's own labor-hours math.                                                                                                                                                                     |
+| `scope_item_updates` / `scope_item_progress`                      | via `scope_items`                                            | Sub-phase C (2026-07-06) — an append-only progress log (`status` ∈ `partial`/`done`, `note`, `photo_path`, `logged_by`) any org member can insert (crew included — mirrors `installs`/`blockers`), never updates an existing row; `scope_item_progress` is the latest-update-per-item view every consumer actually reads.                                                                                                                                                                                                                                                                                                                                                                 |
+| `handoff_surveys`                                                 | `project_id` (unique)                                        | Batch 4 (2026-07-06) — the sales→ops handoff: site conditions, `constraints` (jsonb: live_warehouse/access_notes/forklift_onsite/working_hours/floor_condition/permits_needed), `photo_paths` (same array convention as `day_logs`), and dual estimator+PM sign-off columns/timestamps. One row per project. Built out in Sub-phase D: a Handoff tab (hidden pre-sale AND per-role, owner/pm only), teardown auto-creating a draft `scope_items` row, a printable PDF, and an optional AI draft-from-notes assist.                                                                                                                                                                        |
+| `change_orders`                                                   | `project_id`                                                 | Batch 4 (2026-07-06) — numbered per project (`unique(project_id, number)`), `reason`/`status` enums, `labor_units`/`added_days`/`price`, customer-approval tracking (`customer_approved_via`/`_at`/`_approver_name`). Built out in Sub-phase F: + `approval_token`/`sent_at`/`sent_to` (single-use public approve/decline token), the COs tab, the public `/portal/co/[token]` page, and merge-on-approval.                                                                                                                                                                                                                                                                               |
+| `change_order_items`                                              | via `change_orders`                                          | Sub-phase F (2026-07-06) — a CO's own draft lines (`kind` ∈ `scope`/`material`, work_type/description/qty/unit/labor_units). Deliberately NOT in scope_items/materials until approval, so unapproved work is structurally invisible to every consumer; on approval the lines are copied into the real tables (tagged `change_order_id`) and these rows remain as the CO's permanent record.                                                                                                                                                                                                                                                                                               |
+| `project_comms`                                                   | `project_id`                                                 | Batch 4 (2026-07-06) — an auditable log of everything the customer was told (`kind` ∈ `milestone`/`weekly_report`/`manual`/`schedule_change`/`change_order`, `channel` ∈ `email`/`portal`/`logged_call`/`logged_other`). The push channel — the customer portal (Batch 3) stays the pull channel. Built out in Sub-phase H: auto milestones, the weekly customer report, manual logging, the Comms tab — and the exact-subject match against this table is the milestone dedupe.                                                                                                                                                                                                          |
+| `project_autopsies`                                               | `project_id` (unique)                                        | Batch 4 (2026-07-06) — estimated vs actual, generated at the Closeout stage: days/hours/labor units/`material_variance` (jsonb)/change-order count+days/blocker days, plus an optional narrative. Built out in Sub-phase I: + `blocker_breakdown` (jsonb, days lost per code), generation from ground truth on the Progress tab, verdicts at render, the company accuracy view, and the AI-drafted narrative.                                                                                                                                                                                                                                                                             |
+| `capacity_overrides`                                              | `project_id`                                                 | Sub-phase G (2026-07-06) — insert-only audit of owner capacity overrides: required `reason`, `conflict_dates` snapshot, who/when. Written only when an owner saves a schedule past the num_crews hard block; surfaced on the dashboard.                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 
 **Exactly one marking page per project:** `drawings.role` defaults to
 `'reference'`; a partial unique index
@@ -2316,7 +2316,7 @@ per-row rows at assignment time, see ADR-022, so both assignment shapes
 reduce to this one check), and a computed `readiness_status`:
 `'complete'` if already fully installed (readiness stops mattering once
 done); else `'blocked'` if materials aren't ready or the area isn't
-accessible (the two *physical* prerequisites); else `'ready'` if every
+accessible (the two _physical_ prerequisites); else `'ready'` if every
 prerequisite — physical and administrative (drawing approval, crew
 assigned) — is met; else `'partial'`. Scheduler/dashboard work (later
 sub-phases) reads this directly rather than recomputing it.

@@ -1,5 +1,9 @@
 import { addDays, todayIso } from "@/lib/dates";
-import { classifySpi, computeProjectSpi, RISK_TIER_LABEL } from "@/lib/scheduler/spi";
+import {
+  classifySpi,
+  computeProjectSpi,
+  RISK_TIER_LABEL,
+} from "@/lib/scheduler/spi";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { BlockerCode } from "@/lib/supabase/database.types";
 
@@ -98,7 +102,9 @@ export async function buildProjectReportData(
     // approved yesterday is this week's news too.
     admin
       .from("change_orders")
-      .select("number, title, status, added_days, price, created_at, customer_approved_at")
+      .select(
+        "number, title, status, added_days, price, created_at, customer_approved_at"
+      )
       .eq("project_id", projectId)
       .or(
         `created_at.gte.${startDate}T00:00:00,customer_approved_at.gte.${startDate}T00:00:00`
@@ -113,20 +119,25 @@ export async function buildProjectReportData(
   if (changeOrdersError) throw changeOrdersError;
 
   const rowIds = rows.map((r) => r.id);
-  const [{ data: installsInPeriodRaw, error: installsError }, { data: installsAllTime, error: allTimeError }] =
-    await Promise.all([
-      rowIds.length > 0
-        ? admin
-            .from("installs")
-            .select("qty")
-            .in("row_id", rowIds)
-            .gte("installed_on", startDate)
-            .lte("installed_on", today)
-        : Promise.resolve({ data: [] as { qty: number }[], error: null }),
-      rowIds.length > 0
-        ? admin.from("installs").select("installed_on, qty").in("row_id", rowIds)
-        : Promise.resolve({ data: [] as { installed_on: string; qty: number }[], error: null }),
-    ]);
+  const [
+    { data: installsInPeriodRaw, error: installsError },
+    { data: installsAllTime, error: allTimeError },
+  ] = await Promise.all([
+    rowIds.length > 0
+      ? admin
+          .from("installs")
+          .select("qty")
+          .in("row_id", rowIds)
+          .gte("installed_on", startDate)
+          .lte("installed_on", today)
+      : Promise.resolve({ data: [] as { qty: number }[], error: null }),
+    rowIds.length > 0
+      ? admin.from("installs").select("installed_on, qty").in("row_id", rowIds)
+      : Promise.resolve({
+          data: [] as { installed_on: string; qty: number }[],
+          error: null,
+        }),
+  ]);
   if (installsError) throw installsError;
   if (allTimeError) throw allTimeError;
 
@@ -140,11 +151,11 @@ export async function buildProjectReportData(
 
   const spi = computeProjectSpi(targets, dailyActuals);
   const markingDrawingUrl = markingDrawing
-    ? (
+    ? ((
         await admin.storage
           .from("drawings")
           .createSignedUrl(markingDrawing.storage_path, 48 * 3600)
-      ).data?.signedUrl ?? null
+      ).data?.signedUrl ?? null)
     : null;
 
   return {

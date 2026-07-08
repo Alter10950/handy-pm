@@ -45,13 +45,15 @@ export async function uploadDrawingVersion(
     .is("superseded_at", null);
   if (supersedeError) throw supersedeError;
 
-  const { error: insertError } = await supabase.from("drawing_versions").insert({
-    project_id: projectId,
-    page_index: pageIndex,
-    storage_path: storagePath,
-    version: nextVersion,
-    approved_for_install: false,
-  });
+  const { error: insertError } = await supabase
+    .from("drawing_versions")
+    .insert({
+      project_id: projectId,
+      page_index: pageIndex,
+      storage_path: storagePath,
+      version: nextVersion,
+      approved_for_install: false,
+    });
   if (insertError) throw insertError;
 
   const { error: drawingError } = await supabase

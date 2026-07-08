@@ -1,7 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { requireOrg } from "@/lib/auth/session";
-import { EMPTY_CONSTRAINTS, type HandoffConstraints } from "@/lib/handoff/shared";
+import {
+  EMPTY_CONSTRAINTS,
+  type HandoffConstraints,
+} from "@/lib/handoff/shared";
 
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION = "2023-06-01";
@@ -137,7 +140,9 @@ export async function POST(request: NextRequest) {
       messages: [
         {
           role: "user",
-          content: [{ type: "text", text: `${DRAFT_PROMPT}\n\nNotes:\n${notes}` }],
+          content: [
+            { type: "text", text: `${DRAFT_PROMPT}\n\nNotes:\n${notes}` },
+          ],
         },
       ],
     }),
@@ -162,14 +167,18 @@ export async function POST(request: NextRequest) {
 
   const input = toolUse.input;
   const constraints: HandoffConstraints = {
-    liveWarehouse: input.constraints?.live_warehouse ?? EMPTY_CONSTRAINTS.liveWarehouse,
-    accessNotes: input.constraints?.access_notes ?? EMPTY_CONSTRAINTS.accessNotes,
+    liveWarehouse:
+      input.constraints?.live_warehouse ?? EMPTY_CONSTRAINTS.liveWarehouse,
+    accessNotes:
+      input.constraints?.access_notes ?? EMPTY_CONSTRAINTS.accessNotes,
     forkliftOnsite:
       input.constraints?.forklift_onsite ?? EMPTY_CONSTRAINTS.forkliftOnsite,
-    workingHours: input.constraints?.working_hours ?? EMPTY_CONSTRAINTS.workingHours,
+    workingHours:
+      input.constraints?.working_hours ?? EMPTY_CONSTRAINTS.workingHours,
     floorCondition:
       input.constraints?.floor_condition ?? EMPTY_CONSTRAINTS.floorCondition,
-    permitsNeeded: input.constraints?.permits_needed ?? EMPTY_CONSTRAINTS.permitsNeeded,
+    permitsNeeded:
+      input.constraints?.permits_needed ?? EMPTY_CONSTRAINTS.permitsNeeded,
   };
 
   return NextResponse.json({

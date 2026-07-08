@@ -7,7 +7,10 @@ import { requireOrg, requireRole } from "@/lib/auth/session";
 import { ensureOriginalEstimate } from "@/lib/change-orders/actions";
 import { recomputeCrewSkuRates } from "@/lib/estimating/flywheel";
 import { ROLLING_WINDOW_DAYS } from "@/lib/estimating/labor";
-import { computeProjectEstimate, type ComputedEstimate } from "@/lib/estimating/queries";
+import {
+  computeProjectEstimate,
+  type ComputedEstimate,
+} from "@/lib/estimating/queries";
 import { createClient } from "@/lib/supabase/server";
 import type { Json } from "@/lib/supabase/database.types";
 
@@ -23,7 +26,10 @@ export async function updateLaborStandard(
 ) {
   await requireRole(ESTIMATORS);
   const supabase = await createClient();
-  const { error } = await supabase.from("labor_standards").update(patch).eq("id", id);
+  const { error } = await supabase
+    .from("labor_standards")
+    .update(patch)
+    .eq("id", id);
   if (error) throw error;
   revalidatePath("/app/estimate");
 }
@@ -53,21 +59,23 @@ export async function recomputeCrewRates(): Promise<RecomputeCrewRatesResult> {
   windowStart.setDate(windowStart.getDate() - ROLLING_WINDOW_DAYS);
   const windowStartStr = windowStart.toISOString().slice(0, 10);
 
-  const [{ data: dayLogs, error: dayLogsError }, { data: blockers, error: blockersError }] =
-    await Promise.all([
-      supabase
-        .from("day_logs")
-        .select("crew_id, project_id, work_date, install_start, install_end")
-        .gte("work_date", windowStartStr)
-        .not("crew_id", "is", null)
-        .not("install_start", "is", null)
-        .not("install_end", "is", null),
-      supabase
-        .from("blockers")
-        .select("project_id, crew_id, work_date")
-        .gte("work_date", windowStartStr)
-        .not("crew_id", "is", null),
-    ]);
+  const [
+    { data: dayLogs, error: dayLogsError },
+    { data: blockers, error: blockersError },
+  ] = await Promise.all([
+    supabase
+      .from("day_logs")
+      .select("crew_id, project_id, work_date, install_start, install_end")
+      .gte("work_date", windowStartStr)
+      .not("crew_id", "is", null)
+      .not("install_start", "is", null)
+      .not("install_end", "is", null),
+    supabase
+      .from("blockers")
+      .select("project_id, crew_id, work_date")
+      .gte("work_date", windowStartStr)
+      .not("crew_id", "is", null),
+  ]);
   if (dayLogsError) throw dayLogsError;
   if (blockersError) throw blockersError;
 
@@ -75,28 +83,35 @@ export async function recomputeCrewRates(): Promise<RecomputeCrewRatesResult> {
     blockers.map((b) => `${b.crew_id}|${b.project_id}|${b.work_date}`)
   );
   const qualifyingLogs = dayLogs.filter(
-    (log) => !blockedKeys.has(`${log.crew_id}|${log.project_id}|${log.work_date}`)
+    (log) =>
+      !blockedKeys.has(`${log.crew_id}|${log.project_id}|${log.work_date}`)
   );
   if (qualifyingLogs.length === 0) {
     // Still run the per-SKU flywheel — installs may exist on days whose
     // day_log lacked start/end times in the window edge cases; it applies
     // its own qualifying rules.
     const skuFlywheelEarly = await runSkuFlywheel();
-    return { crewsUpdated: 0, taskKeysUpdated: 0, skuFlywheel: skuFlywheelEarly };
+    return {
+      crewsUpdated: 0,
+      taskKeysUpdated: 0,
+      skuFlywheel: skuFlywheelEarly,
+    };
   }
 
   const projectIds = [...new Set(qualifyingLogs.map((l) => l.project_id))];
   const workDates = [...new Set(qualifyingLogs.map((l) => l.work_date))];
 
-  const [{ data: rows, error: rowsError }, { data: installs, error: installsError }] =
-    await Promise.all([
-      supabase.from("rows").select("id, project_id").in("project_id", projectIds),
-      supabase
-        .from("installs")
-        .select("row_id, material_id, qty, crew_id, installed_on")
-        .in("installed_on", workDates)
-        .not("crew_id", "is", null),
-    ]);
+  const [
+    { data: rows, error: rowsError },
+    { data: installs, error: installsError },
+  ] = await Promise.all([
+    supabase.from("rows").select("id, project_id").in("project_id", projectIds),
+    supabase
+      .from("installs")
+      .select("row_id, material_id, qty, crew_id, installed_on")
+      .in("installed_on", workDates)
+      .not("crew_id", "is", null),
+  ]);
   if (rowsError) throw rowsError;
   if (installsError) throw installsError;
 
@@ -104,8 +119,14 @@ export async function recomputeCrewRates(): Promise<RecomputeCrewRatesResult> {
   const materialIds = [...new Set(installs.map((i) => i.material_id))];
   const { data: materials, error: materialsError } =
     materialIds.length > 0
-      ? await supabase.from("materials").select("id, task_key, labor_units").in("id", materialIds)
-      : { data: [] as { id: string; task_key: string; labor_units: number }[], error: null };
+      ? await supabase
+          .from("materials")
+          .select("id, task_key, labor_units")
+          .in("id", materialIds)
+      : {
+          data: [] as { id: string; task_key: string; labor_units: number }[],
+          error: null,
+        };
   if (materialsError) throw materialsError;
   const materialById = new Map(materials.map((m) => [m.id, m]));
 
@@ -125,7 +146,10 @@ export async function recomputeCrewRates(): Promise<RecomputeCrewRatesResult> {
     laborByDayKey.set(dayKey, perTask);
   }
 
-  const perCrew = new Map<string, Map<string, { laborUnits: number; hours: number; days: number }>>();
+  const perCrew = new Map<
+    string,
+    Map<string, { laborUnits: number; hours: number; days: number }>
+  >();
   for (const log of qualifyingLogs) {
     const dayKey = `${log.crew_id}|${log.project_id}|${log.work_date}`;
     const perTask = laborByDayKey.get(dayKey);
@@ -133,14 +157,19 @@ export async function recomputeCrewRates(): Promise<RecomputeCrewRatesResult> {
     const totalLaborUnits = [...perTask.values()].reduce((a, b) => a + b, 0);
     if (totalLaborUnits <= 0) continue;
     const hoursThatDay =
-      (new Date(log.install_end!).getTime() - new Date(log.install_start!).getTime()) /
+      (new Date(log.install_end!).getTime() -
+        new Date(log.install_start!).getTime()) /
       3_600_000;
     if (hoursThatDay <= 0) continue;
 
     const crewMap = perCrew.get(log.crew_id!) ?? new Map();
     for (const [taskKey, laborUnits] of perTask) {
       const allocatedHours = hoursThatDay * (laborUnits / totalLaborUnits);
-      const entry = crewMap.get(taskKey) ?? { laborUnits: 0, hours: 0, days: 0 };
+      const entry = crewMap.get(taskKey) ?? {
+        laborUnits: 0,
+        hours: 0,
+        days: 0,
+      };
       entry.laborUnits += laborUnits;
       entry.hours += allocatedHours;
       entry.days += 1;
@@ -179,13 +208,19 @@ export async function recomputeCrewRates(): Promise<RecomputeCrewRatesResult> {
   revalidatePath("/app/estimate");
   revalidatePath("/scheduler/calendar");
   const skuFlywheel = await runSkuFlywheel();
-  return { crewsUpdated: perCrew.size, taskKeysUpdated: taskKeysSeen.size, skuFlywheel };
+  return {
+    crewsUpdated: perCrew.size,
+    taskKeysUpdated: taskKeysSeen.size,
+    skuFlywheel,
+  };
 
   // One button, both learners: the task-key tier (above, legacy) and the
   // Phase 15 per-SKU tier. The flywheel guards its own table existence.
 }
 
-async function runSkuFlywheel(): Promise<RecomputeCrewRatesResult["skuFlywheel"]> {
+async function runSkuFlywheel(): Promise<
+  RecomputeCrewRatesResult["skuFlywheel"]
+> {
   const result = await recomputeCrewSkuRates();
   return result.available
     ? { crewsUpdated: result.crewsUpdated, skusUpdated: result.skusUpdated }

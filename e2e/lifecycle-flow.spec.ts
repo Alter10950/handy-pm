@@ -35,7 +35,9 @@ test("stage-gate lifecycle: 8-stage stepper, checklist, complete a stage, overri
       "Punch",
       "Closeout",
     ]) {
-      await expect(page.getByRole("button", { name: label, exact: true })).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: label, exact: true })
+      ).toBeVisible();
     }
 
     const { data: stages } = await admin
@@ -43,7 +45,9 @@ test("stage-gate lifecycle: 8-stage stepper, checklist, complete a stage, overri
       .select("stage_key, status")
       .eq("project_id", projectId!);
     expect(stages).toHaveLength(8);
-    expect(stages?.find((s) => s.stage_key === "handoff")?.status).toBe("active");
+    expect(stages?.find((s) => s.stage_key === "handoff")?.status).toBe(
+      "active"
+    );
     expect(stages?.find((s) => s.stage_key === "scope")?.status).toBe("locked");
 
     const { data: items } = await admin
@@ -66,7 +70,9 @@ test("stage-gate lifecycle: 8-stage stepper, checklist, complete a stage, overri
     // through the panel's own testid rather than an unscoped getByText.
     const whatsNext = page.getByTestId("whats-next-panel");
     await expect(whatsNext).toBeVisible();
-    await expect(whatsNext.getByText("Site survey completed with photos")).toBeVisible();
+    await expect(
+      whatsNext.getByText("Site survey completed with photos")
+    ).toBeVisible();
   });
 
   await test.step("check off one item, confirm it persists", async () => {
@@ -95,7 +101,9 @@ test("stage-gate lifecycle: 8-stage stepper, checklist, complete a stage, overri
   });
 
   await test.step("Complete stage is blocked while items remain open", async () => {
-    await expect(page.getByRole("button", { name: "Complete stage" })).toBeDisabled();
+    await expect(
+      page.getByRole("button", { name: "Complete stage" })
+    ).toBeDisabled();
   });
 
   await test.step("override the Handoff gate with a reason — advances to Scope", async () => {
@@ -145,7 +153,9 @@ test("stage-gate lifecycle: 8-stage stepper, checklist, complete a stage, overri
     await page.reload();
     await page.getByRole("button", { name: "Scope", exact: true }).click();
     const checklist = page.getByTestId("gate-checklist");
-    await expect(checklist.getByText("Drawing approved for install")).toBeVisible();
+    await expect(
+      checklist.getByText("Drawing approved for install")
+    ).toBeVisible();
   });
 
   await test.step("Handoff's own checklist shows the override reason", async () => {

@@ -99,25 +99,38 @@ export function AutopsyPanel({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ projectId }),
       });
-      const data = (await response.json()) as { narrative?: string; error?: string };
-      if (!response.ok) throw new Error(data.error ?? "Could not draft the narrative.");
+      const data = (await response.json()) as {
+        narrative?: string;
+        error?: string;
+      };
+      if (!response.ok)
+        throw new Error(data.error ?? "Could not draft the narrative.");
       // Lands in the editable textarea only — review, edit, then Save.
       setNarrative(data.narrative ?? "");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not draft the narrative.");
+      setError(
+        err instanceof Error ? err.message : "Could not draft the narrative."
+      );
     } finally {
       setDrafting(false);
     }
   }
 
-  const materialVariance = autopsy ? parseMaterialVariance(autopsy.material_variance) : [];
-  const blockerBreakdown = autopsy ? parseBlockerBreakdown(autopsy.blocker_breakdown) : {};
+  const materialVariance = autopsy
+    ? parseMaterialVariance(autopsy.material_variance)
+    : [];
+  const blockerBreakdown = autopsy
+    ? parseBlockerBreakdown(autopsy.blocker_breakdown)
+    : {};
   const mismatchedMaterials = materialVariance.filter(
     (m) => m.installed !== m.needed || m.received !== m.needed
   );
 
   return (
-    <div data-testid="autopsy-panel" className="rounded-lg border border-border bg-card shadow-e1 p-5">
+    <div
+      data-testid="autopsy-panel"
+      className="rounded-lg border border-border bg-card shadow-e1 p-5"
+    >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
           Closeout autopsy
@@ -130,7 +143,10 @@ export function AutopsyPanel({
               variant={autopsy ? "outline" : "default"}
               disabled={isPending}
               onClick={() =>
-                run(() => generateAutopsy(projectId), "Autopsy generated from actuals.")
+                run(
+                  () => generateAutopsy(projectId),
+                  "Autopsy generated from actuals."
+                )
               }
             >
               {isPending
@@ -146,7 +162,10 @@ export function AutopsyPanel({
                 variant="outline"
                 disabled={isPending}
                 onClick={() =>
-                  run(() => emailAutopsyToOwners(projectId), "Emailed to owners.")
+                  run(
+                    () => emailAutopsyToOwners(projectId),
+                    "Emailed to owners."
+                  )
                 }
               >
                 Email to owners
@@ -169,7 +188,9 @@ export function AutopsyPanel({
               <thead>
                 <tr className="text-left text-xs uppercase tracking-wide text-muted-foreground">
                   <th className="pb-2 pr-3 font-medium">Dimension</th>
-                  <th className="px-3 pb-2 text-right font-medium">Estimated</th>
+                  <th className="px-3 pb-2 text-right font-medium">
+                    Estimated
+                  </th>
                   <th className="px-3 pb-2 text-right font-medium">Actual</th>
                   <th className="pb-2 pl-3 text-right font-medium">Verdict</th>
                 </tr>
@@ -209,7 +230,9 @@ export function AutopsyPanel({
               </p>
             </div>
             <div className="rounded-md border border-border p-3">
-              <p className="text-xs text-muted-foreground">Blocker-affected days</p>
+              <p className="text-xs text-muted-foreground">
+                Blocker-affected days
+              </p>
               <p className="text-lg font-bold tabular-nums text-foreground">
                 {autopsy.blocker_days}
               </p>
@@ -223,7 +246,9 @@ export function AutopsyPanel({
               ) : null}
             </div>
             <div className="rounded-md border border-border p-3">
-              <p className="text-xs text-muted-foreground">Materials off-plan</p>
+              <p className="text-xs text-muted-foreground">
+                Materials off-plan
+              </p>
               <p className="text-lg font-bold tabular-nums text-foreground">
                 {mismatchedMaterials.length}
                 <span className="ml-1 text-xs font-normal text-muted-foreground">
@@ -231,8 +256,12 @@ export function AutopsyPanel({
                 </span>
               </p>
               {mismatchedMaterials.slice(0, 3).map((m) => (
-                <p key={m.name} className="mt-0.5 truncate text-xs text-muted-foreground">
-                  {m.name}: {m.installed}/{m.needed} installed, {m.received} received
+                <p
+                  key={m.name}
+                  className="mt-0.5 truncate text-xs text-muted-foreground"
+                >
+                  {m.name}: {m.installed}/{m.needed} installed, {m.received}{" "}
+                  received
                 </p>
               ))}
             </div>
@@ -270,7 +299,10 @@ export function AutopsyPanel({
                 size="sm"
                 disabled={isPending || drafting}
                 onClick={() =>
-                  run(() => saveAutopsyNarrative(projectId, narrative), "Narrative saved.")
+                  run(
+                    () => saveAutopsyNarrative(projectId, narrative),
+                    "Narrative saved."
+                  )
                 }
                 className="self-start"
               >

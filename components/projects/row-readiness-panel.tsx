@@ -47,7 +47,8 @@ export function RowReadinessPanel({
         <h3 className="text-sm font-semibold text-foreground">Readiness</h3>
         <span
           className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
-            READINESS_TIER_CLASS[readinessStatus] ?? "bg-muted text-muted-foreground"
+            READINESS_TIER_CLASS[readinessStatus] ??
+            "bg-muted text-muted-foreground"
           }`}
         >
           {readinessStatus}
@@ -95,8 +96,8 @@ export function RowReadinessPanel({
       </label>
 
       <p className="text-xs text-muted-foreground">
-        A crew must also be assigned (from the Scheduler) for this row to
-        show as fully ready.
+        A crew must also be assigned (from the Scheduler) for this row to show
+        as fully ready.
       </p>
 
       <Button

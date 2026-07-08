@@ -132,9 +132,12 @@ export async function updateRowReadiness(
     area_accessible?: boolean;
     drawing_approved?: boolean;
   } = {};
-  if (inputs.materialsReady !== undefined) patch.materials_ready = inputs.materialsReady;
-  if (inputs.areaAccessible !== undefined) patch.area_accessible = inputs.areaAccessible;
-  if (inputs.drawingApproved !== undefined) patch.drawing_approved = inputs.drawingApproved;
+  if (inputs.materialsReady !== undefined)
+    patch.materials_ready = inputs.materialsReady;
+  if (inputs.areaAccessible !== undefined)
+    patch.area_accessible = inputs.areaAccessible;
+  if (inputs.drawingApproved !== undefined)
+    patch.drawing_approved = inputs.drawingApproved;
   if (Object.keys(patch).length === 0) return;
 
   const { error } = await supabase.from("rows").update(patch).eq("id", rowId);

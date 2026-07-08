@@ -28,7 +28,11 @@ export default async function ProjectProgressPage({
     data: { user },
   } = await supabase.auth.getUser();
   const { data: profile } = user
-    ? await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle()
+    ? await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .maybeSingle()
     : { data: null };
   const canManage = profile?.role === "owner" || profile?.role === "pm";
   // project_autopsies RLS is owner/pm-only — don't even query for other

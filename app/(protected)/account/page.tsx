@@ -34,9 +34,7 @@ export default async function AccountPage() {
       />
 
       <div className="flex flex-col gap-3">
-        <h2 className="text-lg font-semibold text-foreground">
-          Display name
-        </h2>
+        <h2 className="text-lg font-semibold text-foreground">Display name</h2>
         <UpdateNameForm initialName={profile?.full_name ?? ""} />
       </div>
 

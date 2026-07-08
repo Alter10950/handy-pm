@@ -54,8 +54,11 @@ async function parseExcel(buffer: ArrayBuffer): Promise<SpreadsheetTable> {
   return { headers: headerRow.map((h) => h.trim()), rows: dataRows };
 }
 
-export async function parseSpreadsheetFile(file: File): Promise<SpreadsheetTable> {
-  const isCsv = file.name.toLowerCase().endsWith(".csv") || file.type === "text/csv";
+export async function parseSpreadsheetFile(
+  file: File
+): Promise<SpreadsheetTable> {
+  const isCsv =
+    file.name.toLowerCase().endsWith(".csv") || file.type === "text/csv";
   if (isCsv) return parseCsv(await file.text());
   return parseExcel(await file.arrayBuffer());
 }
@@ -63,7 +66,10 @@ export async function parseSpreadsheetFile(file: File): Promise<SpreadsheetTable
 // First exact case-insensitive header match against the synonym list, then
 // a substring fallback — lets "Qty", "quantity", and "Total Needed (ea)" all
 // resolve to the same target field without a full fuzzy-matching library.
-export function guessColumnIndex(headers: string[], synonyms: string[]): number {
+export function guessColumnIndex(
+  headers: string[],
+  synonyms: string[]
+): number {
   const normalized = headers.map((h) => h.trim().toLowerCase());
   for (const synonym of synonyms) {
     const exact = normalized.indexOf(synonym);

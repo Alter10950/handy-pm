@@ -161,9 +161,12 @@
 
   /* Elevation — soft, low-spread shadows are the depth source on light */
   --elevation-1: 0 1px 2px rgba(26, 26, 24, 0.05);
-  --elevation-2: 0 1px 2px rgba(26, 26, 24, 0.04), 0 2px 8px rgba(26, 26, 24, 0.06);
-  --elevation-3: 0 2px 4px rgba(26, 26, 24, 0.05), 0 8px 24px rgba(26, 26, 24, 0.1);
-  --elevation-4: 0 4px 8px rgba(26, 26, 24, 0.06), 0 16px 48px rgba(26, 26, 24, 0.16);
+  --elevation-2:
+    0 1px 2px rgba(26, 26, 24, 0.04), 0 2px 8px rgba(26, 26, 24, 0.06);
+  --elevation-3:
+    0 2px 4px rgba(26, 26, 24, 0.05), 0 8px 24px rgba(26, 26, 24, 0.1);
+  --elevation-4:
+    0 4px 8px rgba(26, 26, 24, 0.06), 0 16px 48px rgba(26, 26, 24, 0.16);
 
   /* Motion */
   --duration-fast: 120ms;
@@ -234,7 +237,7 @@
 
   --chart-1: #7c9ef5;
   --chart-2: #4ade80;
-  --chart-3: #fbA53b;
+  --chart-3: #fba53b;
   --chart-4: #c084fc;
   --chart-5: #2dd4bf;
   --chart-6: #f472b6;

@@ -1,9 +1,14 @@
 import { createClient } from "@/lib/supabase/server";
-import type { ChangeOrderItemRow, ChangeOrderRow } from "@/lib/change-orders/shared";
+import type {
+  ChangeOrderItemRow,
+  ChangeOrderRow,
+} from "@/lib/change-orders/shared";
 
 export * from "@/lib/change-orders/shared";
 
-export async function listChangeOrders(projectId: string): Promise<ChangeOrderRow[]> {
+export async function listChangeOrders(
+  projectId: string
+): Promise<ChangeOrderRow[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("change_orders")
@@ -14,9 +19,10 @@ export async function listChangeOrders(projectId: string): Promise<ChangeOrderRo
   return data;
 }
 
-export async function getChangeOrder(
-  changeOrderId: string
-): Promise<{ changeOrder: ChangeOrderRow; items: ChangeOrderItemRow[] } | null> {
+export async function getChangeOrder(changeOrderId: string): Promise<{
+  changeOrder: ChangeOrderRow;
+  items: ChangeOrderItemRow[];
+} | null> {
   const supabase = await createClient();
   const { data: changeOrder, error } = await supabase
     .from("change_orders")

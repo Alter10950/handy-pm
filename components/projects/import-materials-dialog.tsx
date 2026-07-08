@@ -35,28 +35,93 @@ interface FieldConfig {
 }
 
 const MATERIAL_FIELDS: FieldConfig[] = [
-  { key: "name", label: "Name", required: true, synonyms: ["name", "part", "material", "description", "item", "product"] },
-  { key: "totalNeeded", label: "Total needed", required: true, synonyms: ["qty", "quantity", "needed", "total needed", "total_needed", "count"] },
-  { key: "unit", label: "Unit", required: false, synonyms: ["unit", "uom", "unit of measure"] },
-  { key: "taskKey", label: "Task", required: false, synonyms: ["task", "task_key", "category", "type"] },
-  { key: "size", label: "Size", required: false, synonyms: ["size", "dimension", "length", "height"] },
+  {
+    key: "name",
+    label: "Name",
+    required: true,
+    synonyms: ["name", "part", "material", "description", "item", "product"],
+  },
+  {
+    key: "totalNeeded",
+    label: "Total needed",
+    required: true,
+    synonyms: [
+      "qty",
+      "quantity",
+      "needed",
+      "total needed",
+      "total_needed",
+      "count",
+    ],
+  },
+  {
+    key: "unit",
+    label: "Unit",
+    required: false,
+    synonyms: ["unit", "uom", "unit of measure"],
+  },
+  {
+    key: "taskKey",
+    label: "Task",
+    required: false,
+    synonyms: ["task", "task_key", "category", "type"],
+  },
+  {
+    key: "size",
+    label: "Size",
+    required: false,
+    synonyms: ["size", "dimension", "length", "height"],
+  },
   { key: "profile", label: "Profile", required: false, synonyms: ["profile"] },
-  { key: "capacity", label: "Capacity", required: false, synonyms: ["capacity", "rating", "load", "load capacity"] },
-  { key: "condition", label: "Condition", required: false, synonyms: ["condition", "cond"] },
-  { key: "compatibleSystem", label: "System", required: false, synonyms: ["system", "compatible system", "compatible_system", "brand"] },
+  {
+    key: "capacity",
+    label: "Capacity",
+    required: false,
+    synonyms: ["capacity", "rating", "load", "load capacity"],
+  },
+  {
+    key: "condition",
+    label: "Condition",
+    required: false,
+    synonyms: ["condition", "cond"],
+  },
+  {
+    key: "compatibleSystem",
+    label: "System",
+    required: false,
+    synonyms: ["system", "compatible system", "compatible_system", "brand"],
+  },
 ];
 
 const ASSIGNMENT_FIELDS: FieldConfig[] = [
-  { key: "rowLabel", label: "Row", required: true, synonyms: ["row", "row label", "row name", "location"] },
-  { key: "materialName", label: "Material", required: true, synonyms: ["material", "part", "name", "item"] },
-  { key: "qty", label: "Qty", required: true, synonyms: ["qty", "quantity", "required", "required qty"] },
+  {
+    key: "rowLabel",
+    label: "Row",
+    required: true,
+    synonyms: ["row", "row label", "row name", "location"],
+  },
+  {
+    key: "materialName",
+    label: "Material",
+    required: true,
+    synonyms: ["material", "part", "name", "item"],
+  },
+  {
+    key: "qty",
+    label: "Qty",
+    required: true,
+    synonyms: ["qty", "quantity", "required", "required qty"],
+  },
 ];
 
 function fieldsForMode(mode: ImportMode): FieldConfig[] {
   return mode === "materials" ? MATERIAL_FIELDS : ASSIGNMENT_FIELDS;
 }
 
-function guessMapping(headers: string[], mode: ImportMode): Record<string, number> {
+function guessMapping(
+  headers: string[],
+  mode: ImportMode
+): Record<string, number> {
   const mapping: Record<string, number> = {};
   for (const field of fieldsForMode(mode)) {
     mapping[field.key] = guessColumnIndex(headers, field.synonyms);
@@ -133,7 +198,9 @@ export function ImportMaterialsDialog({
       setStatus("review");
     } catch (err) {
       setStatus("error");
-      setError(err instanceof Error ? err.message : "Could not read that file.");
+      setError(
+        err instanceof Error ? err.message : "Could not read that file."
+      );
     }
   }
 
@@ -172,7 +239,9 @@ export function ImportMaterialsDialog({
       });
     }
 
-    const rowByLabel = new Map(rows.map((r) => [r.label.trim().toLowerCase(), r.id]));
+    const rowByLabel = new Map(
+      rows.map((r) => [r.label.trim().toLowerCase(), r.id])
+    );
     const materialByName = new Map(
       materials.map((m) => [m.name.trim().toLowerCase(), m.id])
     );
@@ -181,7 +250,8 @@ export function ImportMaterialsDialog({
       const materialNameRaw = cellAt(row, mapping.materialName);
       const qtyRaw = cellAt(row, mapping.qty);
       const qty = qtyRaw ? Number(qtyRaw) : NaN;
-      const resolvedRowId = rowByLabel.get(rowLabelRaw.trim().toLowerCase()) ?? null;
+      const resolvedRowId =
+        rowByLabel.get(rowLabelRaw.trim().toLowerCase()) ?? null;
       const resolvedMaterialId =
         materialByName.get(materialNameRaw.trim().toLowerCase()) ?? null;
 
@@ -354,8 +424,8 @@ export function ImportMaterialsDialog({
           <div className="flex flex-col gap-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-xs text-muted-foreground">
-                {table.rows.length} row{table.rows.length === 1 ? "" : "s"} found
-                in the file.
+                {table.rows.length} row{table.rows.length === 1 ? "" : "s"}{" "}
+                found in the file.
               </p>
               <Button
                 type="button"
@@ -370,7 +440,10 @@ export function ImportMaterialsDialog({
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
               {fields.map((field) => (
                 <div key={field.key} className="flex flex-col gap-1">
-                  <Label htmlFor={`import-map-${field.key}`} className="text-xs">
+                  <Label
+                    htmlFor={`import-map-${field.key}`}
+                    className="text-xs"
+                  >
                     {field.label}
                     {field.required ? " *" : ""}
                   </Label>
@@ -460,7 +533,8 @@ export function ImportMaterialsDialog({
                             {(row as AssignmentPreviewRow).rowLabelRaw || "—"}
                           </td>
                           <td className="border-b border-border p-1.5 text-foreground">
-                            {(row as AssignmentPreviewRow).materialNameRaw || "—"}
+                            {(row as AssignmentPreviewRow).materialNameRaw ||
+                              "—"}
                           </td>
                           <td className="border-b border-border p-1.5 text-right tabular-nums text-foreground">
                             {(row as AssignmentPreviewRow).qty}
@@ -481,8 +555,8 @@ export function ImportMaterialsDialog({
               {preview.length > PREVIEW_LIMIT ? (
                 <p className="border-t border-border p-2 text-xs text-muted-foreground">
                   +{preview.length - PREVIEW_LIMIT} more row
-                  {preview.length - PREVIEW_LIMIT === 1 ? "" : "s"} not shown, but
-                  will be imported too.
+                  {preview.length - PREVIEW_LIMIT === 1 ? "" : "s"} not shown,
+                  but will be imported too.
                 </p>
               ) : null}
             </div>
@@ -497,7 +571,9 @@ export function ImportMaterialsDialog({
                   <input
                     type="checkbox"
                     checked={replaceExisting}
-                    onChange={(event) => setReplaceExisting(event.target.checked)}
+                    onChange={(event) =>
+                      setReplaceExisting(event.target.checked)
+                    }
                     className="size-4 rounded border-border"
                   />
                   Replace the current list

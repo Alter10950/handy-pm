@@ -36,9 +36,14 @@ export async function recomputeCrewSkuRates(): Promise<FlywheelResult> {
     data: { user },
   } = await supabase.auth.getUser();
   const { data: profile } = user
-    ? await supabase.from("profiles").select("org_id").eq("id", user.id).maybeSingle()
+    ? await supabase
+        .from("profiles")
+        .select("org_id")
+        .eq("id", user.id)
+        .maybeSingle()
     : { data: null };
-  if (!profile?.org_id) return { available: false, crewsUpdated: 0, skusUpdated: 0 };
+  if (!profile?.org_id)
+    return { available: false, crewsUpdated: 0, skusUpdated: 0 };
 
   const windowStart = new Date();
   windowStart.setDate(windowStart.getDate() - ROLLING_WINDOW_DAYS);
@@ -70,7 +75,8 @@ export async function recomputeCrewSkuRates(): Promise<FlywheelResult> {
     blockers.map((b) => `${b.crew_id}|${b.project_id}|${b.work_date}`)
   );
   const qualifyingLogs = dayLogs.filter(
-    (log) => !blockedKeys.has(`${log.crew_id}|${log.project_id}|${log.work_date}`)
+    (log) =>
+      !blockedKeys.has(`${log.crew_id}|${log.project_id}|${log.work_date}`)
   );
   if (qualifyingLogs.length === 0) {
     return { available: true, crewsUpdated: 0, skusUpdated: 0 };
@@ -79,15 +85,17 @@ export async function recomputeCrewSkuRates(): Promise<FlywheelResult> {
   const projectIds = [...new Set(qualifyingLogs.map((l) => l.project_id))];
   const workDates = [...new Set(qualifyingLogs.map((l) => l.work_date))];
 
-  const [{ data: rows, error: rowsError }, { data: installs, error: installsError }] =
-    await Promise.all([
-      supabase.from("rows").select("id, project_id").in("project_id", projectIds),
-      supabase
-        .from("installs")
-        .select("row_id, material_id, qty, crew_id, installed_on")
-        .in("installed_on", workDates)
-        .not("crew_id", "is", null),
-    ]);
+  const [
+    { data: rows, error: rowsError },
+    { data: installs, error: installsError },
+  ] = await Promise.all([
+    supabase.from("rows").select("id, project_id").in("project_id", projectIds),
+    supabase
+      .from("installs")
+      .select("row_id, material_id, qty, crew_id, installed_on")
+      .in("installed_on", workDates)
+      .not("crew_id", "is", null),
+  ]);
   if (rowsError) throw rowsError;
   if (installsError) throw installsError;
 
@@ -132,15 +140,22 @@ export async function recomputeCrewSkuRates(): Promise<FlywheelResult> {
   }
 
   // Accumulate attributed hours + qty per (crew, sku).
-  const perCrewSku = new Map<string, { hours: number; qty: number; days: number }>();
+  const perCrewSku = new Map<
+    string,
+    { hours: number; qty: number; days: number }
+  >();
   for (const log of qualifyingLogs) {
     const dayKey = `${log.crew_id}|${log.project_id}|${log.work_date}`;
     const perSku = byDayKey.get(dayKey);
     if (!perSku) continue;
-    const dayStdHours = [...perSku.values()].reduce((sum, e) => sum + e.stdHours, 0);
+    const dayStdHours = [...perSku.values()].reduce(
+      (sum, e) => sum + e.stdHours,
+      0
+    );
     if (dayStdHours <= 0) continue;
     const hoursThatDay =
-      (new Date(log.install_end!).getTime() - new Date(log.install_start!).getTime()) /
+      (new Date(log.install_end!).getTime() -
+        new Date(log.install_start!).getTime()) /
       3_600_000;
     if (hoursThatDay <= 0) continue;
 

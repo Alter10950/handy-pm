@@ -55,7 +55,11 @@ test("scope of work: add a project-level item, labor suggested, log partial then
           .maybeSingle();
         return data;
       })
-      .toEqual({ id: expect.any(String), labor_units: 0.6, work_type: "teardown" });
+      .toEqual({
+        id: expect.any(String),
+        labor_units: 0.6,
+        work_type: "teardown",
+      });
   });
 
   await test.step("estimator counts the scope item's hours as a new work-type bucket", async () => {
@@ -65,9 +69,7 @@ test("scope of work: add a project-level item, labor suggested, log partial then
     // the integration; the exact number is already verified against the
     // DB directly above (labor_units: 0.6). Phase 13's panel renders
     // scope work as the "Other scope work" list under the SKU table.
-    const scopeEntry = page
-      .locator("li")
-      .filter({ hasText: "teardown" });
+    const scopeEntry = page.locator("li").filter({ hasText: "teardown" });
     await expect(scopeEntry).toBeVisible();
     await expect(scopeEntry).toContainText("0.6");
   });
@@ -87,7 +89,9 @@ test("scope of work: add a project-level item, labor suggested, log partial then
       hasText: SCOPE_DESCRIPTION,
     });
     await item.getByRole("button", { name: "Log progress" }).click();
-    await item.getByPlaceholder("Note (optional)…").fill("Half the run is down");
+    await item
+      .getByPlaceholder("Note (optional)…")
+      .fill("Half the run is down");
     await item.getByRole("button", { name: "Mark partial" }).click();
 
     await expect(item.getByText("Partial", { exact: true })).toBeVisible();

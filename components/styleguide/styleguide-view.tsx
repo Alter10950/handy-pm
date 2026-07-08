@@ -71,7 +71,11 @@ const SEMANTIC_TOKENS = [
   "--info-subtle",
   "--info-fg",
 ] as const;
-const BORDER_TOKENS = ["--border-subtle", "--border", "--border-strong"] as const;
+const BORDER_TOKENS = [
+  "--border-subtle",
+  "--border",
+  "--border-strong",
+] as const;
 const CHART_TOKENS = [
   "--chart-1",
   "--chart-2",
@@ -94,7 +98,10 @@ const TYPE_SCALE = [
   { cls: "type-body", label: "body · 14/22 · 400" },
   { cls: "type-body-sm", label: "body-sm · 13/20 · 400" },
   { cls: "type-caption", label: "caption · 12/17 · 400" },
-  { cls: "type-overline", label: "overline · 11/16 · +0.08em · 600 · uppercase" },
+  {
+    cls: "type-overline",
+    label: "overline · 11/16 · +0.08em · 600 · uppercase",
+  },
 ] as const;
 
 const SPACING = [2, 4, 6, 8, 12, 16, 20, 24, 32, 40, 48, 64];
@@ -139,11 +146,18 @@ function useResolvedTokens(tokens: readonly string[]): Record<string, string> {
   if (!hydrated) return {};
   const style = getComputedStyle(document.documentElement);
   const values: Record<string, string> = {};
-  for (const token of tokens) values[token] = style.getPropertyValue(token).trim();
+  for (const token of tokens)
+    values[token] = style.getPropertyValue(token).trim();
   return values;
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
     <section className="flex flex-col gap-4">
       <h2 className="type-h2 text-foreground">{title}</h2>
@@ -196,8 +210,8 @@ export function StyleguideView() {
           <p className="type-overline text-muted-foreground">Design system</p>
           <h1 className="type-display text-foreground">Style guide</h1>
           <p className="type-body mt-1 text-text-secondary">
-            The living source of truth — tokens, type, and every primitive
-            with its states. Light is the default theme; try the toggle.
+            The living source of truth — tokens, type, and every primitive with
+            its states. Light is the default theme; try the toggle.
           </p>
         </div>
         <ThemeToggle />
@@ -209,7 +223,12 @@ export function StyleguideView() {
             <Swatch key={t} token={t} value={all[t] ?? ""} against={ink} />
           ))}
           {TEXT_TOKENS.map((t) => (
-            <Swatch key={t} token={t} value={all[t] ?? ""} against={all["--surface"]} />
+            <Swatch
+              key={t}
+              token={t}
+              value={all[t] ?? ""}
+              against={all["--surface"]}
+            />
           ))}
         </div>
       </Section>
@@ -221,21 +240,26 @@ export function StyleguideView() {
           ))}
         </div>
         <p className="type-body-sm text-muted-foreground">
-          Reserved for: the one primary action per screen, the brand mark,
-          focus rings, progress fills, and small active indicators. Text on
-          yellow is always dark ink (#171717), never white.
+          Reserved for: the one primary action per screen, the brand mark, focus
+          rings, progress fills, and small active indicators. Text on yellow is
+          always dark ink (#171717), never white.
         </p>
       </Section>
 
       <Section title="Semantic">
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {SEMANTIC_TOKENS.map((t) => (
-            <Swatch key={t} token={t} value={all[t] ?? ""} against={all["--surface"]} />
+            <Swatch
+              key={t}
+              token={t}
+              value={all[t] ?? ""}
+              against={all["--surface"]}
+            />
           ))}
         </div>
         <p className="type-body-sm text-muted-foreground">
-          Warning is hue-shifted orange so it never reads as brand yellow.
-          Each hue ships a -subtle background and an -fg text variant.
+          Warning is hue-shifted orange so it never reads as brand yellow. Each
+          hue ships a -subtle background and an -fg text variant.
         </p>
       </Section>
 
@@ -263,7 +287,10 @@ export function StyleguideView() {
       <Section title="Type scale">
         <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-5 shadow-e2">
           {TYPE_SCALE.map((t) => (
-            <div key={t.cls} className="flex flex-wrap items-baseline gap-x-4 gap-y-0.5">
+            <div
+              key={t.cls}
+              className="flex flex-wrap items-baseline gap-x-4 gap-y-0.5"
+            >
               <span className={`${t.cls} text-foreground`}>
                 Racking installed right
               </span>
@@ -299,7 +326,10 @@ export function StyleguideView() {
                   <span className="num w-8 text-right font-mono text-[11px] text-muted-foreground">
                     {s}
                   </span>
-                  <div className="h-3 rounded-sm bg-brand" style={{ width: s }} />
+                  <div
+                    className="h-3 rounded-sm bg-brand"
+                    style={{ width: s }}
+                  />
                 </div>
               ))}
             </div>
@@ -309,7 +339,10 @@ export function StyleguideView() {
               <p className="type-overline mb-3 text-muted-foreground">Radius</p>
               <div className="flex flex-wrap items-end gap-3">
                 {RADII.map((r) => (
-                  <div key={r.name} className="flex flex-col items-center gap-1">
+                  <div
+                    key={r.name}
+                    className="flex flex-col items-center gap-1"
+                  >
                     <div
                       className="size-14 border border-border-strong bg-surface-sunken"
                       style={{ borderRadius: r.px }}
@@ -335,7 +368,9 @@ export function StyleguideView() {
                   </div>
                 ))}
               </div>
-              <p className="type-overline mb-2 mt-5 text-muted-foreground">Motion</p>
+              <p className="type-overline mb-2 mt-5 text-muted-foreground">
+                Motion
+              </p>
               <div className="flex items-center gap-3">
                 {(["fast", "base", "slow"] as const).map((speed) => (
                   <div

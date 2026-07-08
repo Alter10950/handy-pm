@@ -82,7 +82,9 @@ function PhotoCard({
             type="button"
             size="sm"
             disabled={isPending}
-            onClick={() => onApprove(photo.storagePath, photo.source, caption, phase)}
+            onClick={() =>
+              onApprove(photo.storagePath, photo.source, caption, phase)
+            }
           >
             Show to customer
           </Button>
@@ -112,10 +114,18 @@ export function PhotoApprovalPanel({
     setError(null);
     startTransition(async () => {
       try {
-        await approvePhoto(projectId, storagePath, source, caption || null, phase);
+        await approvePhoto(
+          projectId,
+          storagePath,
+          source,
+          caption || null,
+          phase
+        );
         router.refresh();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Could not approve photo.");
+        setError(
+          err instanceof Error ? err.message : "Could not approve photo."
+        );
       }
     });
   }
@@ -127,7 +137,9 @@ export function PhotoApprovalPanel({
         await unapprovePhoto(photoId, projectId);
         router.refresh();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Could not remove photo.");
+        setError(
+          err instanceof Error ? err.message : "Could not remove photo."
+        );
       }
     });
   }
@@ -138,8 +150,8 @@ export function PhotoApprovalPanel({
         Photos ({candidates.length})
       </h2>
       <p className="text-xs text-muted-foreground">
-        Day-log and blocker photos from this project. Nothing is customer-visible
-        until you explicitly show it here.
+        Day-log and blocker photos from this project. Nothing is
+        customer-visible until you explicitly show it here.
       </p>
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       {candidates.length === 0 ? (

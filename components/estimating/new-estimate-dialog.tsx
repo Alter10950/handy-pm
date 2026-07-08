@@ -20,7 +20,9 @@ export function NewEstimateDialog() {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button size="lg" />}>+ New estimate</DialogTrigger>
+      <DialogTrigger render={<Button size="lg" />}>
+        + New estimate
+      </DialogTrigger>
       <DialogContent>
         <form action={createEstimateProject} className="flex flex-col gap-4">
           <DialogHeader>
@@ -28,8 +30,8 @@ export function NewEstimateDialog() {
           </DialogHeader>
 
           <p className="text-sm text-muted-foreground">
-            Paste a future job&apos;s material list to see estimated days and
-            a daily plan before there&apos;s a signed customer or a drawing to
+            Paste a future job&apos;s material list to see estimated days and a
+            daily plan before there&apos;s a signed customer or a drawing to
             mark. Convert it to a real project later with one click.
           </p>
 

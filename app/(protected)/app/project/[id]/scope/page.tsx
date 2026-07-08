@@ -28,7 +28,11 @@ export default async function ScopePage({
     data: { user },
   } = await supabase.auth.getUser();
   const { data: profile } = user
-    ? await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle()
+    ? await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .maybeSingle()
     : { data: null };
   const canManage = profile?.role === "owner" || profile?.role === "pm";
 
@@ -45,9 +49,7 @@ export default async function ScopePage({
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h2 className="text-lg font-semibold text-foreground">
-          Scope of work
-        </h2>
+        <h2 className="text-lg font-semibold text-foreground">Scope of work</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Everything beyond install — teardown, level changes, relocation,
           repair — so it&apos;s captured, estimated, and tracked instead of

@@ -87,7 +87,9 @@ function ProjectTable({
             return (
               <tr
                 key={project.project_id}
-                onClick={() => router.push(`/app/project/${project.project_id}`)}
+                onClick={() =>
+                  router.push(`/app/project/${project.project_id}`)
+                }
                 className="cursor-pointer border-b border-border-subtle transition-colors last:border-0 hover:bg-accent/50"
               >
                 <td className="px-3 py-2.5">
@@ -104,7 +106,11 @@ function ProjectTable({
                 </td>
                 <td className="px-3 py-2.5">
                   <div className="flex items-center gap-2">
-                    <ProgressBar pct={pct} size="sm" className="w-20 shrink-0" />
+                    <ProgressBar
+                      pct={pct}
+                      size="sm"
+                      className="w-20 shrink-0"
+                    />
                     <span className="num text-xs text-muted-foreground">
                       {pct}%
                     </span>
@@ -152,7 +158,9 @@ function ProjectCards({
           key={project.project_id}
           project={project}
           pmLabel={
-            project.pm_user_id ? (pmLabelById[project.pm_user_id] ?? null) : null
+            project.pm_user_id
+              ? (pmLabelById[project.pm_user_id] ?? null)
+              : null
           }
         />
       ))}
@@ -172,7 +180,11 @@ export function ProjectList({
   const [myProjectsOnly, setMyProjectsOnly] = useState(false);
   const [search, setSearch] = useState("");
   const [completedOpen, setCompletedOpen] = useState(false);
-  const view = useSyncExternalStore(subscribeToView, readStoredView, () => "cards");
+  const view = useSyncExternalStore(
+    subscribeToView,
+    readStoredView,
+    () => "cards"
+  );
 
   function switchView(next: ViewMode) {
     window.localStorage.setItem(VIEW_STORAGE_KEY, next);
@@ -248,7 +260,13 @@ export function ProjectList({
             )}
             style={{ transitionDuration: "var(--duration-fast)" }}
           >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" aria-hidden>
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 14 14"
+              fill="currentColor"
+              aria-hidden
+            >
               <rect x="0" y="0" width="6" height="6" rx="1" />
               <rect x="8" y="0" width="6" height="6" rx="1" />
               <rect x="0" y="8" width="6" height="6" rx="1" />
@@ -269,7 +287,13 @@ export function ProjectList({
             )}
             style={{ transitionDuration: "var(--duration-fast)" }}
           >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" aria-hidden>
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 14 14"
+              fill="currentColor"
+              aria-hidden
+            >
               <rect x="0" y="1" width="14" height="2.5" rx="1" />
               <rect x="0" y="5.75" width="14" height="2.5" rx="1" />
               <rect x="0" y="10.5" width="14" height="2.5" rx="1" />
@@ -296,7 +320,9 @@ export function ProjectList({
       ) : matches.length === 0 ? (
         <div data-testid="no-matches">
           <EmptyState
-            title={query ? "No projects match." : "No projects assigned to you."}
+            title={
+              query ? "No projects match." : "No projects assigned to you."
+            }
             action={
               query ? (
                 <button

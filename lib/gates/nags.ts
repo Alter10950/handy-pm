@@ -28,7 +28,10 @@ interface RecipientDigestEntry {
 }
 
 function escapeHtml(value: string): string {
-  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
 function renderDigestHtml(entries: RecipientDigestEntry[]): string {
@@ -89,14 +92,24 @@ export async function sendGateNags(): Promise<GateNagsResult> {
   const projectIds = projects.map((p) => p.id);
   const orgIds = [...new Set(projects.map((p) => p.org_id))];
 
-  const [{ data: orgs, error: orgsError }, { data: stages, error: stagesError }] =
-    await Promise.all([
-      admin.from("organizations").select("id, stalled_after_days").in("id", orgIds),
-      admin.from("project_stages").select("id, project_id").in("project_id", projectIds),
-    ]);
+  const [
+    { data: orgs, error: orgsError },
+    { data: stages, error: stagesError },
+  ] = await Promise.all([
+    admin
+      .from("organizations")
+      .select("id, stalled_after_days")
+      .in("id", orgIds),
+    admin
+      .from("project_stages")
+      .select("id, project_id")
+      .in("project_id", projectIds),
+  ]);
   if (orgsError) throw orgsError;
   if (stagesError) throw stagesError;
-  const stalledAfterDaysByOrg = new Map(orgs.map((o) => [o.id, o.stalled_after_days]));
+  const stalledAfterDaysByOrg = new Map(
+    orgs.map((o) => [o.id, o.stalled_after_days])
+  );
   const projectIdByStage = new Map(stages.map((s) => [s.id, s.project_id]));
   const stageIds = stages.map((s) => s.id);
 
@@ -108,7 +121,10 @@ export async function sendGateNags(): Promise<GateNagsResult> {
           .in("project_stage_id", stageIds)
           .eq("done", false)
           .lt("due_date", today)
-      : { data: [] as { label: string; project_stage_id: string }[], error: null };
+      : {
+          data: [] as { label: string; project_stage_id: string }[],
+          error: null,
+        };
   if (itemsError) throw itemsError;
 
   const overdueLabelsByProject = new Map<string, string[]>();
@@ -128,7 +144,10 @@ export async function sendGateNags(): Promise<GateNagsResult> {
       .eq("org_id", orgId)
       .in("role", ["owner", "pm"]);
     if (profilesError) throw profilesError;
-    ownerPmIdsByOrg.set(orgId, profiles.map((p) => p.id));
+    ownerPmIdsByOrg.set(
+      orgId,
+      profiles.map((p) => p.id)
+    );
   }
 
   const digestByRecipient = new Map<string, RecipientDigestEntry[]>();
@@ -136,11 +155,17 @@ export async function sendGateNags(): Promise<GateNagsResult> {
   for (const project of projects) {
     const overdueLabels = overdueLabelsByProject.get(project.id) ?? [];
     const stalledAfterDays = stalledAfterDaysByOrg.get(project.org_id) ?? 3;
-    const stalled = isProjectStalled(project.last_activity_at, stalledAfterDays);
+    const stalled = isProjectStalled(
+      project.last_activity_at,
+      stalledAfterDays
+    );
     if (overdueLabels.length === 0 && !stalled) continue;
 
     const daysSinceActivity = stalled
-      ? Math.floor((Date.now() - new Date(project.last_activity_at).getTime()) / 86_400_000)
+      ? Math.floor(
+          (Date.now() - new Date(project.last_activity_at).getTime()) /
+            86_400_000
+        )
       : null;
 
     const recipients = project.pm_user_id
@@ -150,24 +175,38 @@ export async function sendGateNags(): Promise<GateNagsResult> {
 
     try {
       if (overdueLabels.length > 0) {
-        await notifyUsers(admin, project.org_id, recipients, "gate_item_overdue", {
-          projectId: project.id,
-          projectName: project.name,
-          itemLabel: overdueLabels[0],
-          overdueCount: overdueLabels.length,
-        });
+        await notifyUsers(
+          admin,
+          project.org_id,
+          recipients,
+          "gate_item_overdue",
+          {
+            projectId: project.id,
+            projectName: project.name,
+            itemLabel: overdueLabels[0],
+            overdueCount: overdueLabels.length,
+          }
+        );
         result.overdueItemNotifications += overdueLabels.length;
       }
       if (stalled) {
-        await notifyUsers(admin, project.org_id, recipients, "project_stalled", {
-          projectId: project.id,
-          projectName: project.name,
-          daysSinceActivity,
-        });
+        await notifyUsers(
+          admin,
+          project.org_id,
+          recipients,
+          "project_stalled",
+          {
+            projectId: project.id,
+            projectName: project.name,
+            daysSinceActivity,
+          }
+        );
         result.stalledNotifications += 1;
       }
     } catch (err) {
-      errors.push(`${project.name}: ${err instanceof Error ? err.message : "unknown error"}`);
+      errors.push(
+        `${project.name}: ${err instanceof Error ? err.message : "unknown error"}`
+      );
       continue;
     }
 
@@ -189,7 +228,8 @@ export async function sendGateNags(): Promise<GateNagsResult> {
 
   for (const [userId, entries] of digestByRecipient) {
     try {
-      const { data: userData, error: userError } = await admin.auth.admin.getUserById(userId);
+      const { data: userData, error: userError } =
+        await admin.auth.admin.getUserById(userId);
       if (userError) throw userError;
       const email = userData.user?.email;
       if (!email) continue;
@@ -206,7 +246,9 @@ export async function sendGateNags(): Promise<GateNagsResult> {
       }
       result.digestsSent += 1;
     } catch (err) {
-      errors.push(`digest: ${err instanceof Error ? err.message : "unknown error"}`);
+      errors.push(
+        `digest: ${err instanceof Error ? err.message : "unknown error"}`
+      );
     }
   }
 

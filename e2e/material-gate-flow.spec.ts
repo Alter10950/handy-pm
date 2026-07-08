@@ -1,6 +1,9 @@
 import { expect, test } from "@playwright/test";
 
-import { deleteAuthUserByEmail, deleteProjectCompletely } from "./helpers/cleanup";
+import {
+  deleteAuthUserByEmail,
+  deleteProjectCompletely,
+} from "./helpers/cleanup";
 import { createAdminClient } from "./helpers/supabase-admin";
 
 const PROJECT_NAME = `[E2E] Material gate ${Date.now()}`;
@@ -36,10 +39,14 @@ test("material gate: blocks dispatch/field/stage-completion until the BOM is ver
     projectId = /\/app\/project\/([^/]+)$/.exec(page.url())![1];
 
     await page.getByRole("link", { name: "Materials" }).click();
-    await page.getByRole("button", { name: /Paste from packing slip/i }).click();
+    await page
+      .getByRole("button", { name: /Paste from packing slip/i })
+      .click();
     await page.locator("textarea").fill("Beam, 10\nAnchor, 20");
     await page.getByRole("button", { name: "Add materials" }).click();
-    await expect(page.locator("table").first().locator("tbody tr")).toHaveCount(2);
+    await expect(page.locator("table").first().locator("tbody tr")).toHaveCount(
+      2
+    );
 
     // The paste-from-packing-slip flow assumes the pasted list IS what
     // shipped (received = needed) — this test needs the opposite: a BOM
@@ -130,7 +137,9 @@ test("material gate: blocks dispatch/field/stage-completion until the BOM is ver
     await page.getByRole("button", { name: "Build schedule" }).click();
     await page.getByRole("button", { name: "Generate days" }).click();
     await page.getByRole("button", { name: "Save schedule" }).click();
-    await expect(page.getByText(/scheduled days?/)).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(/scheduled days?/)).toBeVisible({
+      timeout: 10_000,
+    });
 
     await page.getByText("+ Assign crew").first().click();
     await page.getByRole("button", { name: "Assign", exact: true }).click();
@@ -183,17 +192,25 @@ test("material gate: blocks dispatch/field/stage-completion until the BOM is ver
     await expect(page.getByTestId("materials-gate-card")).toContainText(
       "Materials gate: not ready"
     );
-    await page.getByRole("link", { name: "Open verification worksheet" }).click();
+    await page
+      .getByRole("link", { name: "Open verification worksheet" })
+      .click();
     await page.waitForURL(/\/receiving\/verify$/);
-    await expect(page.getByTestId("readiness-summary")).toContainText("0% received");
+    await expect(page.getByTestId("readiness-summary")).toContainText(
+      "0% received"
+    );
 
     const beamLine = page
       .locator('[data-testid^="worksheet-line-"]')
       .filter({ hasText: "Beam" });
     // Qty prefills with the full outstanding amount (10) — the common
     // "whole delivery arrived and checks out" case is one tap.
-    await beamLine.getByRole("button", { name: "✓ Received + verified" }).click();
-    await expect(beamLine.getByText("Fully received and verified.")).toBeVisible({
+    await beamLine
+      .getByRole("button", { name: "✓ Received + verified" })
+      .click();
+    await expect(
+      beamLine.getByText("Fully received and verified.")
+    ).toBeVisible({
       timeout: 10_000,
     });
   });
@@ -203,17 +220,25 @@ test("material gate: blocks dispatch/field/stage-completion until the BOM is ver
       .locator('[data-testid^="worksheet-line-"]')
       .filter({ hasText: "Anchor" });
     await anchorLine.getByLabel("Quantity for Anchor").fill("15");
-    await anchorLine.getByRole("button", { name: "✓ Received + verified" }).click();
-    await expect(anchorLine.getByText("15 verified")).toBeVisible({ timeout: 10_000 });
+    await anchorLine
+      .getByRole("button", { name: "✓ Received + verified" })
+      .click();
+    await expect(anchorLine.getByText("15 verified")).toBeVisible({
+      timeout: 10_000,
+    });
 
     await anchorLine.getByRole("button", { name: "Flag problem" }).click();
-    await anchorLine.getByRole("button", { name: "Short", exact: true }).click();
+    await anchorLine
+      .getByRole("button", { name: "Short", exact: true })
+      .click();
     await anchorLine.getByLabel("Flagged quantity for Anchor").fill("5");
     await anchorLine
       .getByPlaceholder("what's wrong? (optional)")
       .fill("Box came up 5 light");
     await anchorLine.getByRole("button", { name: "Log flag" }).click();
-    await expect(anchorLine.getByText("5 flagged")).toBeVisible({ timeout: 10_000 });
+    await expect(anchorLine.getByText("5 flagged")).toBeVisible({
+      timeout: 10_000,
+    });
 
     // Same-day PM notification, in-app, immediately.
     await expect
@@ -243,19 +268,24 @@ test("material gate: blocks dispatch/field/stage-completion until the BOM is ver
   });
 
   await test.step("resolve the flag, receive the replacement — gate goes green and auto-ticks its checklist", async () => {
-    await page
-      .locator('[data-testid^="resolve-flag-"]')
-      .first()
-      .click();
-    await expect(page.getByText("Open flags")).toHaveCount(0, { timeout: 10_000 });
+    await page.locator('[data-testid^="resolve-flag-"]').first().click();
+    await expect(page.getByText("Open flags")).toHaveCount(0, {
+      timeout: 10_000,
+    });
 
-    await page.getByRole("link", { name: "Open verification worksheet" }).click();
+    await page
+      .getByRole("link", { name: "Open verification worksheet" })
+      .click();
     await page.waitForURL(/\/receiving\/verify$/);
     const anchorLine = page
       .locator('[data-testid^="worksheet-line-"]')
       .filter({ hasText: "Anchor" });
-    await anchorLine.getByRole("button", { name: "✓ Received + verified" }).click();
-    await expect(anchorLine.getByText("Fully received and verified.")).toBeVisible({
+    await anchorLine
+      .getByRole("button", { name: "✓ Received + verified" })
+      .click();
+    await expect(
+      anchorLine.getByText("Fully received and verified.")
+    ).toBeVisible({
       timeout: 10_000,
     });
     await expect(page.getByTestId("readiness-summary")).toContainText(

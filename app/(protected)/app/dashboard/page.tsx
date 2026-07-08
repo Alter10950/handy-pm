@@ -19,7 +19,10 @@ import {
   listShortagesAcrossProjects,
   listUnresolvedBlockersAcrossProjects,
 } from "@/lib/dashboard/queries";
-import { listOrgWideNextActions, listOverriddenStages } from "@/lib/gates/queries";
+import {
+  listOrgWideNextActions,
+  listOverriddenStages,
+} from "@/lib/gates/queries";
 import { listCapacityOverrides } from "@/lib/scheduler/capacity";
 import { createClient } from "@/lib/supabase/server";
 
@@ -131,7 +134,9 @@ export default async function DashboardPage() {
         <ProjectRiskList projects={projects} />
       </Section>
 
-      <Section title={`Needs attention — stalled or overdue (${lifecycleAttention.length})`}>
+      <Section
+        title={`Needs attention — stalled or overdue (${lifecycleAttention.length})`}
+      >
         <LifecycleAttentionList summaries={lifecycleAttention} />
       </Section>
 

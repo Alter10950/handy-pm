@@ -69,7 +69,8 @@ export default async function ProjectMaterialsPage({
       .maybeSingle();
     if (mobilize?.completed_at) {
       scopeGrowthCount = materials.filter(
-        (m) => m.change_order_id === null && m.created_at > mobilize.completed_at!
+        (m) =>
+          m.change_order_id === null && m.created_at > mobilize.completed_at!
       ).length;
     }
   }
@@ -107,11 +108,11 @@ export default async function ProjectMaterialsPage({
         >
           <p className="text-sm text-foreground">
             <span className="font-semibold">
-              {scopeGrowthCount} material{scopeGrowthCount === 1 ? "" : "s"} added
-              mid-execution
+              {scopeGrowthCount} material{scopeGrowthCount === 1 ? "" : "s"}{" "}
+              added mid-execution
             </span>{" "}
-            with no change order behind {scopeGrowthCount === 1 ? "it" : "them"} —
-            this looks like scope growth.
+            with no change order behind {scopeGrowthCount === 1 ? "it" : "them"}{" "}
+            — this looks like scope growth.
           </p>
           <Link
             href={`/app/project/${id}/change-orders`}

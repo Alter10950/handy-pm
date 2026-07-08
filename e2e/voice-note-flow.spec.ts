@@ -12,9 +12,7 @@ const BASE_URL = `http://localhost:${PORT}`;
 // same way as the packing-slip extraction route: skipped without a real
 // ANTHROPIC_API_KEY, exercised live when one is configured.
 
-test("voice note API: clear error when not configured", async ({
-  request,
-}) => {
+test("voice note API: clear error when not configured", async ({ request }) => {
   test.skip(
     Boolean(process.env.ANTHROPIC_API_KEY),
     "only relevant when no ANTHROPIC_API_KEY is configured"

@@ -90,7 +90,8 @@ export default async function SchedulerProjectPage({
             Not cleared for crew dispatch — Materials gate
           </p>
           <p className="mt-1 text-sm text-foreground">
-            {materialsReadiness.blockedReason ?? "Materials aren't verified yet."}{" "}
+            {materialsReadiness.blockedReason ??
+              "Materials aren't verified yet."}{" "}
             Verify the BOM on the project&apos;s Receiving tab and complete the
             Materials stage (or have an owner/PM override it) to assign crews.
           </p>

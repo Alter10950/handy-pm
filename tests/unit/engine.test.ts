@@ -13,7 +13,7 @@ import {
   standardWarnings,
 } from "../../lib/estimating/engine.ts";
 
-test("REGRESSION: the inches-as-feet path is gone — a 144\" beam is 12 ft and its labor is per-piece, not 7.2h", () => {
+test('REGRESSION: the inches-as-feet path is gone — a 144" beam is 12 ft and its labor is per-piece, not 7.2h', () => {
   assert.equal(inchesToFeet(144), 12);
   const line = computeLine({
     skuId: "beam-144",
@@ -24,13 +24,16 @@ test("REGRESSION: the inches-as-feet path is gone — a 144\" beam is 12 ft and 
     categoryDefault: 0.08,
   });
   // Old bug: 144 (inches read as feet) × 0.05 = 7.2 h per beam.
-  assert.ok(line.hoursPerUnit < 0.5, `beam h/unit ${line.hoursPerUnit} must be per-piece scale`);
+  assert.ok(
+    line.hoursPerUnit < 0.5,
+    `beam h/unit ${line.hoursPerUnit} must be per-piece scale`
+  );
   assert.ok(Math.abs(line.hoursPerUnit - 0.08 * 1.15) < 1e-9); // 97–144in band
   assert.notEqual(line.hoursPerUnit, 7.2);
   assert.equal(line.warnings.length, 0);
 });
 
-test("96\" beam takes the base band; >144\" takes the long band", () => {
+test('96" beam takes the base band; >144" takes the long band', () => {
   const short = computeLine({
     skuId: null,
     name: '96" beam',
@@ -58,7 +61,10 @@ test("upright height bands + lift surcharge stack; per-SKU standard bypasses mod
   });
   assert.ok(Math.abs(tall.hoursPerUnit - 0.25 * 1.4 * 1.25) < 1e-9);
   assert.equal(tall.source, "category");
-  assert.deepEqual(tall.modifiers, ["height >192in ×1.4", "lift required ×1.25"]);
+  assert.deepEqual(tall.modifiers, [
+    "height >192in ×1.4",
+    "lift required ×1.25",
+  ]);
 
   const skuOverride = resolveStandard({
     attrs: { category: "upright", heightIn: 288, requiresLift: true },
@@ -103,7 +109,7 @@ test("SANITY: a Bingo-Warehouse-scale job (≈700 uprights + ≈3,700 beams) lan
   const project = computeProjectLines([
     {
       skuId: "u1",
-      name: '42"x24\' upright',
+      name: "42\"x24' upright",
       attrs: { category: "upright", heightIn: 288, requiresLift: true },
       quantity: 700,
       installedQuantity: 0,

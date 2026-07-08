@@ -79,10 +79,7 @@ test("phases: color on the drawing, legend show/hide, filter Materials and Progr
     const row1Box = page.getByTestId("row-box-Row 1");
     await expect
       .poll(
-        async () =>
-          row1Box.evaluate(
-            (el) => getComputedStyle(el).borderColor
-          ),
+        async () => row1Box.evaluate((el) => getComputedStyle(el).borderColor),
         { timeout: 10_000 }
       )
       .not.toBe("rgb(255, 255, 255)"); // no longer the default border-white/50

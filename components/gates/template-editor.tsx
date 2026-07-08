@@ -27,7 +27,9 @@ function TemplateItemRow({
 }) {
   const [label, setLabel] = useState(item.label);
   const [requiresPhoto, setRequiresPhoto] = useState(item.requires_photo);
-  const [signoffRole, setSignoffRole] = useState(item.requires_signoff_role ?? "");
+  const [signoffRole, setSignoffRole] = useState(
+    item.requires_signoff_role ?? ""
+  );
   const [isRemoved, setIsRemoved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -159,7 +161,9 @@ function TemplateItemRow({
       >
         Remove
       </Button>
-      {error ? <p className="w-full text-xs text-destructive">{error}</p> : null}
+      {error ? (
+        <p className="w-full text-xs text-destructive">{error}</p>
+      ) : null}
     </li>
   );
 }
@@ -243,12 +247,16 @@ export function TemplateEditor({
   return (
     <div className="flex flex-col gap-3">
       <p className="text-xs text-muted-foreground">
-        Changes apply to new projects only — a project already under way
-        keeps the checklist it started with.
+        Changes apply to new projects only — a project already under way keeps
+        the checklist it started with.
       </p>
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         {stages.map((stage) => (
-          <TemplateStageCard key={stage.id} stage={stage} canManage={canManage} />
+          <TemplateStageCard
+            key={stage.id}
+            stage={stage}
+            canManage={canManage}
+          />
         ))}
       </div>
     </div>

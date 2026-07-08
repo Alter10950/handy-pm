@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { requireRole } from "@/lib/auth/session";
+import { recordAudit } from "@/lib/audit/log";
 import { tryMilestone } from "@/lib/comms/milestones";
 import {
   getDefaultGateTemplateId,
@@ -74,14 +75,16 @@ export async function ensureProjectStages(
     if (stageError) throw stageError;
 
     if (stage.items.length > 0) {
-      const { error: itemsError } = await admin.from("project_gate_items").insert(
-        stage.items.map((item) => ({
-          project_stage_id: projectStage.id,
-          template_item_id: item.id,
-          label: item.label,
-          position: item.position,
-        }))
-      );
+      const { error: itemsError } = await admin
+        .from("project_gate_items")
+        .insert(
+          stage.items.map((item) => ({
+            project_stage_id: projectStage.id,
+            template_item_id: item.id,
+            label: item.label,
+            position: item.position,
+          }))
+        );
       if (itemsError) throw itemsError;
     }
   }
@@ -224,7 +227,9 @@ export async function signOffGateItem(
       templateItem?.requires_signoff_role &&
       templateItem.requires_signoff_role !== role
     ) {
-      throw new Error(`Only a ${templateItem.requires_signoff_role} can sign off this item.`);
+      throw new Error(
+        `Only a ${templateItem.requires_signoff_role} can sign off this item.`
+      );
     }
   }
 
@@ -281,7 +286,10 @@ export async function removeGateItem(
 ): Promise<void> {
   await requireRole(GATE_MANAGERS);
   const supabase = await createClient();
-  const { error } = await supabase.from("project_gate_items").delete().eq("id", itemId);
+  const { error } = await supabase
+    .from("project_gate_items")
+    .delete()
+    .eq("id", itemId);
   if (error) throw error;
 
   revalidateProject(projectId);
@@ -351,7 +359,8 @@ export async function overrideStage(
   reason: string
 ): Promise<void> {
   const trimmedReason = reason.trim();
-  if (!trimmedReason) throw new Error("A reason is required to override a gate.");
+  if (!trimmedReason)
+    throw new Error("A reason is required to override a gate.");
   const { userId } = await requireRole(GATE_MANAGERS);
   const supabase = await createClient();
 
@@ -378,6 +387,14 @@ export async function overrideStage(
   // customer-facing "install started"/"punch complete"/"closed out"
   // facts hold either way.
   await maybeSendStageMilestones(projectId, stage.stage_key);
+  await recordAudit({
+    action: "gate.override",
+    entityType: "project_stage",
+    entityId: projectStageId,
+    projectId,
+    summary: `Overrode the ${stage.stage_key} gate: ${trimmedReason}`,
+    detail: { stageKey: stage.stage_key, reason: trimmedReason },
+  });
   await touchProjectActivity(projectId);
   revalidateProject(projectId);
 }
@@ -419,7 +436,8 @@ export async function updateTemplateItem(
     dbPatch.label = trimmed;
   }
   if (patch.description !== undefined) dbPatch.description = patch.description;
-  if (patch.requiresPhoto !== undefined) dbPatch.requires_photo = patch.requiresPhoto;
+  if (patch.requiresPhoto !== undefined)
+    dbPatch.requires_photo = patch.requiresPhoto;
   if (patch.requiresSignoffRole !== undefined) {
     dbPatch.requires_signoff_role = patch.requiresSignoffRole;
   }

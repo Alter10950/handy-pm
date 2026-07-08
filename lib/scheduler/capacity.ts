@@ -28,7 +28,8 @@ export async function checkScheduleCapacity(
   const org = await getOrgSettings();
   const numCrews = org?.num_crews ?? 2;
   const workingDays = new Set(org?.default_working_days ?? [1, 2, 3, 4, 5]);
-  if (dates.length === 0) return { conflicts: [], suggestedStart: null, numCrews };
+  if (dates.length === 0)
+    return { conflicts: [], suggestedStart: null, numCrews };
 
   const supabase = await createClient();
   const sorted = [...dates].sort();
@@ -52,7 +53,10 @@ export async function checkScheduleCapacity(
           .from("projects")
           .select("id, name, status")
           .in("id", otherProjectIds)
-      : { data: [] as { id: string; name: string; status: string }[], error: null };
+      : {
+          data: [] as { id: string; name: string; status: string }[],
+          error: null,
+        };
   if (projectsError) throw projectsError;
   // Only active projects consume crews — an estimate draft or a
   // completed job holding old schedule rows shouldn't block anyone.
@@ -74,9 +78,7 @@ export async function checkScheduleCapacity(
     if (others && others.size + 1 > numCrews) {
       conflicts.push({
         date,
-        projectNames: [...others]
-          .map((id) => activeNameById.get(id)!)
-          .sort(),
+        projectNames: [...others].map((id) => activeNameById.get(id)!).sort(),
       });
     }
   }
@@ -125,7 +127,9 @@ export interface CapacityOverrideSummary {
 // "exceptions only, batch-fetched" dashboard convention as
 // listOverriddenStages (ADR-042): the override is the accountable escape
 // hatch, and visibility is what keeps it accountable.
-export async function listCapacityOverrides(): Promise<CapacityOverrideSummary[]> {
+export async function listCapacityOverrides(): Promise<
+  CapacityOverrideSummary[]
+> {
   const supabase = await createClient();
   const { data: projects, error: projectsError } = await supabase
     .from("projects")
@@ -138,17 +142,27 @@ export async function listCapacityOverrides(): Promise<CapacityOverrideSummary[]
   const { data: overrides, error } = await supabase
     .from("capacity_overrides")
     .select("project_id, reason, conflict_dates, created_by, created_at")
-    .in("project_id", projects.map((p) => p.id))
+    .in(
+      "project_id",
+      projects.map((p) => p.id)
+    )
     .order("created_at", { ascending: false });
   if (error) throw error;
   if (overrides.length === 0) return [];
 
   const userIds = [
-    ...new Set(overrides.map((o) => o.created_by).filter((id): id is string => id !== null)),
+    ...new Set(
+      overrides
+        .map((o) => o.created_by)
+        .filter((id): id is string => id !== null)
+    ),
   ];
   const { data: profiles, error: profilesError } =
     userIds.length > 0
-      ? await supabase.from("profiles").select("id, full_name").in("id", userIds)
+      ? await supabase
+          .from("profiles")
+          .select("id, full_name")
+          .in("id", userIds)
       : { data: [] as { id: string; full_name: string | null }[], error: null };
   if (profilesError) throw profilesError;
   const profileNameById = new Map(profiles.map((p) => [p.id, p.full_name]));
@@ -158,7 +172,9 @@ export async function listCapacityOverrides(): Promise<CapacityOverrideSummary[]
     projectName: nameById.get(o.project_id) ?? "Unknown project",
     reason: o.reason,
     conflictDates: o.conflict_dates,
-    createdByName: o.created_by ? (profileNameById.get(o.created_by) ?? null) : null,
+    createdByName: o.created_by
+      ? (profileNameById.get(o.created_by) ?? null)
+      : null,
     createdAt: o.created_at,
   }));
 }
@@ -225,7 +241,10 @@ export async function getCapacityBoardData(
           .from("projects")
           .select("id, name, status")
           .in("id", projectIds)
-      : { data: [] as { id: string; name: string; status: string }[], error: null };
+      : {
+          data: [] as { id: string; name: string; status: string }[],
+          error: null,
+        };
   if (projectsError) throw projectsError;
   const activeNameById = new Map(
     projects.filter((p) => p.status === "active").map((p) => [p.id, p.name])
@@ -244,7 +263,10 @@ export async function getCapacityBoardData(
   let cursor = monthStart;
   while (cursor <= monthEnd) {
     const scheduled = [...(byDate.get(cursor) ?? new Map())].map(
-      ([projectId, projectName]) => ({ projectId, projectName: projectName as string })
+      ([projectId, projectName]) => ({
+        projectId,
+        projectName: projectName as string,
+      })
     );
     days.push({
       date: cursor,

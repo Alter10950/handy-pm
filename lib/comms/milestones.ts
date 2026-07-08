@@ -49,12 +49,7 @@ function milestoneHtml(
 
 export interface MilestoneResult {
   sent: boolean;
-  skipped:
-    | null
-    | "no_email"
-    | "opted_out"
-    | "not_configured"
-    | "already_sent";
+  skipped: null | "no_email" | "opted_out" | "not_configured" | "already_sent";
 }
 
 // Sends one milestone email and logs it to project_comms — the log IS
@@ -76,7 +71,9 @@ export async function sendMilestone(
 
   const { data: project, error: projectError } = await admin
     .from("projects")
-    .select("name, comms_milestones, customer_contact_name, customer_contact_email")
+    .select(
+      "name, comms_milestones, customer_contact_name, customer_contact_email"
+    )
     .eq("id", projectId)
     .single();
   if (projectError) throw projectError;
@@ -114,7 +111,8 @@ export async function sendMilestone(
     subject,
     html,
   });
-  if (sendError) throw new Error(`Milestone email failed: ${sendError.message}`);
+  if (sendError)
+    throw new Error(`Milestone email failed: ${sendError.message}`);
 
   const { error: logError } = await admin.from("project_comms").insert({
     project_id: projectId,

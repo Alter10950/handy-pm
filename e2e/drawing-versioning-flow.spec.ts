@@ -30,7 +30,9 @@ test("drawing versioning: first upload auto-approves, a new version needs approv
     await page
       .getByTestId("drawing-upload-input")
       .setInputFiles("e2e/fixtures/test-drawing.svg");
-    await expect(page.getByText(/uploaded\.$/)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(/uploaded\.$/)).toBeVisible({
+      timeout: 30_000,
+    });
 
     // A brand-new page's first version is auto-approved (nothing yet to
     // review against) — no warning banner, badge reads "Approved."

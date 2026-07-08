@@ -1,6 +1,9 @@
 import { expect, test } from "@playwright/test";
 
-import { deleteAuthUserByEmail, deleteProjectCompletely } from "./helpers/cleanup";
+import {
+  deleteAuthUserByEmail,
+  deleteProjectCompletely,
+} from "./helpers/cleanup";
 import { createAdminClient } from "./helpers/supabase-admin";
 
 const TEST_ITEM_LABEL = `[E2E] Template item ${Date.now()}`;
@@ -36,7 +39,9 @@ test("owner can add/edit/remove a checklist template item; new projects copy it;
     await expect(page.getByText("Project checklist template")).toBeVisible();
 
     const mobilizeCard = page.getByTestId("template-stage-mobilize");
-    await mobilizeCard.getByPlaceholder("Add a checklist item…").fill(TEST_ITEM_LABEL);
+    await mobilizeCard
+      .getByPlaceholder("Add a checklist item…")
+      .fill(TEST_ITEM_LABEL);
     await mobilizeCard.getByRole("button", { name: "+ Add" }).click();
 
     // Resolve the new row's id from the DB first — Playwright has no
@@ -55,7 +60,9 @@ test("owner can add/edit/remove a checklist template item; new projects copy it;
       })
       .not.toBeNull();
 
-    await expect(page.getByTestId(`template-item-${templateItemId}`)).toBeVisible();
+    await expect(
+      page.getByTestId(`template-item-${templateItemId}`)
+    ).toBeVisible();
   });
 
   await test.step("owner toggles Photo required and renames it", async () => {
@@ -139,8 +146,12 @@ test("owner can add/edit/remove a checklist template item; new projects copy it;
     await pmPage.goto("/app/settings");
     const mobilizeCard = pmPage.getByTestId("template-stage-mobilize");
     await expect(mobilizeCard.getByText(RENAMED_LABEL)).toBeVisible();
-    await expect(mobilizeCard.getByPlaceholder("Add a checklist item…")).toHaveCount(0);
-    await expect(mobilizeCard.getByRole("button", { name: /Remove/ })).toHaveCount(0);
+    await expect(
+      mobilizeCard.getByPlaceholder("Add a checklist item…")
+    ).toHaveCount(0);
+    await expect(
+      mobilizeCard.getByRole("button", { name: /Remove/ })
+    ).toHaveCount(0);
 
     await context.close();
   });
@@ -237,7 +248,9 @@ test("gate nags: an overdue item and a stalled project each notify, and surface 
 
   await test.step("the bell shows the new notifications and marking one read persists", async () => {
     await page.goto("/app");
-    const bellButton = page.getByRole("button", { name: /unread notifications?/ });
+    const bellButton = page.getByRole("button", {
+      name: /unread notifications?/,
+    });
     await expect(bellButton).toBeVisible();
     await bellButton.click();
 
@@ -271,7 +284,9 @@ test("gate nags: an overdue item and a stalled project each notify, and surface 
   await test.step("dashboard's Needs attention section lists this project", async () => {
     await page.goto("/app/dashboard");
     const attentionList = page.getByTestId("lifecycle-attention-list");
-    const projectRow = attentionList.locator("li").filter({ hasText: NAG_PROJECT_NAME });
+    const projectRow = attentionList
+      .locator("li")
+      .filter({ hasText: NAG_PROJECT_NAME });
     await expect(projectRow).toBeVisible();
     await expect(projectRow.getByText(/Stalled \d+d/)).toBeVisible();
     await expect(projectRow.getByText(/overdue/)).toBeVisible();

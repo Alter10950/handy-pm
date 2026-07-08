@@ -3,7 +3,9 @@ import type { AutopsyRow } from "@/lib/autopsy/shared";
 
 export * from "@/lib/autopsy/shared";
 
-export async function getAutopsy(projectId: string): Promise<AutopsyRow | null> {
+export async function getAutopsy(
+  projectId: string
+): Promise<AutopsyRow | null> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("project_autopsies")
@@ -41,11 +43,17 @@ export async function listCompanyAutopsies(): Promise<CompanyAutopsyEntry[]> {
   const { data: projects, error: projectsError } = await supabase
     .from("projects")
     .select("id, name")
-    .in("id", autopsies.map((a) => a.project_id));
+    .in(
+      "id",
+      autopsies.map((a) => a.project_id)
+    );
   if (projectsError) throw projectsError;
   const nameById = new Map(projects.map((p) => [p.id, p.name]));
 
-  const pctOf = (estimated: number | null, actual: number | null): number | null =>
+  const pctOf = (
+    estimated: number | null,
+    actual: number | null
+  ): number | null =>
     estimated !== null && actual !== null && estimated > 0
       ? Math.round(((actual - estimated) / estimated) * 100)
       : null;

@@ -93,7 +93,9 @@ test("customer portal: generate a link, approve a photo, public page shows only 
     token = data!.token;
 
     await page.goto(`/portal/${token}`);
-    await expect(page.getByRole("heading", { name: PROJECT_NAME })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: PROJECT_NAME })
+    ).toBeVisible();
     await expect(page.getByText("In progress")).toBeVisible();
     await expect(
       page.getByText("Finished installing the first two rows today.")

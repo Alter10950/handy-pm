@@ -7,6 +7,7 @@ import {
   HardHatIcon,
   LayoutDashboardIcon,
   MenuIcon,
+  SearchIcon,
   SettingsIcon,
   UserCircleIcon,
   UsersIcon,
@@ -16,6 +17,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 
+import { CommandPalette } from "@/components/command-palette";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
@@ -45,7 +47,9 @@ interface NavItem {
 const OFFICE_ROLES: (ProfileRole | null)[] = ["owner", "pm", "scheduler"];
 const ADMIN_ROLES: (ProfileRole | null)[] = ["owner", "pm"];
 
-function navSections(role: ProfileRole | null): { label: string | null; items: NavItem[] }[] {
+function navSections(
+  role: ProfileRole | null
+): { label: string | null; items: NavItem[] }[] {
   const office = OFFICE_ROLES.includes(role);
   const admin = ADMIN_ROLES.includes(role);
   return [
@@ -54,13 +58,27 @@ function navSections(role: ProfileRole | null): { label: string | null; items: N
       items: [
         { href: "/app", label: "Projects", icon: FolderKanbanIcon },
         ...(office
-          ? [{ href: "/app/dashboard", label: "Dashboard", icon: LayoutDashboardIcon }]
+          ? [
+              {
+                href: "/app/dashboard",
+                label: "Dashboard",
+                icon: LayoutDashboardIcon,
+              },
+            ]
           : []),
         { href: "/field", label: "Field", icon: HardHatIcon },
         ...(office
           ? [
-              { href: "/scheduler", label: "Scheduler", icon: CalendarDaysIcon },
-              { href: "/app/estimate", label: "Estimating", icon: CalculatorIcon },
+              {
+                href: "/scheduler",
+                label: "Scheduler",
+                icon: CalendarDaysIcon,
+              },
+              {
+                href: "/app/estimate",
+                label: "Estimating",
+                icon: CalculatorIcon,
+              },
             ]
           : []),
       ],
@@ -90,7 +108,11 @@ function isActivePath(pathname: string, href: string): boolean {
 
 function BrandMark() {
   return (
-    <Link href="/app" className="flex items-center gap-2" aria-label="HandyPM home">
+    <Link
+      href="/app"
+      className="flex items-center gap-2"
+      aria-label="HandyPM home"
+    >
       <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-primary text-sm font-black text-primary-foreground shadow-e1">
         H
       </span>
@@ -149,12 +171,23 @@ export function AppShell({
 
   return (
     <div className="flex min-h-full flex-1">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-surface focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-foreground focus:shadow-e3"
+      >
+        Skip to content
+      </a>
+      <CommandPalette role={role} />
+
       {/* ── Desktop sidebar ── */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-border-subtle bg-surface-sunken/60 lg:flex">
         <div className="flex h-14 items-center px-4">
           <BrandMark />
         </div>
-        <nav aria-label="Main" className="flex flex-1 flex-col gap-4 overflow-y-auto px-3 py-2">
+        <nav
+          aria-label="Main"
+          className="flex flex-1 flex-col gap-4 overflow-y-auto px-3 py-2"
+        >
           {sections.map((section, i) => (
             <div key={i} className="flex flex-col gap-0.5">
               {section.label ? (
@@ -222,7 +255,10 @@ export function AppShell({
               >
                 <MenuIcon aria-hidden className="size-5" />
               </SheetTrigger>
-              <SheetContent side="right" className="flex w-72 flex-col gap-0 p-0">
+              <SheetContent
+                side="right"
+                className="flex w-72 flex-col gap-0 p-0"
+              >
                 <SheetHeader className="border-b border-border-subtle px-4 py-3">
                   <SheetTitle className="text-left text-sm">
                     <span className="block truncate font-medium text-foreground">
@@ -239,29 +275,34 @@ export function AppShell({
                   aria-label="More"
                   className="flex flex-1 flex-col gap-0.5 overflow-y-auto p-3"
                 >
-                  {[...allItems, { href: "/account", label: "Account", icon: UserCircleIcon }].map(
-                    (item) => {
-                      const Icon = item.icon;
-                      const active = isActivePath(pathname, item.href);
-                      return (
-                        <Link
-                          key={item.href}
-                          href={item.href}
-                          aria-current={active ? "page" : undefined}
-                          onClick={() => setMoreOpen(false)}
-                          className={cn(
-                            "flex h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors",
-                            active
-                              ? "bg-surface text-foreground shadow-e1"
-                              : "text-text-secondary hover:bg-accent hover:text-foreground"
-                          )}
-                        >
-                          <Icon aria-hidden className="size-4.5 shrink-0" />
-                          {item.label}
-                        </Link>
-                      );
-                    }
-                  )}
+                  {[
+                    ...allItems,
+                    {
+                      href: "/account",
+                      label: "Account",
+                      icon: UserCircleIcon,
+                    },
+                  ].map((item) => {
+                    const Icon = item.icon;
+                    const active = isActivePath(pathname, item.href);
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        aria-current={active ? "page" : undefined}
+                        onClick={() => setMoreOpen(false)}
+                        className={cn(
+                          "flex h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors",
+                          active
+                            ? "bg-surface text-foreground shadow-e1"
+                            : "text-text-secondary hover:bg-accent hover:text-foreground"
+                        )}
+                      >
+                        <Icon aria-hidden className="size-4.5 shrink-0" />
+                        {item.label}
+                      </Link>
+                    );
+                  })}
                 </nav>
                 <div className="flex items-center justify-between gap-2 border-t border-border-subtle p-3">
                   <ThemeToggle />
@@ -278,10 +319,28 @@ export function AppShell({
 
         {/* Desktop top-right utilities */}
         <div className="sticky top-0 z-20 hidden h-14 items-center justify-end gap-2 border-b border-border-subtle bg-background/90 px-6 backdrop-blur lg:flex">
+          <button
+            type="button"
+            onClick={() =>
+              window.dispatchEvent(
+                new KeyboardEvent("keydown", { key: "k", metaKey: true })
+              )
+            }
+            className="flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-muted-foreground shadow-e1 transition-colors hover:text-foreground"
+          >
+            <SearchIcon aria-hidden className="size-3.5" />
+            Search…
+            <kbd className="rounded border border-border bg-surface-sunken px-1.5 font-mono text-[10px] text-muted-foreground">
+              ⌘K
+            </kbd>
+          </button>
           <NotificationBell notifications={notifications} />
         </div>
 
-        <main className="mx-auto w-full min-w-0 max-w-6xl flex-1 px-4 pb-24 pt-6 lg:px-8 lg:pb-10">
+        <main
+          id="main-content"
+          className="mx-auto w-full min-w-0 max-w-6xl flex-1 px-4 pb-24 pt-6 lg:px-8 lg:pb-10"
+        >
           {children}
         </main>
 

@@ -32,7 +32,9 @@ test("materials lifecycle: receiving check-in, reorder list, richer identity fie
     // lifecycle checklist has a hidden photo-attach file input that can
     // still be in the DOM mid-navigation, making that ambiguous/racy.
     await page.getByTestId("drawing-upload-input").setInputFiles(FIXTURE_PATH);
-    await expect(page.getByText(/uploaded\.$/)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(/uploaded\.$/)).toBeVisible({
+      timeout: 30_000,
+    });
 
     const stageBox = (await page
       .locator('img[alt="Layout drawing"]')
@@ -223,7 +225,10 @@ test("materials lifecycle: receiving check-in, reorder list, richer identity fie
       .eq("project_id", projectId!)
       .eq("label", "Row 1")
       .single();
-    await admin.from("rows").update({ materials_ready: false }).eq("id", rowRecord!.id);
+    await admin
+      .from("rows")
+      .update({ materials_ready: false })
+      .eq("id", rowRecord!.id);
 
     await page.goto(`/scheduler/${projectId}`);
     // "+ Assign crew" only renders on days already in the built schedule.

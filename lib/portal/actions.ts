@@ -66,7 +66,9 @@ export async function approvePhoto(
     // phase column lands with the Phase 14 migration — retry without it
     // so approvals keep working pre-push (everything defaults 'during').
     if (!/phase/.test(withPhase.error.message)) throw withPhase.error;
-    const { error } = await supabase.from("approved_photos").upsert(base, conflict);
+    const { error } = await supabase
+      .from("approved_photos")
+      .upsert(base, conflict);
     if (error) throw error;
   }
 

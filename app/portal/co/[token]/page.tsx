@@ -43,8 +43,8 @@ export default async function ChangeOrderApprovalPage({
             This link is no longer valid
           </h1>
           <p className="mt-2 text-muted-foreground">
-            This change order may already be decided, or the link was
-            replaced. Please contact your project manager.
+            This change order may already be decided, or the link was replaced.
+            Please contact your project manager.
           </p>
         </div>
       </PortalShell>

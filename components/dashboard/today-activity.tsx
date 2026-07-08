@@ -8,9 +8,7 @@ export function TodayActivityPanel({ activity }: { activity: TodayActivity }) {
 
   if (nothingHappened) {
     return (
-      <p className="text-sm text-muted-foreground">
-        Nothing logged yet today.
-      </p>
+      <p className="text-sm text-muted-foreground">Nothing logged yet today.</p>
     );
   }
 
@@ -18,8 +16,11 @@ export function TodayActivityPanel({ activity }: { activity: TodayActivity }) {
     <div className="flex flex-col gap-2 text-sm">
       {activity.crewsWorkingToday.length > 0 ? (
         <p className="text-foreground">
-          <span className="font-medium">{activity.crewsWorkingToday.length}</span>{" "}
-          crew{activity.crewsWorkingToday.length === 1 ? "" : "s"} working today:{" "}
+          <span className="font-medium">
+            {activity.crewsWorkingToday.length}
+          </span>{" "}
+          crew{activity.crewsWorkingToday.length === 1 ? "" : "s"} working
+          today:{" "}
           <span className="text-muted-foreground">
             {activity.crewsWorkingToday.join(", ")}
           </span>
@@ -29,8 +30,8 @@ export function TodayActivityPanel({ activity }: { activity: TodayActivity }) {
         <ul className="flex flex-col gap-1">
           {activity.installsToday.map((entry) => (
             <li key={entry.projectId} className="text-muted-foreground">
-              <span className="font-medium text-foreground">{entry.qty}</span> units
-              installed — {entry.projectName}
+              <span className="font-medium text-foreground">{entry.qty}</span>{" "}
+              units installed — {entry.projectName}
             </li>
           ))}
         </ul>

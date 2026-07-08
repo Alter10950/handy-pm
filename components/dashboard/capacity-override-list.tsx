@@ -20,8 +20,8 @@ export function CapacityOverrideList({
   if (overrides.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
-        No capacity overrides — every committed schedule fits the crews the
-        org actually has.
+        No capacity overrides — every committed schedule fits the crews the org
+        actually has.
       </p>
     );
   }

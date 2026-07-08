@@ -25,7 +25,9 @@ async function attachTemplateHints(
 ): Promise<Map<string, ProjectGateItemWithHints[]>> {
   const templateItemIds = [
     ...new Set(
-      items.map((i) => i.template_item_id).filter((id): id is string => id !== null)
+      items
+        .map((i) => i.template_item_id)
+        .filter((id): id is string => id !== null)
     ),
   ];
   const { data: templateItems, error } =
@@ -34,13 +36,22 @@ async function attachTemplateHints(
           .from("gate_template_items")
           .select("id, requires_photo, requires_signoff_role")
           .in("id", templateItemIds)
-      : { data: [] as { id: string; requires_photo: boolean; requires_signoff_role: string | null }[], error: null };
+      : {
+          data: [] as {
+            id: string;
+            requires_photo: boolean;
+            requires_signoff_role: string | null;
+          }[],
+          error: null,
+        };
   if (error) throw error;
   const templateItemById = new Map(templateItems.map((t) => [t.id, t]));
 
   const itemsByStage = new Map<string, ProjectGateItemWithHints[]>();
   for (const item of items) {
-    const hint = item.template_item_id ? templateItemById.get(item.template_item_id) : null;
+    const hint = item.template_item_id
+      ? templateItemById.get(item.template_item_id)
+      : null;
     const list = itemsByStage.get(item.project_stage_id) ?? [];
     list.push({
       ...item,
@@ -52,7 +63,9 @@ async function attachTemplateHints(
   return itemsByStage;
 }
 
-export async function getDefaultGateTemplateId(orgId: string): Promise<string | null> {
+export async function getDefaultGateTemplateId(
+  orgId: string
+): Promise<string | null> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("gate_templates")
@@ -171,20 +184,30 @@ export async function listOverriddenStages(): Promise<StageOverrideSummary[]> {
 
   const { data: stages, error: stagesError } = await supabase
     .from("project_stages")
-    .select("project_id, stage_key, status, override_reason, overridden_by, completed_at")
-    .in("project_id", projects.map((p) => p.id))
+    .select(
+      "project_id, stage_key, status, override_reason, overridden_by, completed_at"
+    )
+    .in(
+      "project_id",
+      projects.map((p) => p.id)
+    )
     .eq("status", "overridden");
   if (stagesError) throw stagesError;
   if (stages.length === 0) return [];
 
   const overriderIds = [
     ...new Set(
-      stages.map((s) => s.overridden_by).filter((id): id is string => id !== null)
+      stages
+        .map((s) => s.overridden_by)
+        .filter((id): id is string => id !== null)
     ),
   ];
   const { data: profiles, error: profilesError } =
     overriderIds.length > 0
-      ? await supabase.from("profiles").select("id, full_name").in("id", overriderIds)
+      ? await supabase
+          .from("profiles")
+          .select("id, full_name")
+          .in("id", overriderIds)
       : { data: [] as { id: string; full_name: string | null }[], error: null };
   if (profilesError) throw profilesError;
   const nameById = new Map(profiles.map((p) => [p.id, p.full_name]));
@@ -195,7 +218,9 @@ export async function listOverriddenStages(): Promise<StageOverrideSummary[]> {
       projectName: projectNameById.get(s.project_id) ?? "Unknown project",
       stageKey: s.stage_key,
       overrideReason: s.override_reason ?? "",
-      overriddenByName: s.overridden_by ? (nameById.get(s.overridden_by) ?? null) : null,
+      overriddenByName: s.overridden_by
+        ? (nameById.get(s.overridden_by) ?? null)
+        : null,
       overriddenAt: s.completed_at,
     }))
     .sort((a, b) => (b.overriddenAt ?? "").localeCompare(a.overriddenAt ?? ""));
@@ -218,7 +243,9 @@ export interface OrgNextActionsSummary {
 // "exceptions only" convention as listShortagesAcrossProjects/
 // listUnresolvedBlockersAcrossProjects, not a redundant full project list
 // (the dashboard's main list already shows every active project).
-export async function listOrgWideNextActions(): Promise<OrgNextActionsSummary[]> {
+export async function listOrgWideNextActions(): Promise<
+  OrgNextActionsSummary[]
+> {
   const supabase = await createClient();
   const org = await getOrgSettings();
   const stalledAfterDays = org?.stalled_after_days ?? 3;

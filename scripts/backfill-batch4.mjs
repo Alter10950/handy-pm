@@ -179,7 +179,10 @@ async function main() {
       .eq("id", project.id);
     if (projectError) throw projectError;
 
-    results.push({ project: project.name, action: `backfilled -> ${position}` });
+    results.push({
+      project: project.name,
+      action: `backfilled -> ${position}`,
+    });
   }
 
   console.log(JSON.stringify(results, null, 2));

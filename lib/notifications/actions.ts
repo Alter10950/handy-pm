@@ -5,7 +5,9 @@ import { revalidatePath } from "next/cache";
 import { requireOrg } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 
-export async function markNotificationRead(notificationId: string): Promise<void> {
+export async function markNotificationRead(
+  notificationId: string
+): Promise<void> {
   const { userId } = await requireOrg();
   const supabase = await createClient();
   const { error } = await supabase

@@ -104,7 +104,11 @@ export function FieldHome({
             My assignments today
           </h2>
           {assigned.map((project) => (
-            <ProjectLink key={project.project_id} project={project} highlighted />
+            <ProjectLink
+              key={project.project_id}
+              project={project}
+              highlighted
+            />
           ))}
         </div>
       ) : null}

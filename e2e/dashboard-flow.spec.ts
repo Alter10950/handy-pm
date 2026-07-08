@@ -32,7 +32,9 @@ test("dashboard: shows shortages/blockers/crew data, resolves a blocker, sends a
     // lifecycle checklist has a hidden photo-attach file input that can
     // still be in the DOM mid-navigation, making that ambiguous/racy.
     await page.getByTestId("drawing-upload-input").setInputFiles(FIXTURE_PATH);
-    await expect(page.getByText(/uploaded\.$/)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(/uploaded\.$/)).toBeVisible({
+      timeout: 30_000,
+    });
 
     // Direct admin insert, not the "Paste from packing slip" UI — that
     // flow sets received = total_needed (it assumes the pasted list IS
@@ -100,7 +102,9 @@ test("dashboard: shows shortages/blockers/crew data, resolves a blocker, sends a
     // address, not a Resend-verified one. Either outcome proves the
     // integration actually ran, not a stub.
     await expect(
-      page.getByText(/Sent daily report for|Could not send:|RESEND_API_KEY is not configured|No active projects|No owner\/pm recipients/)
+      page.getByText(
+        /Sent daily report for|Could not send:|RESEND_API_KEY is not configured|No active projects|No owner\/pm recipients/
+      )
     ).toBeVisible({ timeout: 15_000 });
   });
 

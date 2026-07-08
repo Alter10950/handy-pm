@@ -144,7 +144,9 @@ test("comms: contact+prefs, auto milestones (schedule/install/50%/phase/punch/cl
     await page.getByRole("button", { name: "Build schedule" }).click();
     await page.getByRole("button", { name: "Generate days" }).click();
     await page.getByRole("button", { name: "Save schedule" }).click();
-    await expect(page.getByText(/scheduled days?/)).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText(/scheduled days?/)).toBeVisible({
+      timeout: 20_000,
+    });
 
     await expect
       .poll(async () => {
@@ -354,11 +356,15 @@ test("comms: contact+prefs, auto milestones (schedule/install/50%/phase/punch/cl
   });
 
   await test.step("a phone call gets logged manually and the history shows everything", async () => {
-    await page.getByLabel("Comm summary").fill("Told Dana punch is done, closeout next week");
+    await page
+      .getByLabel("Comm summary")
+      .fill("Told Dana punch is done, closeout next week");
     await page.getByRole("button", { name: "Log it" }).click();
 
     const history = page.getByTestId("comms-history");
-    await expect(history.getByText("Told Dana punch is done, closeout next week")).toBeVisible({
+    await expect(
+      history.getByText("Told Dana punch is done, closeout next week")
+    ).toBeVisible({
       timeout: 10_000,
     });
     // Everything above is in one place: milestones, the report, the call.

@@ -2,7 +2,10 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { requireRole } from "@/lib/auth/session";
-import { CloseoutPdfDocument, type CloseoutPdfData } from "@/lib/pdf/closeout-pdf";
+import {
+  CloseoutPdfDocument,
+  type CloseoutPdfData,
+} from "@/lib/pdf/closeout-pdf";
 import { createClient } from "@/lib/supabase/server";
 
 const PDF_VIEWERS = ["owner", "pm"] as const;
@@ -42,8 +45,16 @@ export async function GET(
     { data: dayLogs, error: dayLogsError },
     { data: changeOrders, error: changeOrdersError },
   ] = await Promise.all([
-    supabase.from("projects").select("site_address, created_at").eq("id", projectId).single(),
-    supabase.from("organizations").select("name, address, logo_path").eq("id", project.org_id).single(),
+    supabase
+      .from("projects")
+      .select("site_address, created_at")
+      .eq("id", projectId)
+      .single(),
+    supabase
+      .from("organizations")
+      .select("name, address, logo_path")
+      .eq("id", project.org_id)
+      .single(),
     supabase
       .from("material_reconciliation")
       .select("name, needed, received, assigned, installed, left_qty, to_order")
@@ -67,7 +78,9 @@ export async function GET(
       .order("work_date"),
     supabase
       .from("change_orders")
-      .select("number, title, status, added_days, price, customer_approved_via, customer_approved_at")
+      .select(
+        "number, title, status, added_days, price, customer_approved_via, customer_approved_at"
+      )
       .eq("project_id", projectId)
       .order("number"),
   ]);
@@ -87,7 +100,11 @@ export async function GET(
   if (autopsyError) throw autopsyError;
 
   const crewIds = [
-    ...new Set(dayLogs.map((log) => log.crew_id).filter((id): id is string => id !== null)),
+    ...new Set(
+      dayLogs
+        .map((log) => log.crew_id)
+        .filter((id): id is string => id !== null)
+    ),
   ];
   const { data: crews, error: crewsError } =
     crewIds.length > 0
@@ -98,7 +115,9 @@ export async function GET(
 
   const [drawingUrlResult, logoUrlResult] = await Promise.all([
     markingDrawing
-      ? supabase.storage.from("drawings").createSignedUrl(markingDrawing.storage_path, 3600)
+      ? supabase.storage
+          .from("drawings")
+          .createSignedUrl(markingDrawing.storage_path, 3600)
       : Promise.resolve({ data: null, error: null }),
     org.logo_path
       ? supabase.storage.from("org-logos").createSignedUrl(org.logo_path, 3600)
@@ -131,7 +150,9 @@ export async function GET(
     })),
     dayLogs: dayLogs.map((log) => ({
       workDate: log.work_date,
-      crewName: log.crew_id ? (crewNameById.get(log.crew_id) ?? "Unknown crew") : "—",
+      crewName: log.crew_id
+        ? (crewNameById.get(log.crew_id) ?? "Unknown crew")
+        : "—",
       arrivedAt: log.arrived_at,
       departedAt: log.departed_at,
       note: log.note,

@@ -52,7 +52,9 @@ function GateItemRow({
   const [uploading, setUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
-  const isOverdue = Boolean(item.due_date && item.due_date < todayIso() && !item.done);
+  const isOverdue = Boolean(
+    item.due_date && item.due_date < todayIso() && !item.done
+  );
 
   function handleToggle() {
     const next = !isDone;
@@ -69,7 +71,9 @@ function GateItemRow({
     setDueDate(value);
     toggleGateItem(item.id, projectId, { dueDate: value || null })
       .then(() => router.refresh())
-      .catch((err) => onError(err instanceof Error ? err.message : "Could not set due date."));
+      .catch((err) =>
+        onError(err instanceof Error ? err.message : "Could not set due date.")
+      );
   }
 
   function handleSignOff() {
@@ -78,7 +82,9 @@ function GateItemRow({
         setIsDone(true);
         router.refresh();
       })
-      .catch((err) => onError(err instanceof Error ? err.message : "Could not sign off."));
+      .catch((err) =>
+        onError(err instanceof Error ? err.message : "Could not sign off.")
+      );
   }
 
   async function handlePhotoSelected(file: File) {
@@ -109,7 +115,12 @@ function GateItemRow({
         aria-label={item.label}
         className="size-4 rounded border-border"
       />
-      <span className={cn("flex-1 text-sm text-foreground", isDone && "text-muted-foreground line-through")}>
+      <span
+        className={cn(
+          "flex-1 text-sm text-foreground",
+          isDone && "text-muted-foreground line-through"
+        )}
+      >
         {item.label}
       </span>
       {isOverdue ? (
@@ -146,7 +157,11 @@ function GateItemRow({
             disabled={!canWrite || uploading}
             onClick={() => inputRef.current?.click()}
           >
-            {item.photo_path ? "Photo ✓" : uploading ? "Uploading…" : "Attach photo"}
+            {item.photo_path
+              ? "Photo ✓"
+              : uploading
+                ? "Uploading…"
+                : "Attach photo"}
           </Button>
         </>
       ) : null}
@@ -208,7 +223,9 @@ function GateChecklist({
         await completeStage(stage.id, projectId);
         router.refresh();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Could not complete stage.");
+        setError(
+          err instanceof Error ? err.message : "Could not complete stage."
+        );
       }
     });
   }
@@ -226,7 +243,9 @@ function GateChecklist({
         setOverrideReason("");
         router.refresh();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Could not override stage.");
+        setError(
+          err instanceof Error ? err.message : "Could not override stage."
+        );
       }
     });
   }
@@ -273,7 +292,13 @@ function GateChecklist({
             disabled={isPending}
             className="h-8 flex-1 text-xs"
           />
-          <Button type="button" size="sm" variant="outline" disabled={isPending} onClick={handleAddItem}>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={isPending}
+            onClick={handleAddItem}
+          >
             + Add
           </Button>
         </div>
@@ -283,7 +308,12 @@ function GateChecklist({
 
       {canManage && isActive ? (
         <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
-          <Button type="button" size="sm" disabled={isPending || openCount > 0} onClick={handleComplete}>
+          <Button
+            type="button"
+            size="sm"
+            disabled={isPending || openCount > 0}
+            onClick={handleComplete}
+          >
             Complete stage
           </Button>
           {openCount > 0 ? (
@@ -296,15 +326,31 @@ function GateChecklist({
                   disabled={isPending}
                   className="h-8 flex-1 text-xs"
                 />
-                <Button type="button" size="sm" variant="outline" disabled={isPending} onClick={handleOverride}>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={isPending}
+                  onClick={handleOverride}
+                >
                   Confirm override
                 </Button>
-                <Button type="button" size="sm" variant="ghost" onClick={() => setShowOverride(false)}>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setShowOverride(false)}
+                >
                   Cancel
                 </Button>
               </div>
             ) : (
-              <Button type="button" size="sm" variant="outline" onClick={() => setShowOverride(true)}>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => setShowOverride(true)}
+              >
                 Override ({openCount} open)
               </Button>
             )
@@ -327,8 +373,11 @@ export function LifecyclePanel({
   canManage: boolean;
 }) {
   const activeStage = stages.find((s) => s.status === "active");
-  const activeKey = (activeStage?.stage_key as GateStageKey | undefined) ?? null;
-  const [expandedKey, setExpandedKey] = useState<GateStageKey | null>(activeKey);
+  const activeKey =
+    (activeStage?.stage_key as GateStageKey | undefined) ?? null;
+  const [expandedKey, setExpandedKey] = useState<GateStageKey | null>(
+    activeKey
+  );
 
   // Follow the active stage when it advances (someone just completed or
   // overrode the previously-active one) — the React-docs "previous prop
@@ -348,7 +397,8 @@ export function LifecyclePanel({
   if (stages.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-border bg-card p-4 text-sm text-muted-foreground">
-        Lifecycle tracking is being set up for this project — check back shortly.
+        Lifecycle tracking is being set up for this project — check back
+        shortly.
       </div>
     );
   }
@@ -364,7 +414,8 @@ export function LifecyclePanel({
             className={cn(
               "shrink-0 rounded-full border px-3 py-1 text-xs font-medium capitalize",
               STAGE_STATUS_CLASS[stage.status],
-              expandedKey === stage.stage_key && "ring-2 ring-ring ring-offset-1 ring-offset-background"
+              expandedKey === stage.stage_key &&
+                "ring-2 ring-ring ring-offset-1 ring-offset-background"
             )}
           >
             {STAGE_LABEL[stage.stage_key as GateStageKey]}

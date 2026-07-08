@@ -28,7 +28,10 @@ export function ProgressBar({
         aria-valuenow={clamped}
         aria-valuemin={0}
         aria-valuemax={100}
-        className={cn("flex-1 overflow-hidden rounded-full bg-surface-sunken", height)}
+        className={cn(
+          "flex-1 overflow-hidden rounded-full bg-surface-sunken",
+          height
+        )}
       >
         <div
           className={cn(
@@ -77,7 +80,10 @@ export function ProgressRing({
       aria-valuenow={clamped}
       aria-valuemin={0}
       aria-valuemax={100}
-      className={cn("relative inline-flex items-center justify-center", className)}
+      className={cn(
+        "relative inline-flex items-center justify-center",
+        className
+      )}
       style={{ width: size, height: size }}
     >
       <svg width={size} height={size} className="-rotate-90">
@@ -99,7 +105,8 @@ export function ProgressRing({
           strokeDasharray={`${dash} ${circumference - dash}`}
           className={clamped >= 100 ? "stroke-success" : "stroke-brand"}
           style={{
-            transition: "stroke-dasharray var(--duration-slow) var(--easing-standard)",
+            transition:
+              "stroke-dasharray var(--duration-slow) var(--easing-standard)",
           }}
         />
       </svg>
@@ -111,7 +118,9 @@ export function ProgressRing({
           {clamped}%
         </span>
         {label ? (
-          <span className="type-caption mt-0.5 text-muted-foreground">{label}</span>
+          <span className="type-caption mt-0.5 text-muted-foreground">
+            {label}
+          </span>
         ) : null}
       </div>
     </div>

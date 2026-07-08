@@ -18,8 +18,8 @@ domain model, and adds operational depth.
   Progress, PageHeader, Empty/Error/Skeleton states, Toolbar — plus the
   new **AppShell** (desktop sidebar + mobile bottom tab bar; SiteHeader
   deleted) and the full `/styleguide` gallery. Engine core + SKU parser
-  + 14 unit tests landed early for Phase 13 (`npm run test:unit`).
-  ADR-049, ADR-050.
+  - 14 unit tests landed early for Phase 13 (`npm run test:unit`).
+    ADR-049, ADR-050.
 - ✅ **12 — Screen-by-screen redesign** (2026-07-08): Login (brand-glyph
   card), Projects (PageHeader + raised-chip toggle + elevated cards),
   project header/tabs, Dashboard (toned StatTiles), Portal (customer
@@ -36,15 +36,20 @@ domain model, and adds operational depth.
   migration + lossless backfill authored; `db push` + backfill run are
   the two NEEDS ME items (app is correct without them via read-time
   parsing). ADR-049, ADR-051.
-- **14 — Product depth I**: receiving/staging pipeline + reorder urgency +
-  next-day readiness, per-row QC gates, punch list, before/after photos,
-  closeout package.
-- **15 — Product depth II**: scheduler depth (crew row assignment + tinting,
-  look-ahead), daily targets vs actual + SPI, per-SKU productivity flywheel
-  feeding the engine, notifications/reports.
-- **16 — Cross-cutting polish**: roles/permissions (crew sees no cost),
-  audit log, ⌘K command palette + global search, states/a11y/perf passes,
-  PWA/offline hardening, end-to-end smoke QA.
+- ✅ **14 — Product depth I** (2026-07-08): per-row QC checklists (6
+  checks, crew-writable) + punch list on the Progress tab, photo
+  before/during/after phases with a grouped portal gallery. Receiving/
+  staging/readiness/closeout already existed (Batches 3–4). Feature-
+  guarded until the migration push (NEEDS ME). ADR-052.
+- ✅ **15 — Product depth II** (2026-07-08): per-SKU productivity
+  flywheel chained into the one-button rate recompute — learns (crew,
+  SKU) hours/unit from actuals and feeds the engine's top tier;
+  self-activates post-backfill. Targets/SPI/reports were already live.
+  ADR-052.
+- ✅ **16 — Cross-cutting polish** (2026-07-08): append-only audit_events
+  wired into role changes / gate overrides / CO approvals (ADR-053),
+  ⌘K command palette with live project search, skip-to-content +
+  main landmark, final full-suite smoke QA green.
 
 **Current status:** Phases 1–5 of this batch are all built AND now
 **verified live** via an automated Playwright E2E suite
@@ -163,7 +168,7 @@ are fully zoomable/pannable/fullscreen-able but not markable —
 `RowStage` gained a `readOnly` mode rather than a second component, so
 that shared behavior doesn't fork. Caught a real bug along the way (an
 `.order()` chained after an insert-returning `.select()` that broke
-*every* drawing upload, not just the new auto-marking logic — see
+_every_ drawing upload, not just the new auto-marking logic — see
 ADR-024) before it reached the batch's final report.
 
 **Sub-phase F — Packing-slip AI extraction — built, not yet
@@ -219,29 +224,29 @@ decision.
 **The iBuy self-review — at which exact gate would each failure have
 been caught?**
 
-1. *"Scope was never captured."* At the **Handoff gate** the survey's
+1. _"Scope was never captured."_ At the **Handoff gate** the survey's
    teardown answer auto-creates a draft Scope item, and the **Scope
    stage** cannot complete past "All work types itemized" — with the
    scope builder feeding those hours straight into the estimate and
    schedule (Sub-phases C+D). Late-discovered growth becomes a
    numbered change order, prompted by the scope-growth banner (F).
-2. *"No one owned the job."* At **creation** — a project cannot exist
+2. _"No one owned the job."_ At **creation** — a project cannot exist
    without a PM of record; reassignment is audited and notified; the
    dashboard shows the PM on every row and nags the accountable person
    when their project stalls (B+A).
-3. *"Bad material surfaced mid-install."* At the **Materials gate** —
+3. _"Bad material surfaced mid-install."_ At the **Materials gate** —
    readiness is computed from the receiving event log (verified
    quantities, open flags), hand-ticking can't fake it, the Mobilize
    stage stays locked, crew dispatch is server-rejected, the field app
    shows "Not cleared for install," and every short/damaged/wrong flag
    notifies the PM the same day from the dock worksheet (E).
-4. *"The customer was never told the schedule."* At the **Schedule
+4. _"The customer was never told the schedule."_ At the **Schedule
    gate** — "Customer notified of schedule" only auto-ticks when the
    confirmation email actually SENT; slips trigger the proactive
    finish-changed notice with old→new dates; the weekly customer
    report and the milestone stream keep them current, and the comms
    log proves what they were told (G+H).
-5. *"Everything lived in one manager's head."* Everywhere — the
+5. _"Everything lived in one manager's head."_ Everywhere — the
    lifecycle stepper IS the process on screen; What's Next says what's
    blocking; the dashboard surfaces stalls, overdues, shortages, and
    every override with its reason; the comms log holds the customer
@@ -251,7 +256,7 @@ been caught?**
 **NEEDS-YOU (the only human-only items):**
 
 1. **Promote Batch 4 to production (one step).** Every push built on
-   Vercel as a *Preview* because the project's production branch
+   Vercel as a _Preview_ because the project's production branch
    setting doesn't match `master`. Either run
    `npx vercel ls` and `npx vercel promote <newest-preview-url>` once,
    or (permanent fix) set Production Branch to `master` in Vercel →
@@ -273,7 +278,7 @@ ADR-037):** ten new tables for the whole batch — a reusable, org-editable
 8-stage gate template (`gate_templates`/`gate_template_stages`/
 `gate_template_items`) copied per-project at creation so later edits never
 mutate the template; `project_stages` (one row per project per stage, a
-single `locked`/`active`/`complete`/`overridden` status) + 
+single `locked`/`active`/`complete`/`overridden` status) +
 `project_gate_items` (the actual checklist, `done`/`done_by`/`done_at`,
 optional photo/signoff/due-date); `scope_items` (everything beyond
 install — teardown/remove-add-levels/relocate/repair/other — the work
@@ -551,7 +556,7 @@ upload, default working days); self-service display-name edit (a narrow
 `update_own_full_name` RPC, since the existing `profiles_update` RLS
 policy only ever let owner/pm touch profile rows, even their own). The
 bigger piece: audited every mutating Server Action in the app and found
-role enforcement relied *entirely* on RLS with no application-level
+role enforcement relied _entirely_ on RLS with no application-level
 check anywhere — added a shared `requireRole`/`requireOrg` helper
 (`lib/auth/session.ts`) and applied it across crews/phases/rows/
 scheduler/projects/team actions, each matching its table's real RLS
@@ -590,7 +595,7 @@ then Claude cleans the transcript into a draft and flags a likely
 blocker code — the crew always reviews before anything saves. Found and
 fixed a real gap while building this: neither the packing-slip
 extraction route nor the new voice-note route had an explicit
-authentication check (voice-note had *none* at all, since it never
+authentication check (voice-note had _none_ at all, since it never
 touches Supabase) — both now use sub-phase A's `requireOrg()` helper.
 
 **Sub-phase H — Customer portal — done and verified live (2026-07-06,
@@ -612,7 +617,7 @@ ahead of time with RLS already anticipating this exact sub-phase — only
 a `revoked_at` column needed adding, so a link could be explicitly
 revoked as a distinguishable office action rather than just quietly
 expired. Found a real bug in the sub-phase's own new E2E spec: a status
-badge's CSS `capitalize` class only changes how the text *looks*, not
+badge's CSS `capitalize` class only changes how the text _looks_, not
 its actual lowercase DOM content — an unscoped assertion had been
 silently passing against the wrong element (the project's own,
 properly-capitalized status pill) instead of the token's own badge.
@@ -645,7 +650,7 @@ primitive. Five new `loading.tsx` files for the heaviest routes. A real
 mobile-layout bug found via a genuine 390px-viewport pass (screenshotted
 every major screen, not simulated): the protected layout's `<main>` had
 no `min-w-0`, so a flex item containing the materials grid's wide table
-refused to shrink, pushing the *entire page* wider than the viewport on
+refused to shrink, pushing the _entire page_ wider than the viewport on
 any project with materials — one root-level fix instead of patching
 every wide-content page. Also fixed a long packing-slip filename with
 no `break-all` causing the same class of overflow, and a non-wrapping
@@ -688,7 +693,7 @@ still auto-approves immediately, since there's nothing yet to review
 against. Found and fixed a genuine test-only race while writing the
 new E2E specs: a fast client-side tab navigation can read the
 drawing's bounding box before the zoom/pan "fit to screen" effect has
-recomputed it (every *existing* test happened to avoid this by
+recomputed it (every _existing_ test happened to avoid this by
 reaching the canvas through a slow upload round trip) — fixed by
 clicking the real "Fit to screen" button for a synchronous, guaranteed
 recompute instead of guessing at a wait. Also fixed two regressions
@@ -955,7 +960,7 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
       originally applied by hand via the SQL editor, so the CLI's
       ledger didn't know about them), then `supabase db push`. Fixed a
       real bug the push caught: `row_progress`'s `CREATE OR REPLACE
-    VIEW` failed because `phase_id` was inserted mid-list rather than
+VIEW` failed because `phase_id` was inserted mid-list rather than
       appended at the end (Postgres compares view columns positionally
       on replace). Confirmed live via `supabase gen types` diffed
       against the hand-written types — exact match.
@@ -1088,7 +1093,7 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
       (`claude-sonnet-5`, plain `fetch()`, no new SDK dependency) as an
       `image` or `document` block depending on actual content-type, with
       a forced tool-use call for structured `{code, description, size,
-      qty}[]` output. Returns a clean 500 if `ANTHROPIC_API_KEY` isn't
+qty}[]` output. Returns a clean 500 if `ANTHROPIC_API_KEY` isn't
       configured.
 - [x] `PackingSlipExtractDialog` — review/edit table (add/remove/edit
       any field) between extraction and save; "Replace the current
@@ -1668,7 +1673,7 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
       time ever — previously hand-written, see ADR-010) — confirmed an
       exact match modulo two deliberate, documented deviations.
 - [x] `npm run lint`/`typecheck`/`build` all pass; full `npm run
-      test:e2e` green (10 passed, 1 intentionally skipped) after fixing
+test:e2e` green (10 passed, 1 intentionally skipped) after fixing
       one real, pre-existing, date-sensitive test bug in
       `scheduler-flow.spec.ts` (unrelated to this migration).
 
@@ -1816,7 +1821,7 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
       boundaries, accessibility, and performance at scale across the
       whole app — every finding with an exact file:line reference.
 - [x] New root `app/error.tsx` — closes two real gaps: `(protected)/
-      layout.tsx`'s own auth/profile lookup was never caught by the
+layout.tsx`'s own auth/profile lookup was never caught by the
       existing themed boundary (Next excludes a segment's own
       layout.tsx from that segment's error.tsx), and `/portal/[token]`
       (public, outside `(protected)`) had no error boundary at all.
@@ -1835,7 +1840,7 @@ This roadmap (Phase 1 = done) is confirmed by the user — no longer a draft:
       field/[projectId], dashboard, mark).
 - [x] Real mobile-layout bug found via a genuine 390px-viewport pass
       (screenshotted every major screen) and fixed: `(protected)/
-      layout.tsx`'s `<main>` had no `min-w-0`, so a flex item
+layout.tsx`'s `<main>` had no `min-w-0`, so a flex item
       containing a wide table refused to shrink, pushing the entire
       page wider than the viewport — one root-level fix. Also fixed a
       long packing-slip filename missing `break-all`, and a

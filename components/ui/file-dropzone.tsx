@@ -95,7 +95,9 @@ export function FileDropzone({
         <UploadCloudIcon aria-hidden className="size-6 text-muted-foreground" />
       )}
       <div className="text-sm font-medium text-foreground">{label}</div>
-      {hint ? <div className="text-xs text-muted-foreground">{hint}</div> : null}
+      {hint ? (
+        <div className="text-xs text-muted-foreground">{hint}</div>
+      ) : null}
     </div>
   );
 }

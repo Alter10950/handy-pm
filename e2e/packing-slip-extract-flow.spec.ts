@@ -18,13 +18,17 @@ test.afterAll(async () => {
 // text node — the value is rendered by the browser's own form-control
 // widget) — allInnerTexts() on these rows silently returns empty strings.
 // Read each row's actual field values via inputValue() instead.
-async function readReviewRows(table: Locator): Promise<
-  { code: string; description: string; size: string; qty: string }[]
-> {
+async function readReviewRows(
+  table: Locator
+): Promise<{ code: string; description: string; size: string; qty: string }[]> {
   const rows = table.locator("tbody tr");
   const count = await rows.count();
-  const result: { code: string; description: string; size: string; qty: string }[] =
-    [];
+  const result: {
+    code: string;
+    description: string;
+    size: string;
+    qty: string;
+  }[] = [];
   for (let i = 0; i < count; i++) {
     const inputs = rows.nth(i).locator("input");
     const [code, description, size, qty] = await Promise.all([
@@ -163,7 +167,9 @@ test("packing slip AI extraction: extracts line items, keeps distinct sizes, ski
     )
   ).toBe(false);
 
-  const beamRows = rows.filter((r) => r.description.toLowerCase().includes("beam"));
+  const beamRows = rows.filter((r) =>
+    r.description.toLowerCase().includes("beam")
+  );
   expect(beamRows).toHaveLength(2);
   expect(beamRows.some((r) => r.size.includes("144"))).toBe(true);
   expect(beamRows.some((r) => r.size.includes("96"))).toBe(true);

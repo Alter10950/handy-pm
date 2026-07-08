@@ -1,7 +1,11 @@
 import { todayIso } from "@/lib/dates";
 import { getCrewRatesLookup } from "@/lib/estimating/queries";
 import { listOrgAssignmentsInRange } from "@/lib/scheduler/queries";
-import { classifySpi, computeProjectSpi, type RiskTier } from "@/lib/scheduler/spi";
+import {
+  classifySpi,
+  computeProjectSpi,
+  type RiskTier,
+} from "@/lib/scheduler/spi";
 import { createClient } from "@/lib/supabase/server";
 import type { BlockerCode, Tables } from "@/lib/supabase/database.types";
 import { listTeamMembers } from "@/lib/team/queries";
@@ -75,7 +79,10 @@ export async function listActiveProjectsForDashboard(): Promise<
           .from("installs")
           .select("row_id, installed_on, qty")
           .in("row_id", rowIds)
-      : { data: [] as { row_id: string; installed_on: string; qty: number }[], error: null };
+      : {
+          data: [] as { row_id: string; installed_on: string; qty: number }[],
+          error: null,
+        };
   if (installsError) throw installsError;
 
   const targetsByProject = new Map<string, Tables<"targets">[]>();
@@ -90,7 +97,8 @@ export async function listActiveProjectsForDashboard(): Promise<
   for (const install of allInstalls) {
     const projectId = projectIdByRow.get(install.row_id);
     if (!projectId) continue;
-    const dateMap = actualsByProject.get(projectId) ?? new Map<string, number>();
+    const dateMap =
+      actualsByProject.get(projectId) ?? new Map<string, number>();
     dateMap.set(
       install.installed_on,
       (dateMap.get(install.installed_on) ?? 0) + install.qty
@@ -343,7 +351,10 @@ export async function getTodayActivitySummary(): Promise<TodayActivity> {
           .select("row_id, qty")
           .in("row_id", rowIds)
           .eq("installed_on", today)
-      : Promise.resolve({ data: [] as { row_id: string; qty: number }[], error: null }),
+      : Promise.resolve({
+          data: [] as { row_id: string; qty: number }[],
+          error: null,
+        }),
     supabase
       .from("blockers")
       .select("id")
@@ -364,12 +375,17 @@ export async function getTodayActivitySummary(): Promise<TodayActivity> {
   for (const install of installs) {
     const projectId = projectIdByRow.get(install.row_id);
     if (!projectId) continue;
-    qtyByProject.set(projectId, (qtyByProject.get(projectId) ?? 0) + install.qty);
+    qtyByProject.set(
+      projectId,
+      (qtyByProject.get(projectId) ?? 0) + install.qty
+    );
   }
 
   const crewIdsToday = [
     ...new Set(
-      dayLogsToday.map((d) => d.crew_id).filter((id): id is string => id !== null)
+      dayLogsToday
+        .map((d) => d.crew_id)
+        .filter((id): id is string => id !== null)
     ),
   ];
   const { data: crews, error: crewsError } =

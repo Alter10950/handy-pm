@@ -35,7 +35,9 @@ async function listReportRecipientEmails(): Promise<string[]> {
 
   const emails = await Promise.all(
     profiles.map(async (profile) => {
-      const { data, error: userError } = await admin.auth.admin.getUserById(profile.id);
+      const { data, error: userError } = await admin.auth.admin.getUserById(
+        profile.id
+      );
       if (userError) throw userError;
       return data.user?.email ?? null;
     })

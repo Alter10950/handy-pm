@@ -10,7 +10,9 @@ async function listFilesRecursively(
   bucket: string,
   prefix: string
 ): Promise<string[]> {
-  const { data: entries, error } = await admin.storage.from(bucket).list(prefix);
+  const { data: entries, error } = await admin.storage
+    .from(bucket)
+    .list(prefix);
   if (error) throw error;
 
   const paths: string[] = [];
@@ -47,7 +49,11 @@ export async function deleteProjectCompletely(projectId: string) {
     }
   }
 
-  const photoPaths = await listFilesRecursively(admin, "daily-photos", projectId);
+  const photoPaths = await listFilesRecursively(
+    admin,
+    "daily-photos",
+    projectId
+  );
   if (photoPaths.length > 0) {
     const { error: removeError } = await admin.storage
       .from("daily-photos")

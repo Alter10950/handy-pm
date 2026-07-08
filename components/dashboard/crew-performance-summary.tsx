@@ -27,7 +27,10 @@ export function CrewPerformanceSummary({
   return (
     <ul className="flex flex-col gap-2">
       {crews.map((crew) => (
-        <li key={crew.crewId} className="flex items-center justify-between gap-2 text-sm">
+        <li
+          key={crew.crewId}
+          className="flex items-center justify-between gap-2 text-sm"
+        >
           <span className="text-foreground">{crew.crewName}</span>
           <span className="flex items-center gap-2">
             {crew.blendedRate !== null ? (

@@ -2,7 +2,11 @@ import Link from "next/link";
 
 import type { DashboardShortage } from "@/lib/dashboard/queries";
 
-export function ShortageList({ shortages }: { shortages: DashboardShortage[] }) {
+export function ShortageList({
+  shortages,
+}: {
+  shortages: DashboardShortage[];
+}) {
   if (shortages.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">

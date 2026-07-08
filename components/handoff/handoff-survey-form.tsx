@@ -54,14 +54,18 @@ export function HandoffSurveyForm({
   canManage: boolean;
   aiDraftAvailable: boolean;
 }) {
-  const [siteVisitDate, setSiteVisitDate] = useState(survey?.site_visit_date ?? "");
+  const [siteVisitDate, setSiteVisitDate] = useState(
+    survey?.site_visit_date ?? ""
+  );
   const [existingCondition, setExistingCondition] = useState(
     survey?.existing_racking_condition ?? ""
   );
   const [teardownRequired, setTeardownRequired] = useState(
     survey?.teardown_required ?? false
   );
-  const [teardownNotes, setTeardownNotes] = useState(survey?.teardown_notes ?? "");
+  const [teardownNotes, setTeardownNotes] = useState(
+    survey?.teardown_notes ?? ""
+  );
   const [constraints, setConstraints] = useState<HandoffConstraints>(
     survey ? parseConstraints(survey.constraints) : { ...EMPTY_CONSTRAINTS }
   );
@@ -103,7 +107,9 @@ export function HandoffSurveyForm({
       if (data.teardownNotes) setTeardownNotes(data.teardownNotes);
       setConstraints(data.constraints);
     } catch (err) {
-      setDraftError(err instanceof Error ? err.message : "Could not draft from notes.");
+      setDraftError(
+        err instanceof Error ? err.message : "Could not draft from notes."
+      );
     } finally {
       setDrafting(false);
     }
@@ -155,7 +161,9 @@ export function HandoffSurveyForm({
         await removeHandoffPhoto(projectId, path);
         router.refresh();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Could not remove photo.");
+        setError(
+          err instanceof Error ? err.message : "Could not remove photo."
+        );
       }
     });
   }
@@ -194,9 +202,9 @@ export function HandoffSurveyForm({
             Draft from rough notes
           </h3>
           <p className="mt-1 text-xs text-muted-foreground">
-            Typed or dictated notes from the walk-through — AI drafts the
-            fields below from them, but nothing saves until you review and
-            hit Save yourself.
+            Typed or dictated notes from the walk-through — AI drafts the fields
+            below from them, but nothing saves until you review and hit Save
+            yourself.
           </p>
           <Textarea
             id="handoff_rough_notes"
@@ -229,7 +237,10 @@ export function HandoffSurveyForm({
         <h3 className="text-sm font-semibold text-foreground">Site visit</h3>
         <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="site_visit_date" className="text-xs text-muted-foreground">
+            <label
+              htmlFor="site_visit_date"
+              className="text-xs text-muted-foreground"
+            >
               Site visit date
             </label>
             <Input
@@ -290,14 +301,19 @@ export function HandoffSurveyForm({
       </div>
 
       <div className="rounded-lg border border-border bg-card shadow-e1 p-4">
-        <h3 className="text-sm font-semibold text-foreground">Site constraints</h3>
+        <h3 className="text-sm font-semibold text-foreground">
+          Site constraints
+        </h3>
         <div className="mt-3 flex flex-col gap-3">
           <label className="flex items-center gap-2 text-sm text-foreground">
             <input
               type="checkbox"
               checked={constraints.liveWarehouse}
               onChange={(e) =>
-                setConstraints((c) => ({ ...c, liveWarehouse: e.target.checked }))
+                setConstraints((c) => ({
+                  ...c,
+                  liveWarehouse: e.target.checked,
+                }))
               }
               disabled={disabled}
               className="size-4 rounded border-border"
@@ -309,7 +325,10 @@ export function HandoffSurveyForm({
               type="checkbox"
               checked={constraints.forkliftOnsite}
               onChange={(e) =>
-                setConstraints((c) => ({ ...c, forkliftOnsite: e.target.checked }))
+                setConstraints((c) => ({
+                  ...c,
+                  forkliftOnsite: e.target.checked,
+                }))
               }
               disabled={disabled}
               className="size-4 rounded border-border"
@@ -321,7 +340,10 @@ export function HandoffSurveyForm({
               type="checkbox"
               checked={constraints.permitsNeeded}
               onChange={(e) =>
-                setConstraints((c) => ({ ...c, permitsNeeded: e.target.checked }))
+                setConstraints((c) => ({
+                  ...c,
+                  permitsNeeded: e.target.checked,
+                }))
               }
               disabled={disabled}
               className="size-4 rounded border-border"
@@ -330,28 +352,40 @@ export function HandoffSurveyForm({
           </label>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
-              <label htmlFor="working_hours" className="text-xs text-muted-foreground">
+              <label
+                htmlFor="working_hours"
+                className="text-xs text-muted-foreground"
+              >
                 Working hours allowed
               </label>
               <Input
                 id="working_hours"
                 value={constraints.workingHours}
                 onChange={(e) =>
-                  setConstraints((c) => ({ ...c, workingHours: e.target.value }))
+                  setConstraints((c) => ({
+                    ...c,
+                    workingHours: e.target.value,
+                  }))
                 }
                 disabled={disabled}
                 placeholder="e.g. 7am–3pm, no weekends"
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <label htmlFor="floor_condition" className="text-xs text-muted-foreground">
+              <label
+                htmlFor="floor_condition"
+                className="text-xs text-muted-foreground"
+              >
                 Floor condition
               </label>
               <Input
                 id="floor_condition"
                 value={constraints.floorCondition}
                 onChange={(e) =>
-                  setConstraints((c) => ({ ...c, floorCondition: e.target.value }))
+                  setConstraints((c) => ({
+                    ...c,
+                    floorCondition: e.target.value,
+                  }))
                 }
                 disabled={disabled}
                 placeholder="e.g. concrete, cracking near dock 3"
@@ -359,7 +393,10 @@ export function HandoffSurveyForm({
             </div>
           </div>
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="access_notes" className="text-xs text-muted-foreground">
+            <label
+              htmlFor="access_notes"
+              className="text-xs text-muted-foreground"
+            >
               Access notes
             </label>
             <Input
@@ -380,7 +417,10 @@ export function HandoffSurveyForm({
         <div className="mt-3 flex flex-wrap gap-3">
           {photoPaths.map((path) =>
             photoUrls[path] ? (
-              <div key={path} className="relative size-24 overflow-hidden rounded-md">
+              <div
+                key={path}
+                className="relative size-24 overflow-hidden rounded-md"
+              >
                 <Image
                   src={photoUrls[path]}
                   alt="Site photo"
@@ -434,16 +474,16 @@ export function HandoffSurveyForm({
           <Button type="button" disabled={disabled} onClick={handleSave}>
             {isPending ? "Saving…" : "Save survey"}
           </Button>
-          {saved ? <span className="text-sm text-success-fg">Saved.</span> : null}
+          {saved ? (
+            <span className="text-sm text-success-fg">Saved.</span>
+          ) : null}
         </div>
       ) : null}
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
       <div className="rounded-lg border border-border bg-card shadow-e1 p-4">
-        <h3 className="text-sm font-semibold text-foreground">
-          Dual sign-off
-        </h3>
+        <h3 className="text-sm font-semibold text-foreground">Dual sign-off</h3>
         <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="rounded-md border border-border p-3">
             <p className="text-xs uppercase tracking-wide text-muted-foreground">
@@ -452,7 +492,9 @@ export function HandoffSurveyForm({
             {survey?.estimator_signed_at ? (
               <p className="mt-1 text-sm text-foreground">
                 Signed {formatSignedAt(survey.estimator_signed_at)}
-                {survey.estimator_signoff_user_id === currentUserId ? " (you)" : ""}
+                {survey.estimator_signoff_user_id === currentUserId
+                  ? " (you)"
+                  : ""}
               </p>
             ) : canManage ? (
               <Button
@@ -466,11 +508,15 @@ export function HandoffSurveyForm({
                 Sign as estimator
               </Button>
             ) : (
-              <p className="mt-1 text-sm text-muted-foreground">Not yet signed.</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Not yet signed.
+              </p>
             )}
           </div>
           <div className="rounded-md border border-border p-3">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">PM</p>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">
+              PM
+            </p>
             {survey?.pm_signed_at ? (
               <p className="mt-1 text-sm text-foreground">
                 Signed {formatSignedAt(survey.pm_signed_at)}
@@ -488,7 +534,9 @@ export function HandoffSurveyForm({
                 Sign as PM
               </Button>
             ) : (
-              <p className="mt-1 text-sm text-muted-foreground">Not yet signed.</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Not yet signed.
+              </p>
             )}
           </div>
         </div>

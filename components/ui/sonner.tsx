@@ -28,7 +28,8 @@ function subscribeToThemeChange(onChange: () => void) {
 function useResolvedTheme(): "light" | "dark" {
   return useSyncExternalStore(
     subscribeToThemeChange,
-    () => (document.documentElement.classList.contains("dark") ? "dark" : "light"),
+    () =>
+      document.documentElement.classList.contains("dark") ? "dark" : "light",
     () => "light"
   );
 }

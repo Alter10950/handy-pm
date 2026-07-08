@@ -11,7 +11,11 @@ function formatDate(iso: string | null): string {
   });
 }
 
-export function ProjectRiskList({ projects }: { projects: DashboardProject[] }) {
+export function ProjectRiskList({
+  projects,
+}: {
+  projects: DashboardProject[];
+}) {
   if (projects.length === 0) {
     return <p className="text-sm text-muted-foreground">No active projects.</p>;
   }
@@ -43,9 +47,13 @@ export function ProjectRiskList({ projects }: { projects: DashboardProject[] }) 
               </td>
               <td className="py-2">
                 {project.pmName ? (
-                  <span className="text-muted-foreground">{project.pmName}</span>
+                  <span className="text-muted-foreground">
+                    {project.pmName}
+                  </span>
                 ) : (
-                  <span className="font-medium text-warning-fg">Unassigned</span>
+                  <span className="font-medium text-warning-fg">
+                    Unassigned
+                  </span>
                 )}
               </td>
               <td className="py-2">

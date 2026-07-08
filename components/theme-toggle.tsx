@@ -39,7 +39,9 @@ export function ThemeToggle({ className }: { className?: string }) {
     <button
       type="button"
       onClick={toggle}
-      aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+      aria-label={
+        theme === "dark" ? "Switch to light mode" : "Switch to dark mode"
+      }
       title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
       className={
         className ??
@@ -48,7 +50,13 @@ export function ThemeToggle({ className }: { className?: string }) {
     >
       {theme === "dark" ? (
         // Sun
-        <svg width="15" height="15" viewBox="0 0 15 15" fill="currentColor" aria-hidden>
+        <svg
+          width="15"
+          height="15"
+          viewBox="0 0 15 15"
+          fill="currentColor"
+          aria-hidden
+        >
           <circle cx="7.5" cy="7.5" r="3.25" />
           <path
             d="M7.5 0v2M7.5 13v2M0 7.5h2M13 7.5h2M2.2 2.2l1.4 1.4M11.4 11.4l1.4 1.4M12.8 2.2l-1.4 1.4M3.6 11.4l-1.4 1.4"
@@ -59,7 +67,13 @@ export function ThemeToggle({ className }: { className?: string }) {
         </svg>
       ) : (
         // Moon
-        <svg width="15" height="15" viewBox="0 0 15 15" fill="currentColor" aria-hidden>
+        <svg
+          width="15"
+          height="15"
+          viewBox="0 0 15 15"
+          fill="currentColor"
+          aria-hidden
+        >
           <path d="M13.2 9.4A6.1 6.1 0 0 1 5.6 1.8a6.1 6.1 0 1 0 7.6 7.6Z" />
         </svg>
       )}

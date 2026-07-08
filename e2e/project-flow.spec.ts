@@ -147,9 +147,9 @@ test("create project, mark rows, assign materials, verify reconciliation", async
     await expect(
       bracket.locator('[data-testid^="material-assigned-"]')
     ).toHaveText("10");
-    await expect(
-      bracket.locator('[data-testid^="material-left-"]')
-    ).toHaveText("5");
+    await expect(bracket.locator('[data-testid^="material-left-"]')).toHaveText(
+      "5"
+    );
     await expect(
       bracket.locator('[data-testid^="material-to-order-"]')
     ).toHaveText("10");
@@ -184,6 +184,8 @@ test("create project, mark rows, assign materials, verify reconciliation", async
     // client-side tab switch) the Materials tab's ReconciliationCard,
     // which renders the identical "0% complete" text/classes and can
     // still be transiently mounted when this assertion runs.
-    await expect(page.getByTestId("overall-complete-stat").getByText("0%")).toBeVisible(); // nothing installed yet
+    await expect(
+      page.getByTestId("overall-complete-stat").getByText("0%")
+    ).toBeVisible(); // nothing installed yet
   });
 });

@@ -1,5 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
-import type { MaterialReceiptStatus, Tables } from "@/lib/supabase/database.types";
+import type {
+  MaterialReceiptStatus,
+  Tables,
+} from "@/lib/supabase/database.types";
 
 export interface MaterialReceiptTotals {
   materialId: string;

@@ -56,7 +56,11 @@ export function PmAssignment({
   if (!editing) {
     return (
       <div className="flex flex-wrap items-center gap-2">
-        <span className={currentPmLabel ? "text-foreground" : "text-muted-foreground"}>
+        <span
+          className={
+            currentPmLabel ? "text-foreground" : "text-muted-foreground"
+          }
+        >
           {currentPmLabel ?? "Unassigned"}
         </span>
         {canManage ? (
@@ -92,7 +96,12 @@ export function PmAssignment({
             </option>
           ))}
         </select>
-        <Button type="button" size="sm" disabled={isPending} onClick={handleSave}>
+        <Button
+          type="button"
+          size="sm"
+          disabled={isPending}
+          onClick={handleSave}
+        >
           Save
         </Button>
         <Button

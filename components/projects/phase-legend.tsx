@@ -17,9 +17,7 @@ export function PhaseLegend({
 }) {
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card shadow-e1 p-2">
-      <span className="text-xs font-medium text-muted-foreground">
-        Phases:
-      </span>
+      <span className="text-xs font-medium text-muted-foreground">Phases:</span>
       {phases.map((phase) => {
         const hidden = hiddenPhaseIds.has(phase.id);
         return (

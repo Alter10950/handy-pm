@@ -44,9 +44,12 @@ export function GateOverrideList({
               {override.projectName}
             </Link>
             <span className="text-xs text-muted-foreground">
-              {STAGE_LABEL[override.stageKey as GateStageKey] ?? override.stageKey}{" "}
+              {STAGE_LABEL[override.stageKey as GateStageKey] ??
+                override.stageKey}{" "}
               · {formatDate(override.overriddenAt)}
-              {override.overriddenByName ? ` · ${override.overriddenByName}` : ""}
+              {override.overriddenByName
+                ? ` · ${override.overriddenByName}`
+                : ""}
             </span>
           </div>
           <p className="text-xs text-muted-foreground">

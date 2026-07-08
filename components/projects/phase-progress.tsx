@@ -22,9 +22,17 @@ export function PhaseProgress({
       : rowProgress;
     const rowCount = rows.length;
     const rowsComplete = rows.filter((row) => row.is_complete).length;
-    const rowsMissingMaterials = rows.filter((row) => !row.has_materials).length;
-    const requiredTotal = rows.reduce((sum, row) => sum + row.required_total, 0);
-    const installedTotal = rows.reduce((sum, row) => sum + row.installed_total, 0);
+    const rowsMissingMaterials = rows.filter(
+      (row) => !row.has_materials
+    ).length;
+    const requiredTotal = rows.reduce(
+      (sum, row) => sum + row.required_total,
+      0
+    );
+    const installedTotal = rows.reduce(
+      (sum, row) => sum + row.installed_total,
+      0
+    );
     const pct = requiredTotal > 0 ? installedTotal / requiredTotal : 0;
     return { rowCount, rowsComplete, rowsMissingMaterials, pct };
   }, [phaseId, rowProgress]);
@@ -34,7 +42,10 @@ export function PhaseProgress({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-2">
-        <label htmlFor="progress-phase-filter" className="text-sm text-foreground">
+        <label
+          htmlFor="progress-phase-filter"
+          className="text-sm text-foreground"
+        >
           Filter by phase
         </label>
         <select
@@ -70,7 +81,9 @@ export function PhaseProgress({
           </div>
           <div className="mt-3 flex gap-4 text-sm text-muted-foreground">
             <span>{stats.rowCount} rows</span>
-            <span className="text-success-fg">{stats.rowsComplete} complete</span>
+            <span className="text-success-fg">
+              {stats.rowsComplete} complete
+            </span>
             {stats.rowsMissingMaterials > 0 ? (
               <span className="text-warning-fg">
                 {stats.rowsMissingMaterials} missing materials

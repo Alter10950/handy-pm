@@ -1,6 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 
-import { deleteAuthUserByEmail, deleteProjectCompletely } from "./helpers/cleanup";
+import {
+  deleteAuthUserByEmail,
+  deleteProjectCompletely,
+} from "./helpers/cleanup";
 import { createAdminClient } from "./helpers/supabase-admin";
 
 // Sub-phase J's integration walk: one project from creation through
@@ -176,7 +179,9 @@ test("full lifecycle: creation → every gate → closeout, with one override, o
   await test.step("SCOPE is the override path — skipped with a logged reason", async () => {
     await page.reload();
     const checklist = page.getByTestId("gate-checklist");
-    await checklist.getByRole("button", { name: /Override \(\d+ open\)/ }).click();
+    await checklist
+      .getByRole("button", { name: /Override \(\d+ open\)/ })
+      .click();
     await checklist
       .getByPlaceholder("Reason for override (required)")
       .fill("Scope captured in the signed quote — lifecycle walk override");
@@ -190,7 +195,9 @@ test("full lifecycle: creation → every gate → closeout, with one override, o
     await page.getByRole("button", { name: "Build schedule" }).click();
     await page.getByRole("button", { name: "Generate days" }).click();
     await page.getByRole("button", { name: "Save schedule" }).click();
-    await expect(page.getByText(/scheduled days?/)).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText(/scheduled days?/)).toBeVisible({
+      timeout: 20_000,
+    });
 
     // "Crew assigned" is hand-ticked at the planning stage — actual
     // dispatch is deliberately blocked until Mobilize unlocks (ADR-042);
@@ -206,13 +213,20 @@ test("full lifecycle: creation → every gate → closeout, with one override, o
 
   await test.step("MATERIALS: load BOM; dispatch is BLOCKED while Mobilize is locked", async () => {
     await page.goto(`/app/project/${projectId}/materials`);
-    await page.getByRole("button", { name: /Paste from packing slip/i }).click();
+    await page
+      .getByRole("button", { name: /Paste from packing slip/i })
+      .click();
     await page.locator("textarea").fill("Lifecycle Beam, 4");
     await page.getByRole("button", { name: "Add materials" }).click();
-    await expect(page.locator("table").first().locator("tbody tr")).toHaveCount(1);
+    await expect(page.locator("table").first().locator("tbody tr")).toHaveCount(
+      1
+    );
     // Paste assumes received=needed; reset to not-yet-received so the
     // verification gate has real work to do.
-    await admin.from("materials").update({ received: 0 }).eq("project_id", projectId!);
+    await admin
+      .from("materials")
+      .update({ received: 0 })
+      .eq("project_id", projectId!);
 
     // The blocked-mobilization path: try to dispatch the crew now.
     await page.goto(`/scheduler/${projectId}`);
@@ -285,7 +299,9 @@ test("full lifecycle: creation → every gate → closeout, with one override, o
     await page.getByLabel("Line quantity").fill("8");
     await page.getByRole("button", { name: "+ Add line" }).click();
     await expect(page.getByTestId("co-line-list").locator("li")).toHaveCount(1);
-    await page.getByRole("button", { name: "Record approval manually" }).click();
+    await page
+      .getByRole("button", { name: "Record approval manually" })
+      .click();
     await page.getByLabel("Approver name").fill("Lifecycle Customer");
     await page.getByRole("button", { name: "Record approval" }).click();
     await expect(page.getByTestId("co-status-badge")).toHaveText("Approved", {
@@ -317,9 +333,11 @@ test("full lifecycle: creation → every gate → closeout, with one override, o
     // Autopsy from the Progress tab auto-ticks its closeout item.
     await page.goto(`/app/project/${projectId}/progress`);
     await page.getByRole("button", { name: "Generate autopsy" }).click();
-    await expect(page.getByText("Autopsy generated from actuals.")).toBeVisible({
-      timeout: 20_000,
-    });
+    await expect(page.getByText("Autopsy generated from actuals.")).toBeVisible(
+      {
+        timeout: 20_000,
+      }
+    );
 
     await page.goto(`/app/project/${projectId}`);
     await page.getByRole("button", { name: "Closeout", exact: true }).click();
@@ -332,7 +350,9 @@ test("full lifecycle: creation → every gate → closeout, with one override, o
       .from("project_stages")
       .select("stage_key, status")
       .eq("project_id", projectId!);
-    const byKey = Object.fromEntries(stages!.map((s) => [s.stage_key, s.status]));
+    const byKey = Object.fromEntries(
+      stages!.map((s) => [s.stage_key, s.status])
+    );
     expect(byKey).toEqual({
       handoff: "complete",
       scope: "overridden",

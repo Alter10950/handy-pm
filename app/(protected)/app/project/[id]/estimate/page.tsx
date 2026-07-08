@@ -2,7 +2,10 @@ import Link from "next/link";
 
 import { ProjectEstimatePanel } from "@/components/estimating/project-estimate-panel";
 import { getApprovedChangeOrderTotals } from "@/lib/change-orders/queries";
-import { computeProjectEstimate, listProjectEstimates } from "@/lib/estimating/queries";
+import {
+  computeProjectEstimate,
+  listProjectEstimates,
+} from "@/lib/estimating/queries";
 import { listCrews } from "@/lib/crews/queries";
 import { getProject } from "@/lib/projects/queries";
 
@@ -12,13 +15,14 @@ export default async function ProjectEstimatePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [estimate, history, crews, project, approvedCoTotals] = await Promise.all([
-    computeProjectEstimate(id),
-    listProjectEstimates(id),
-    listCrews(),
-    getProject(id),
-    getApprovedChangeOrderTotals(id),
-  ]);
+  const [estimate, history, crews, project, approvedCoTotals] =
+    await Promise.all([
+      computeProjectEstimate(id),
+      listProjectEstimates(id),
+      listCrews(),
+      getProject(id),
+      getApprovedChangeOrderTotals(id),
+    ]);
 
   const original = project?.original_estimate_saved_at
     ? {
@@ -61,8 +65,9 @@ export default async function ProjectEstimatePage({
             <div>
               <p className="text-xs text-muted-foreground">Approved hours</p>
               <p className="text-lg font-bold tabular-nums text-foreground">
-                {Math.round((original.laborUnits + approvedCoTotals.laborUnits) * 10) /
-                  10}
+                {Math.round(
+                  (original.laborUnits + approvedCoTotals.laborUnits) * 10
+                ) / 10}
                 {approvedCoTotals.laborUnits > 0 ? (
                   <span className="ml-1 text-xs font-medium text-info-fg">
                     (+{Math.round(approvedCoTotals.laborUnits * 10) / 10})
@@ -79,7 +84,8 @@ export default async function ProjectEstimatePage({
             <div>
               <p className="text-xs text-muted-foreground">Approved days</p>
               <p className="text-lg font-bold tabular-nums text-foreground">
-                {Math.round((original.days + approvedCoTotals.addedDays) * 10) / 10}
+                {Math.round((original.days + approvedCoTotals.addedDays) * 10) /
+                  10}
                 {approvedCoTotals.addedDays > 0 ? (
                   <span className="ml-1 text-xs font-medium text-info-fg">
                     (+{Math.round(approvedCoTotals.addedDays * 10) / 10})

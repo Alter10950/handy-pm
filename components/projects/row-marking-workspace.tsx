@@ -25,10 +25,7 @@ import { PhaseLegend } from "@/components/projects/phase-legend";
 import { PhasePicker } from "@/components/projects/phase-picker";
 import { RowCommandPanel } from "@/components/projects/row-command-panel";
 import { RowReadinessPanel } from "@/components/projects/row-readiness-panel";
-import {
-  RowStage,
-  type GeometryChange,
-} from "@/components/projects/row-stage";
+import { RowStage, type GeometryChange } from "@/components/projects/row-stage";
 import { Toast } from "@/components/projects/toast";
 import { useUndoStack } from "@/components/projects/use-undo-stack";
 import { Button } from "@/components/ui/button";
@@ -127,7 +124,8 @@ export function RowMarkingWorkspace({
   const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set());
   const [hiddenPhaseIds, setHiddenPhaseIds] = useState<Set<string>>(new Set());
   const [autoRowsDialogOpen, setAutoRowsDialogOpen] = useState(false);
-  const [duplicateRangeDialogOpen, setDuplicateRangeDialogOpen] = useState(false);
+  const [duplicateRangeDialogOpen, setDuplicateRangeDialogOpen] =
+    useState(false);
   const [gridPending, setGridPending] = useState<GridPending | null>(null);
   const [activeCommand, setActiveCommand] = useState<ActiveCommand>(null);
   const [renameValue, setRenameValue] = useState("");
@@ -172,8 +170,10 @@ export function RowMarkingWorkspace({
     return {
       blockW,
       blockH,
-      maxRepeatsRight: blockW > 0 ? Math.max(0, Math.floor((1 - maxX) / blockW)) : 0,
-      maxRepeatsBelow: blockH > 0 ? Math.max(0, Math.floor((1 - maxY) / blockH)) : 0,
+      maxRepeatsRight:
+        blockW > 0 ? Math.max(0, Math.floor((1 - maxX) / blockW)) : 0,
+      maxRepeatsBelow:
+        blockH > 0 ? Math.max(0, Math.floor((1 - maxY) / blockH)) : 0,
     };
   }, [selectedCount, selectedRowIds, pageRows]);
 
@@ -324,7 +324,11 @@ export function RowMarkingWorkspace({
               },
       }));
       runAction(async () => {
-        const created = await createRowsBatch(projectId, activePage.id, newRows);
+        const created = await createRowsBatch(
+          projectId,
+          activePage.id,
+          newRows
+        );
         undoStack.push({
           label: "Auto rows",
           undo: async () => {
@@ -337,7 +341,11 @@ export function RowMarkingWorkspace({
             await createRowsBatch(
               projectId,
               activePage.id,
-              created.map((r) => ({ id: r.id, label: r.label, geometry: r.geometry }))
+              created.map((r) => ({
+                id: r.id,
+                label: r.label,
+                geometry: r.geometry,
+              }))
             );
           },
         });
@@ -736,8 +744,8 @@ export function RowMarkingWorkspace({
           ) : (
             <>
               <span>
-                View-only reference page — rows can&apos;t be drawn or
-                edited here.
+                View-only reference page — rows can&apos;t be drawn or edited
+                here.
               </span>
               <Button
                 type="button"

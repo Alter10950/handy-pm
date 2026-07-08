@@ -99,7 +99,9 @@ export async function getPortalData(projectId: string): Promise<PortalData> {
               .eq("project_id", projectId)
               .order("approved_at", { ascending: false })
               .then(({ data, error }) => ({
-                data: data?.map((p) => ({ ...p, phase: "during" as PhotoPhase })) ?? null,
+                data:
+                  data?.map((p) => ({ ...p, phase: "during" as PhotoPhase })) ??
+                  null,
                 error,
               }))
           : result

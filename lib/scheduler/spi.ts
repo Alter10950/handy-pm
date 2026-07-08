@@ -13,7 +13,9 @@ export function computeProjectSpi(
 ): number | null {
   const today = todayIso();
   const actualsByDate =
-    dailyActuals instanceof Map ? dailyActuals : new Map(Object.entries(dailyActuals));
+    dailyActuals instanceof Map
+      ? dailyActuals
+      : new Map(Object.entries(dailyActuals));
 
   const targetsByDate = new Map<string, number>();
   for (const target of targets) {

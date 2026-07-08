@@ -11,18 +11,25 @@ function formatDueDate(value: string): string {
 
 export function WhatsNextPanel({ actions }: { actions: NextAction[] }) {
   return (
-    <div data-testid="whats-next-panel" className="rounded-lg border border-border bg-card shadow-e1 p-4">
+    <div
+      data-testid="whats-next-panel"
+      className="rounded-lg border border-border bg-card shadow-e1 p-4"
+    >
       <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
         What&apos;s next
       </h2>
       {actions.length === 0 ? (
         <p className="mt-2 text-sm text-muted-foreground">
-          Nothing urgent — the active stage has no open items yet, or everything&apos;s on track.
+          Nothing urgent — the active stage has no open items yet, or
+          everything&apos;s on track.
         </p>
       ) : (
         <ul className="mt-2 flex flex-col gap-2">
           {actions.map((action) => (
-            <li key={action.itemId} className="flex items-start justify-between gap-2 text-sm">
+            <li
+              key={action.itemId}
+              className="flex items-start justify-between gap-2 text-sm"
+            >
               <div>
                 <p className="text-foreground">{action.label}</p>
                 <p className="text-xs text-muted-foreground">

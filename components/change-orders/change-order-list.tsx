@@ -38,7 +38,9 @@ function NewChangeOrderForm({ projectId }: { projectId: string }) {
         if (typeof digest === "string" && digest.startsWith("NEXT_REDIRECT")) {
           throw err;
         }
-        setError(err instanceof Error ? err.message : "Could not create change order.");
+        setError(
+          err instanceof Error ? err.message : "Could not create change order."
+        );
       }
     });
   }
@@ -86,7 +88,10 @@ function NewChangeOrderForm({ projectId }: { projectId: string }) {
         </div>
       </div>
       <div className="flex flex-col gap-1.5">
-        <label htmlFor="co-description" className="text-xs text-muted-foreground">
+        <label
+          htmlFor="co-description"
+          className="text-xs text-muted-foreground"
+        >
           Description (the customer will see this)
         </label>
         <textarea
@@ -99,7 +104,11 @@ function NewChangeOrderForm({ projectId }: { projectId: string }) {
         />
       </div>
       <div className="flex items-center gap-2">
-        <Button type="button" disabled={isPending || !title.trim()} onClick={submit}>
+        <Button
+          type="button"
+          disabled={isPending || !title.trim()}
+          onClick={submit}
+        >
           {isPending ? "Creating…" : "Create change order"}
         </Button>
         <Button

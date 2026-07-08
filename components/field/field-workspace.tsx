@@ -90,8 +90,7 @@ export function FieldWorkspace({
     return totals;
   }, [todayInstalls, crewId]);
 
-  const myDayLog =
-    dayLogs.find((log) => log.crew_id === crewId) ?? null;
+  const myDayLog = dayLogs.find((log) => log.crew_id === crewId) ?? null;
   const myTodayBlockers = useMemo(
     () => todayBlockers.filter((b) => b.crew_id === crewId),
     [todayBlockers, crewId]
@@ -149,11 +148,11 @@ export function FieldWorkspace({
               Not cleared for install
             </p>
             <p className="mt-2 text-sm text-foreground">
-              Materials for this job haven&apos;t been verified yet. The
-              office completes the Materials gate (or an owner/PM overrides
-              it with a reason) before crew work starts here — that&apos;s
-              what keeps a shortage from being discovered mid-install at the
-              customer&apos;s site.
+              Materials for this job haven&apos;t been verified yet. The office
+              completes the Materials gate (or an owner/PM overrides it with a
+              reason) before crew work starts here — that&apos;s what keeps a
+              shortage from being discovered mid-install at the customer&apos;s
+              site.
             </p>
           </div>
         </div>
@@ -295,9 +294,7 @@ export function FieldWorkspace({
           >
             ← Rows
           </button>
-          <h2 className="font-semibold text-foreground">
-            {selectedRow.label}
-          </h2>
+          <h2 className="font-semibold text-foreground">{selectedRow.label}</h2>
           {(rowMaterialsByRow.get(selectedRow.row_id) ?? []).map((rm) => {
             const material = materialsById.get(rm.material_id);
             if (!material) return null;

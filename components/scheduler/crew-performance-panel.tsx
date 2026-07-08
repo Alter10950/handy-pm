@@ -31,7 +31,8 @@ export function CrewPerformancePanel({
       dates.add(a.work_date);
       datesByCrew.set(a.crew_id, dates);
 
-      const crewsThatDay = crewCountByDate.get(a.work_date) ?? new Set<string>();
+      const crewsThatDay =
+        crewCountByDate.get(a.work_date) ?? new Set<string>();
       crewsThatDay.add(a.crew_id);
       crewCountByDate.set(a.work_date, crewsThatDay);
     }

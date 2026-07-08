@@ -5,7 +5,8 @@ import type { Tables } from "@/lib/supabase/database.types";
 
 function daysBetween(a: string, b: string): number {
   return Math.round(
-    (new Date(`${b}T00:00:00`).getTime() - new Date(`${a}T00:00:00`).getTime()) /
+    (new Date(`${b}T00:00:00`).getTime() -
+      new Date(`${a}T00:00:00`).getTime()) /
       86_400_000
   );
 }

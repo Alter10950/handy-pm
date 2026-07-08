@@ -74,9 +74,7 @@ export default async function SchedulerCalendarPage({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-lg font-semibold text-foreground">
-          Crew Calendar
-        </h1>
+        <h1 className="text-lg font-semibold text-foreground">Crew Calendar</h1>
         <Link href="/scheduler" className="text-sm text-muted-foreground">
           ← Scheduler
         </Link>

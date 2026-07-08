@@ -7,13 +7,19 @@ import type { RowReadinessStatus } from "@/lib/supabase/database.types";
 // readiness_status is meaningless once a row is complete (row_progress's
 // own precedence: installed work no longer cares about readiness inputs),
 // so this only ever renders for a row still in progress.
-const READINESS_DOT_CLASS: Record<Exclude<RowReadinessStatus, "complete">, string> = {
+const READINESS_DOT_CLASS: Record<
+  Exclude<RowReadinessStatus, "complete">,
+  string
+> = {
   ready: "bg-success",
   partial: "bg-primary",
   blocked: "bg-destructive",
 };
 
-const READINESS_TITLE: Record<Exclude<RowReadinessStatus, "complete">, string> = {
+const READINESS_TITLE: Record<
+  Exclude<RowReadinessStatus, "complete">,
+  string
+> = {
   ready: "Ready — materials, area, and drawing all cleared",
   partial: "Partial — some readiness inputs still outstanding",
   blocked: "Blocked — materials not ready or area not accessible",

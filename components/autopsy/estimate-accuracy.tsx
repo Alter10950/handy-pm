@@ -29,17 +29,21 @@ export function EstimateAccuracy({
   divergences: LaborStandardDivergence[];
 }) {
   return (
-    <div data-testid="estimate-accuracy" className="rounded-lg border border-border bg-card shadow-e1 p-4">
-      <h2 className="text-lg font-semibold text-foreground">Estimate accuracy</h2>
+    <div
+      data-testid="estimate-accuracy"
+      className="rounded-lg border border-border bg-card shadow-e1 p-4"
+    >
+      <h2 className="text-lg font-semibold text-foreground">
+        Estimate accuracy
+      </h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Autopsied projects, estimated vs actual — positive means it ran
-        over.
+        Autopsied projects, estimated vs actual — positive means it ran over.
       </p>
 
       {autopsies.length === 0 ? (
         <p className="mt-3 text-sm text-muted-foreground">
-          No autopsies yet — generate one from a project&apos;s Progress tab
-          at closeout.
+          No autopsies yet — generate one from a project&apos;s Progress tab at
+          closeout.
         </p>
       ) : (
         <div className="mt-3 overflow-x-auto">
@@ -50,7 +54,9 @@ export function EstimateAccuracy({
                 <th className="px-3 pb-2 text-right font-medium">Days</th>
                 <th className="px-3 pb-2 text-right font-medium">Labor</th>
                 <th className="px-3 pb-2 text-right font-medium">COs</th>
-                <th className="pb-2 pl-3 text-right font-medium">Blocked days</th>
+                <th className="pb-2 pl-3 text-right font-medium">
+                  Blocked days
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -64,7 +70,12 @@ export function EstimateAccuracy({
                       {entry.projectName}
                     </Link>
                   </td>
-                  <td className={cn("px-3 py-2 text-right tabular-nums", pctClass(entry.daysPct))}>
+                  <td
+                    className={cn(
+                      "px-3 py-2 text-right tabular-nums",
+                      pctClass(entry.daysPct)
+                    )}
+                  >
                     {pctLabel(entry.daysPct)}
                   </td>
                   <td

@@ -22,7 +22,10 @@ export interface Verdict {
 
 // Under/on/over with a signed percentage — "on" is within ±10%, the
 // tolerance a two-crew installer's estimates realistically live in.
-export function verdict(estimated: number | null, actual: number | null): Verdict | null {
+export function verdict(
+  estimated: number | null,
+  actual: number | null
+): Verdict | null {
   if (estimated === null || actual === null || estimated <= 0) return null;
   const pct = Math.round(((actual - estimated) / estimated) * 100);
   const kind: VerdictKind = pct > 10 ? "over" : pct < -10 ? "under" : "on";

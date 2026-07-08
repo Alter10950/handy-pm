@@ -32,7 +32,9 @@ export function EmptyState({
       ) : null}
       <p className="type-title text-foreground">{title}</p>
       {description ? (
-        <p className="type-body-sm max-w-sm text-muted-foreground">{description}</p>
+        <p className="type-body-sm max-w-sm text-muted-foreground">
+          {description}
+        </p>
       ) : null}
       {action ? <div className="mt-2">{action}</div> : null}
     </div>
@@ -60,7 +62,9 @@ export function ErrorState({
     >
       <p className="type-title text-destructive-fg">{title}</p>
       {description ? (
-        <p className="type-body-sm max-w-sm text-text-secondary">{description}</p>
+        <p className="type-body-sm max-w-sm text-text-secondary">
+          {description}
+        </p>
       ) : null}
       {retry ? <div className="mt-2">{retry}</div> : null}
     </div>
@@ -69,7 +73,11 @@ export function ErrorState({
 
 // Skeleton loaders per surface — shimmerless (calm), token-driven.
 export function Skeleton({ className }: { className?: string }) {
-  return <div className={cn("animate-pulse rounded-md bg-surface-sunken", className)} />;
+  return (
+    <div
+      className={cn("animate-pulse rounded-md bg-surface-sunken", className)}
+    />
+  );
 }
 
 export function CardSkeleton({ lines = 3 }: { lines?: number }) {

@@ -16,7 +16,9 @@ export interface ProjectQcSummary {
   byRow: Map<string, RowQcState>;
 }
 
-export async function getProjectQc(projectId: string): Promise<ProjectQcSummary> {
+export async function getProjectQc(
+  projectId: string
+): Promise<ProjectQcSummary> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("row_qc_checks")
@@ -28,7 +30,11 @@ export async function getProjectQc(projectId: string): Promise<ProjectQcSummary>
   for (const check of data) {
     const state =
       byRow.get(check.row_id) ??
-      ({ rowId: check.row_id, passed: {}, passedCount: 0 } satisfies RowQcState);
+      ({
+        rowId: check.row_id,
+        passed: {},
+        passedCount: 0,
+      } satisfies RowQcState);
     state.passed[check.check_key] = check.passed;
     if (check.passed) state.passedCount += 1;
     byRow.set(check.row_id, state);

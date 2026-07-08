@@ -51,7 +51,9 @@ export interface MaterialFlaggedPayload {
 
 export type NotificationRow = Tables<"notifications">;
 
-export function formatNotificationMessage(notification: NotificationRow): string {
+export function formatNotificationMessage(
+  notification: NotificationRow
+): string {
   const payload = notification.payload as Record<string, unknown>;
   switch (notification.kind as NotificationKind) {
     case "gate_item_overdue": {
@@ -81,7 +83,8 @@ export function formatNotificationMessage(notification: NotificationRow): string
 
 export function notificationHref(notification: NotificationRow): string {
   const payload = notification.payload as Record<string, unknown>;
-  const projectId = typeof payload.projectId === "string" ? payload.projectId : null;
+  const projectId =
+    typeof payload.projectId === "string" ? payload.projectId : null;
   if (!projectId) return "/app/dashboard";
   // A flag lands you on Receiving (where the flag and its resolution
   // live), not the Overview.

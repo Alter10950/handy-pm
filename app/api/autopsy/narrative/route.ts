@@ -59,7 +59,10 @@ export async function POST(request: NextRequest) {
 
   const body = (await request.json()) as { projectId?: string };
   if (!body.projectId) {
-    return NextResponse.json({ error: "projectId is required." }, { status: 400 });
+    return NextResponse.json(
+      { error: "projectId is required." },
+      { status: 400 }
+    );
   }
 
   const supabase = await createClient();
@@ -70,14 +73,24 @@ export async function POST(request: NextRequest) {
         .select("*")
         .eq("project_id", body.projectId)
         .maybeSingle(),
-      supabase.from("projects").select("name").eq("id", body.projectId).single(),
+      supabase
+        .from("projects")
+        .select("name")
+        .eq("id", body.projectId)
+        .single(),
     ]);
   if (error || projectError) {
-    return NextResponse.json({ error: "Could not load the autopsy." }, { status: 500 });
+    return NextResponse.json(
+      { error: "Could not load the autopsy." },
+      { status: 500 }
+    );
   }
   if (!autopsy) {
     return NextResponse.json(
-      { error: "Generate the autopsy first — the numbers are the source of truth." },
+      {
+        error:
+          "Generate the autopsy first — the numbers are the source of truth.",
+      },
       { status: 400 }
     );
   }

@@ -1,6 +1,9 @@
 import { expect, test } from "@playwright/test";
 
-import { deleteAuthUserByEmail, deleteProjectCompletely } from "./helpers/cleanup";
+import {
+  deleteAuthUserByEmail,
+  deleteProjectCompletely,
+} from "./helpers/cleanup";
 import { createAdminClient } from "./helpers/supabase-admin";
 
 const PROJECT_NAME = `[E2E] PM record ${Date.now()}`;
@@ -78,9 +81,7 @@ test("PM of record: defaults to creator, shows everywhere, reassignment logs an 
     // an explicit warning state when unassigned — so assert the absence
     // of the warning plus the presence of the owner's label.
     await expect(card.getByText("No PM assigned")).toHaveCount(0);
-    await expect(
-      card.getByText(/@|E2E Owner/i)
-    ).toBeVisible();
+    await expect(card.getByText(/@|E2E Owner/i)).toBeVisible();
   });
 
   await test.step("reassign the PM — updates DB, logs history, notifies the new PM", async () => {
@@ -139,7 +140,7 @@ test("PM of record: defaults to creator, shows everywhere, reassignment logs an 
     expect(ownerSelfNotifications?.length ?? 0).toBe(0);
   });
 
-  await test.step("\"My projects only\" filter hides projects not assigned to the viewer", async () => {
+  await test.step('"My projects only" filter hides projects not assigned to the viewer', async () => {
     await page.goto("/app");
     await page.getByRole("button", { name: "+ New project" }).click();
     await page.locator("#name").fill(SECOND_PROJECT_NAME);

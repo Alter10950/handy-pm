@@ -55,7 +55,9 @@ export function ConfirmDialog({
       <DialogContent className="max-w-sm" role="alertdialog">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
-          {description ? <DialogDescription>{description}</DialogDescription> : null}
+          {description ? (
+            <DialogDescription>{description}</DialogDescription>
+          ) : null}
         </DialogHeader>
         <DialogFooter className="gap-2 sm:gap-2">
           <Button

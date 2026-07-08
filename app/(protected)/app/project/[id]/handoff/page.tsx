@@ -4,8 +4,15 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { HandoffSurveyForm } from "@/components/handoff/handoff-survey-form";
-import { getHandoffSurvey, getSignedHandoffPhotoUrls } from "@/lib/handoff/queries";
-import { getProject, getSignedDrawingUrl, listDrawings } from "@/lib/projects/queries";
+import {
+  getHandoffSurvey,
+  getSignedHandoffPhotoUrls,
+} from "@/lib/handoff/queries";
+import {
+  getProject,
+  getSignedDrawingUrl,
+  listDrawings,
+} from "@/lib/projects/queries";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
@@ -61,8 +68,8 @@ export default async function HandoffPage({
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">
             One structured record of the site visit — condition, teardown,
-            constraints, and photos — signed off by both the estimator and
-            the PM before work is scheduled.
+            constraints, and photos — signed off by both the estimator and the
+            PM before work is scheduled.
           </p>
         </div>
         <Link
@@ -78,8 +85,8 @@ export default async function HandoffPage({
           Walk the drawing
         </h3>
         <p className="mt-1 text-xs text-muted-foreground">
-          Reference this while walking the site, if one&apos;s already on
-          file — confirm it still matches what&apos;s actually there.
+          Reference this while walking the site, if one&apos;s already on file —
+          confirm it still matches what&apos;s actually there.
         </p>
         <div className="mt-3 flex aspect-[4/3] max-w-md items-center justify-center overflow-hidden rounded-md bg-muted">
           {drawingUrl ? (

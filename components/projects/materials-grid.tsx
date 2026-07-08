@@ -16,7 +16,11 @@ import {
 } from "@/lib/projects/actions";
 import { upsertRowMaterialQty } from "@/lib/rows/actions";
 import { cn } from "@/lib/utils";
-import type { MaterialCondition, Tables, Views } from "@/lib/supabase/database.types";
+import type {
+  MaterialCondition,
+  Tables,
+  Views,
+} from "@/lib/supabase/database.types";
 
 const CONDITIONS: MaterialCondition[] = ["new", "used"];
 
@@ -196,7 +200,10 @@ export function MaterialsGrid({
               const assigned = recon?.assigned ?? 0;
 
               return (
-                <tr key={material.id} data-testid={`material-row-${material.id}`}>
+                <tr
+                  key={material.id}
+                  data-testid={`material-row-${material.id}`}
+                >
                   <td className="border-b border-border-subtle p-1.5">
                     <input
                       type="checkbox"
@@ -240,7 +247,10 @@ export function MaterialsGrid({
                       className="h-8 w-full rounded-md border border-border bg-background px-1.5 text-xs text-foreground"
                     >
                       {laborStandards.map((standard) => (
-                        <option key={standard.task_key} value={standard.task_key}>
+                        <option
+                          key={standard.task_key}
+                          value={standard.task_key}
+                        >
                           {standard.task_key}
                         </option>
                       ))}
@@ -353,7 +363,9 @@ export function MaterialsGrid({
                         const value = event.target.value.trim() || null;
                         if (value !== material.profile) {
                           run(() =>
-                            updateMaterial(material.id, projectId, { profile: value })
+                            updateMaterial(material.id, projectId, {
+                              profile: value,
+                            })
                           );
                         }
                       }}
@@ -369,7 +381,9 @@ export function MaterialsGrid({
                         const value = event.target.value.trim() || null;
                         if (value !== material.capacity) {
                           run(() =>
-                            updateMaterial(material.id, projectId, { capacity: value })
+                            updateMaterial(material.id, projectId, {
+                              capacity: value,
+                            })
                           );
                         }
                       }}
@@ -496,7 +510,9 @@ export function MaterialsGrid({
                 disabled={isPending}
                 onChange={(event) => {
                   if (event.target.value) {
-                    handleBulkCondition(event.target.value as MaterialCondition);
+                    handleBulkCondition(
+                      event.target.value as MaterialCondition
+                    );
                     event.target.value = "";
                   }
                 }}
@@ -544,7 +560,11 @@ export function MaterialsGrid({
           + Add material
         </Button>
         <PasteMaterialsDialog projectId={projectId} />
-        <ImportMaterialsDialog projectId={projectId} materials={materials} rows={rows} />
+        <ImportMaterialsDialog
+          projectId={projectId}
+          materials={materials}
+          rows={rows}
+        />
         {error ? <p className="text-sm text-destructive">{error}</p> : null}
       </div>
     </div>

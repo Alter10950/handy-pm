@@ -48,7 +48,10 @@ export async function POST(request: NextRequest) {
 
   const body = (await request.json()) as { estimate?: ComputedEstimate };
   if (!body.estimate) {
-    return NextResponse.json({ error: "estimate is required." }, { status: 400 });
+    return NextResponse.json(
+      { error: "estimate is required." },
+      { status: 400 }
+    );
   }
 
   const anthropicResponse = await fetch(ANTHROPIC_API_URL, {

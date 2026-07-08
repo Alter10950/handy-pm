@@ -144,9 +144,13 @@ test("autopsy: generates estimated-vs-actual with verdicts, ticks the gate item,
         install_end: `${workDate}T10:00:00Z`, // 2h × 12 days = 24 productive hours
       });
     }
-    const { error: installsError } = await admin.from("installs").insert(installs);
+    const { error: installsError } = await admin
+      .from("installs")
+      .insert(installs);
     if (installsError) throw installsError;
-    const { error: dayLogsError } = await admin.from("day_logs").insert(dayLogs);
+    const { error: dayLogsError } = await admin
+      .from("day_logs")
+      .insert(dayLogs);
     if (dayLogsError) throw dayLogsError;
 
     const { error: blockersError } = await admin.from("blockers").insert([
@@ -173,9 +177,11 @@ test("autopsy: generates estimated-vs-actual with verdicts, ticks the gate item,
   await test.step("generate the autopsy from the Progress tab — numbers and verdicts land", async () => {
     await page.goto(`/app/project/${projectId}/progress`);
     await page.getByRole("button", { name: "Generate autopsy" }).click();
-    await expect(page.getByText("Autopsy generated from actuals.")).toBeVisible({
-      timeout: 20_000,
-    });
+    await expect(page.getByText("Autopsy generated from actuals.")).toBeVisible(
+      {
+        timeout: 20_000,
+      }
+    );
 
     const dimensions = page.getByTestId("autopsy-dimensions");
     await expect(dimensions).toContainText("Days on site");
@@ -224,7 +230,9 @@ test("autopsy: generates estimated-vs-actual with verdicts, ticks the gate item,
     await expect(textarea).not.toHaveValue("", { timeout: 45_000 });
 
     await page.getByRole("button", { name: "Save narrative" }).click();
-    await expect(page.getByText("Narrative saved.")).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText("Narrative saved.")).toBeVisible({
+      timeout: 10_000,
+    });
 
     const { data: saved } = await admin
       .from("project_autopsies")

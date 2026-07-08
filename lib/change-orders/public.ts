@@ -51,7 +51,11 @@ export async function resolveChangeOrderToken(
     { data: project, error: projectError },
     { data: items, error: itemsError },
   ] = await Promise.all([
-    admin.from("projects").select("name, org_id").eq("id", co.project_id).single(),
+    admin
+      .from("projects")
+      .select("name, org_id")
+      .eq("id", co.project_id)
+      .single(),
     admin
       .from("change_order_items")
       .select("id, kind, work_type, description, qty, unit")

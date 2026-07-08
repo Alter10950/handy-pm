@@ -9,7 +9,10 @@ import {
   checkScheduleCapacity,
   type CapacityConflictDay,
 } from "@/lib/scheduler/capacity";
-import { listProjectSchedule, listRemainingByMaterial } from "@/lib/scheduler/queries";
+import {
+  listProjectSchedule,
+  listRemainingByMaterial,
+} from "@/lib/scheduler/queries";
 import { createClient } from "@/lib/supabase/server";
 
 // Matches assignments_write / targets_write / project_schedule_write RLS.
@@ -74,7 +77,10 @@ export async function upsertPlannedDays(
 // item — same pattern (and same reasoning) as the handoff/materials
 // syncs (ADR-041/042): the schedule data is the source of truth, this
 // just saves the duplicate manual click. Tick-only.
-async function syncScheduleGateItem(projectId: string, label: string): Promise<void> {
+async function syncScheduleGateItem(
+  projectId: string,
+  label: string
+): Promise<void> {
   try {
     const supabase = await createClient();
     const { data: stage } = await supabase
@@ -140,12 +146,14 @@ export async function setProjectSchedule(
     if (role !== "owner") {
       throw new Error("Only an owner can override the crew-capacity limit.");
     }
-    const { error: overrideError } = await supabase.from("capacity_overrides").insert({
-      project_id: projectId,
-      reason,
-      conflict_dates: capacity.conflicts.map((c) => c.date),
-      created_by: userId,
-    });
+    const { error: overrideError } = await supabase
+      .from("capacity_overrides")
+      .insert({
+        project_id: projectId,
+        reason,
+        conflict_dates: capacity.conflicts.map((c) => c.date),
+        created_by: userId,
+      });
     if (overrideError) throw overrideError;
   }
 
@@ -158,7 +166,12 @@ export async function setProjectSchedule(
   if (dates.length > 0) {
     const { error: insertError } = await supabase
       .from("project_schedule")
-      .insert(dates.map((workDate) => ({ project_id: projectId, work_date: workDate })));
+      .insert(
+        dates.map((workDate) => ({
+          project_id: projectId,
+          work_date: workDate,
+        }))
+      );
     if (insertError) throw insertError;
   }
 

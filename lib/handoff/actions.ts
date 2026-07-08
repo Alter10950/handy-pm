@@ -24,7 +24,10 @@ function revalidateProject(projectId: string) {
 // yet bootstrapped, signoff role mismatch on signOffGateItem) since the
 // survey's own fields are the actual source of truth here; this just
 // saves a PM a duplicate manual click in the common case.
-async function markHandoffItemDone(projectId: string, label: string): Promise<void> {
+async function markHandoffItemDone(
+  projectId: string,
+  label: string
+): Promise<void> {
   try {
     const supabase = await createClient();
     const { data: stage } = await supabase
@@ -49,7 +52,10 @@ async function markHandoffItemDone(projectId: string, label: string): Promise<vo
   }
 }
 
-async function signOffHandoffItem(projectId: string, label: string): Promise<void> {
+async function signOffHandoffItem(
+  projectId: string,
+  label: string
+): Promise<void> {
   try {
     const supabase = await createClient();
     const { data: stage } = await supabase

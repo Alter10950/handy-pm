@@ -113,19 +113,28 @@ export async function generateAutopsy(projectId: string): Promise<void> {
   if (scopeError) throw scopeError;
 
   const rowIds = rows.map((r) => r.id);
-  const [{ data: installs, error: installsError }, { data: materials, error: materialsError }] =
-    await Promise.all([
-      rowIds.length > 0
-        ? supabase
-            .from("installs")
-            .select("material_id, qty, installed_on")
-            .in("row_id", rowIds)
-        : Promise.resolve({
-            data: [] as { material_id: string; qty: number; installed_on: string }[],
-            error: null,
-          }),
-      supabase.from("materials").select("id, labor_units").eq("project_id", projectId),
-    ]);
+  const [
+    { data: installs, error: installsError },
+    { data: materials, error: materialsError },
+  ] = await Promise.all([
+    rowIds.length > 0
+      ? supabase
+          .from("installs")
+          .select("material_id, qty, installed_on")
+          .in("row_id", rowIds)
+      : Promise.resolve({
+          data: [] as {
+            material_id: string;
+            qty: number;
+            installed_on: string;
+          }[],
+          error: null,
+        }),
+    supabase
+      .from("materials")
+      .select("id, labor_units")
+      .eq("project_id", projectId),
+  ]);
   if (installsError) throw installsError;
   if (materialsError) throw materialsError;
 
@@ -138,11 +147,12 @@ export async function generateAutopsy(projectId: string): Promise<void> {
     null;
   const estimatedDays =
     project.original_estimate_days ?? firstEstimate?.estimated_days ?? null;
-  const estimatedHours =
-    firstEstimate?.estimated_hours ?? estimatedLaborUnits;
+  const estimatedHours = firstEstimate?.estimated_hours ?? estimatedLaborUnits;
 
   // Actual side.
-  const laborUnitsByMaterial = new Map(materials.map((m) => [m.id, m.labor_units]));
+  const laborUnitsByMaterial = new Map(
+    materials.map((m) => [m.id, m.labor_units])
+  );
   const installedLaborUnits = installs.reduce(
     (sum, install) =>
       sum + install.qty * (laborUnitsByMaterial.get(install.material_id) ?? 0),
@@ -181,23 +191,28 @@ export async function generateAutopsy(projectId: string): Promise<void> {
     [...daysByCode.entries()].map(([code, days]) => [code, days.size])
   );
 
-  const { error: upsertError } = await supabase.from("project_autopsies").upsert(
-    {
-      project_id: projectId,
-      estimated_days: estimatedDays,
-      actual_days: actualDays,
-      estimated_hours: estimatedHours,
-      actual_labor_hours: actualLaborHours,
-      estimated_labor_units: estimatedLaborUnits,
-      actual_labor_units: actualLaborUnits,
-      material_variance: reconciliation as unknown as Json,
-      change_order_count: approvedCos.length,
-      change_order_days: approvedCos.reduce((sum, co) => sum + (co.added_days ?? 0), 0),
-      blocker_days: allBlockedDays.size,
-      blocker_breakdown: blockerBreakdown as unknown as Json,
-    },
-    { onConflict: "project_id" }
-  );
+  const { error: upsertError } = await supabase
+    .from("project_autopsies")
+    .upsert(
+      {
+        project_id: projectId,
+        estimated_days: estimatedDays,
+        actual_days: actualDays,
+        estimated_hours: estimatedHours,
+        actual_labor_hours: actualLaborHours,
+        estimated_labor_units: estimatedLaborUnits,
+        actual_labor_units: actualLaborUnits,
+        material_variance: reconciliation as unknown as Json,
+        change_order_count: approvedCos.length,
+        change_order_days: approvedCos.reduce(
+          (sum, co) => sum + (co.added_days ?? 0),
+          0
+        ),
+        blocker_days: allBlockedDays.size,
+        blocker_breakdown: blockerBreakdown as unknown as Json,
+      },
+      { onConflict: "project_id" }
+    );
   if (upsertError) throw upsertError;
 
   // Feed the estimation brain: this project's actuals are now history —
@@ -267,7 +282,11 @@ export async function emailAutopsyToOwners(projectId: string): Promise<void> {
   ).filter((email): email is string => Boolean(email));
   if (emails.length === 0) throw new Error("No owner emails found.");
 
-  const line = (label: string, estimated: number | null, actual: number | null) => {
+  const line = (
+    label: string,
+    estimated: number | null,
+    actual: number | null
+  ) => {
     const v = verdict(estimated, actual);
     return `<tr>
       <td style="padding:6px;border:1px solid #eee;font-size:13px;color:#666;">${label}</td>

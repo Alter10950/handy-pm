@@ -84,7 +84,9 @@ export function BlockerEscalationList({
                   disabled={isPending && resolvingId === blocker.id}
                   onClick={() => handleResolve(blocker.id)}
                 >
-                  {isPending && resolvingId === blocker.id ? "…" : "Mark resolved"}
+                  {isPending && resolvingId === blocker.id
+                    ? "…"
+                    : "Mark resolved"}
                 </Button>
               </div>
             </li>

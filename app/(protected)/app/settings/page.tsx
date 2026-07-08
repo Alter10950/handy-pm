@@ -74,10 +74,9 @@ export default async function OrgSettingsPage() {
           Project checklist template
         </h2>
         <p className="text-sm text-muted-foreground">
-          The 8 stages every project moves through — Handoff, Scope,
-          Schedule, Materials, Mobilize, Execute, Punch, Closeout — are
-          fixed, but the checklist items inside each one are yours to
-          tune.
+          The 8 stages every project moves through — Handoff, Scope, Schedule,
+          Materials, Mobilize, Execute, Punch, Closeout — are fixed, but the
+          checklist items inside each one are yours to tune.
         </p>
         {templateStages.length > 0 ? (
           <TemplateEditor

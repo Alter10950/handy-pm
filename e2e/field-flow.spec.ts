@@ -86,9 +86,7 @@ test("field: pick project, select crew, log materials, report a blocker, offline
     await page.getByTestId("row-box-Row 1").click();
     await page.getByRole("button", { name: "Set materials" }).click();
     await page.locator('[id^="bulk-qty-"]').first().fill("50");
-    await page
-      .getByRole("button", { name: /Apply to 1 selected row/ })
-      .click();
+    await page.getByRole("button", { name: /Apply to 1 selected row/ }).click();
     await expect(page.getByText("Applied to 1 row.")).toBeVisible({
       timeout: 10_000,
     });
@@ -138,7 +136,17 @@ test("field: pick project, select crew, log materials, report a blocker, offline
         const { data } = await admin
           .from("installs")
           .select("qty")
-          .eq("row_id", (await admin.from("rows").select("id").eq("project_id", projectId!).eq("label", "Row 1").single()).data!.id);
+          .eq(
+            "row_id",
+            (
+              await admin
+                .from("rows")
+                .select("id")
+                .eq("project_id", projectId!)
+                .eq("label", "Row 1")
+                .single()
+            ).data!.id
+          );
         return data?.reduce((sum, row) => sum + row.qty, 0) ?? 0;
       })
       .toBe(2);
@@ -234,7 +242,9 @@ test("field: pick project, select crew, log materials, report a blocker, offline
 
     // Can still back out to edit before finalizing.
     await page.getByRole("button", { name: "← Back to edit" }).click();
-    await expect(page.getByRole("button", { name: "Close the day" })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Close the day" })
+    ).toBeVisible();
 
     await page.getByRole("button", { name: "Close the day" }).click();
     await page.getByRole("button", { name: "Confirm & close day" }).click();

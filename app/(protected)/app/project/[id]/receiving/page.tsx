@@ -4,7 +4,10 @@ import {
   getMaterialsReadiness,
   listMaterialReceiptHistoryByProject,
 } from "@/lib/materials/queries";
-import { listMaterialReconciliation, listMaterials } from "@/lib/projects/queries";
+import {
+  listMaterialReconciliation,
+  listMaterials,
+} from "@/lib/projects/queries";
 
 export default async function ProjectReceivingPage({
   params,

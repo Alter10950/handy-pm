@@ -44,7 +44,9 @@ function FieldScopeItemCard({
         setExpanded(false);
         router.refresh();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Could not log progress.");
+        setError(
+          err instanceof Error ? err.message : "Could not log progress."
+        );
       }
     });
   }
@@ -182,7 +184,11 @@ export function FieldScopePanel({
   return (
     <div className="flex flex-col gap-2 p-3">
       {items.map((item) => (
-        <FieldScopeItemCard key={item.scope_item_id} item={item} projectId={projectId} />
+        <FieldScopeItemCard
+          key={item.scope_item_id}
+          item={item}
+          projectId={projectId}
+        />
       ))}
     </div>
   );

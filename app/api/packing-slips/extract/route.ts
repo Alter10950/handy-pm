@@ -98,7 +98,10 @@ export async function POST(request: NextRequest) {
   // Anthropic content-block types aren't interchangeable (a PDF must be
   // "document", an image must be "image").
   const fileBlock = contentType.startsWith("image/")
-    ? { type: "image", source: { type: "base64", media_type: contentType, data: base64 } }
+    ? {
+        type: "image",
+        source: { type: "base64", media_type: contentType, data: base64 },
+      }
     : {
         type: "document",
         source: { type: "base64", media_type: "application/pdf", data: base64 },

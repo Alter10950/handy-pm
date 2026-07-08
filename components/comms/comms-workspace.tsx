@@ -85,7 +85,9 @@ function ContactCard({
         setNotice("Saved.");
         router.refresh();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Could not save contact.");
+        setError(
+          err instanceof Error ? err.message : "Could not save contact."
+        );
       }
     });
   }
@@ -99,7 +101,9 @@ function ContactCard({
         setNotice("Update sent and logged below.");
         router.refresh();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Could not send the update.");
+        setError(
+          err instanceof Error ? err.message : "Could not send the update."
+        );
       }
     });
   }
@@ -111,7 +115,10 @@ function ContactCard({
       </h3>
       <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="contact-name" className="text-xs text-muted-foreground">
+          <label
+            htmlFor="contact-name"
+            className="text-xs text-muted-foreground"
+          >
             Name
           </label>
           <Input
@@ -123,7 +130,10 @@ function ContactCard({
           />
         </div>
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="contact-email" className="text-xs text-muted-foreground">
+          <label
+            htmlFor="contact-email"
+            className="text-xs text-muted-foreground"
+          >
             Email
           </label>
           <Input
@@ -145,8 +155,8 @@ function ContactCard({
             disabled={isPending}
             className="size-4 rounded border-border"
           />
-          Auto milestone emails (schedule confirmed, install started, 50%,
-          phase complete, finish changes, punch, closeout)
+          Auto milestone emails (schedule confirmed, install started, 50%, phase
+          complete, finish changes, punch, closeout)
         </label>
         <label className="flex items-center gap-2 text-sm text-foreground">
           <input
@@ -176,8 +186,12 @@ function ContactCard({
         >
           Send update now
         </Button>
-        {notice ? <span className="text-sm text-success-fg">{notice}</span> : null}
-        {error ? <span className="text-sm text-destructive">{error}</span> : null}
+        {notice ? (
+          <span className="text-sm text-success-fg">{notice}</span>
+        ) : null}
+        {error ? (
+          <span className="text-sm text-destructive">{error}</span>
+        ) : null}
       </div>
     </div>
   );
@@ -211,8 +225,8 @@ function ManualLogForm({ projectId }: { projectId: string }) {
         Log a call or conversation
       </h3>
       <p className="mt-1 text-xs text-muted-foreground">
-        Anything the customer was told outside the app belongs here too —
-        this log is the complete record of what they know.
+        Anything the customer was told outside the app belongs here too — this
+        log is the complete record of what they know.
       </p>
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <select
@@ -253,7 +267,9 @@ function ManualLogForm({ projectId }: { projectId: string }) {
         >
           {isPending ? "Logging…" : "Log it"}
         </Button>
-        {error ? <span className="text-sm text-destructive">{error}</span> : null}
+        {error ? (
+          <span className="text-sm text-destructive">{error}</span>
+        ) : null}
       </div>
     </div>
   );
@@ -283,9 +299,9 @@ export function CommsWorkspace({
           Customer communication
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          The push channel — automatic milestones and weekly updates, plus a
-          log of every call, so what the customer knows is never a mystery.
-          The portal stays the pull channel.
+          The push channel — automatic milestones and weekly updates, plus a log
+          of every call, so what the customer knows is never a mystery. The
+          portal stays the pull channel.
         </p>
       </div>
 

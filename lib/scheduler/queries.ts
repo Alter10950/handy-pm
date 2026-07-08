@@ -126,7 +126,10 @@ export async function getCrewDailyActuals(
   for (const install of data) {
     const crewId = install.crew_id!;
     const perDate = byCrew.get(crewId) ?? new Map<string, number>();
-    perDate.set(install.installed_on, (perDate.get(install.installed_on) ?? 0) + install.qty);
+    perDate.set(
+      install.installed_on,
+      (perDate.get(install.installed_on) ?? 0) + install.qty
+    );
     byCrew.set(crewId, perDate);
   }
   return byCrew;
@@ -197,13 +200,24 @@ export async function getProjectRemainingLaborUnits(
     if (!material) return sum;
     const remaining = Math.max(0, row.assigned - row.installed);
     const standardUnits = remaining * material.labor_units;
-    const { unitsPerHour } = resolveRate(material.task_key, null, EMPTY_CREW_RATES, companyRates);
+    const { unitsPerHour } = resolveRate(
+      material.task_key,
+      null,
+      EMPTY_CREW_RATES,
+      companyRates
+    );
     return sum + standardUnits / unitsPerHour;
   }, 0);
 
   const scopeHours = scopeItems.reduce((sum, item) => {
-    if (!item.work_type || !item.labor_units || item.status === "done") return sum;
-    const { unitsPerHour } = resolveRate(item.work_type, null, EMPTY_CREW_RATES, companyRates);
+    if (!item.work_type || !item.labor_units || item.status === "done")
+      return sum;
+    const { unitsPerHour } = resolveRate(
+      item.work_type,
+      null,
+      EMPTY_CREW_RATES,
+      companyRates
+    );
     return sum + item.labor_units / unitsPerHour;
   }, 0);
 
@@ -214,7 +228,9 @@ export async function getProjectRemainingLaborUnits(
 // scheduled days from today forward — same "no rule specified, split
 // evenly" reasoning generateTargets already uses for material qty
 // (ADR-022), applied to labor units instead.
-export async function getProjectDailyLaborLoad(projectId: string): Promise<number> {
+export async function getProjectDailyLaborLoad(
+  projectId: string
+): Promise<number> {
   const [remainingUnits, schedule] = await Promise.all([
     getProjectRemainingLaborUnits(projectId),
     listProjectSchedule(projectId),
@@ -255,15 +271,23 @@ export async function listOrgAssignmentsInRange(
 
   const projectIds = [...new Set(data.map((a) => a.project_id))];
   const crewIds = [...new Set(data.map((a) => a.crew_id!))];
-  const [{ data: projects, error: projectsError }, { data: crews, error: crewsError }] =
-    await Promise.all([
-      projectIds.length > 0
-        ? supabase.from("projects").select("id, name").in("id", projectIds)
-        : Promise.resolve({ data: [] as { id: string; name: string }[], error: null }),
-      crewIds.length > 0
-        ? supabase.from("crews").select("id, name").in("id", crewIds)
-        : Promise.resolve({ data: [] as { id: string; name: string }[], error: null }),
-    ]);
+  const [
+    { data: projects, error: projectsError },
+    { data: crews, error: crewsError },
+  ] = await Promise.all([
+    projectIds.length > 0
+      ? supabase.from("projects").select("id, name").in("id", projectIds)
+      : Promise.resolve({
+          data: [] as { id: string; name: string }[],
+          error: null,
+        }),
+    crewIds.length > 0
+      ? supabase.from("crews").select("id, name").in("id", crewIds)
+      : Promise.resolve({
+          data: [] as { id: string; name: string }[],
+          error: null,
+        }),
+  ]);
   if (projectsError) throw projectsError;
   if (crewsError) throw crewsError;
 
@@ -296,24 +320,36 @@ export async function getPhaseTimelines(
   projectId: string
 ): Promise<PhaseTimelineEntry[]> {
   const supabase = await createClient();
-  const [{ data: rows, error: rowsError }, { data: assignments, error: assignError }] =
-    await Promise.all([
-      supabase.from("rows").select("id, phase_id").eq("project_id", projectId),
-      supabase
-        .from("assignments")
-        .select("row_id, crew_id, work_date")
-        .eq("project_id", projectId),
-    ]);
+  const [
+    { data: rows, error: rowsError },
+    { data: assignments, error: assignError },
+  ] = await Promise.all([
+    supabase.from("rows").select("id, phase_id").eq("project_id", projectId),
+    supabase
+      .from("assignments")
+      .select("row_id, crew_id, work_date")
+      .eq("project_id", projectId),
+  ]);
   if (rowsError) throw rowsError;
   if (assignError) throw assignError;
 
   const phaseByRow = new Map(rows.map((r) => [r.id, r.phase_id]));
   // A whole-project assignment (row_id null) covers every phase that day.
-  const allPhaseIds = [...new Set(rows.map((r) => r.phase_id).filter((id): id is string => id !== null))];
+  const allPhaseIds = [
+    ...new Set(
+      rows.map((r) => r.phase_id).filter((id): id is string => id !== null)
+    ),
+  ];
 
-  const byPhase = new Map<string, { dates: Set<string>; crewIds: Set<string> }>();
+  const byPhase = new Map<
+    string,
+    { dates: Set<string>; crewIds: Set<string> }
+  >();
   function record(phaseId: string, workDate: string, crewId: string | null) {
-    const entry = byPhase.get(phaseId) ?? { dates: new Set(), crewIds: new Set() };
+    const entry = byPhase.get(phaseId) ?? {
+      dates: new Set(),
+      crewIds: new Set(),
+    };
     entry.dates.add(workDate);
     if (crewId) entry.crewIds.add(crewId);
     byPhase.set(phaseId, entry);
@@ -321,7 +357,8 @@ export async function getPhaseTimelines(
 
   for (const assignment of assignments) {
     if (assignment.row_id === null) {
-      for (const phaseId of allPhaseIds) record(phaseId, assignment.work_date, assignment.crew_id);
+      for (const phaseId of allPhaseIds)
+        record(phaseId, assignment.work_date, assignment.crew_id);
     } else {
       const phaseId = phaseByRow.get(assignment.row_id);
       if (phaseId) record(phaseId, assignment.work_date, assignment.crew_id);

@@ -6,8 +6,14 @@ import { useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { recordMaterialReceipt, resolveMaterialFlag } from "@/lib/materials/actions";
-import type { MaterialReceiptTotals, MaterialsReadiness } from "@/lib/materials/queries";
+import {
+  recordMaterialReceipt,
+  resolveMaterialFlag,
+} from "@/lib/materials/actions";
+import type {
+  MaterialReceiptTotals,
+  MaterialsReadiness,
+} from "@/lib/materials/queries";
 import type {
   MaterialReceiptStatus,
   Tables,
@@ -34,7 +40,11 @@ const STATUSES: MaterialReceiptStatus[] = [
   "wrong",
 ];
 
-const FLAG_STATUSES = new Set<MaterialReceiptStatus>(["short", "damaged", "wrong"]);
+const FLAG_STATUSES = new Set<MaterialReceiptStatus>([
+  "short",
+  "damaged",
+  "wrong",
+]);
 
 // One unresolved short/damaged/wrong event, with its resolve control —
 // resolving is what un-blocks the Materials gate (the flag stays in the
@@ -59,7 +69,9 @@ function OpenFlagRow({
         await resolveMaterialFlag(flag.id, projectId);
         onResolved();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Could not resolve flag.");
+        setError(
+          err instanceof Error ? err.message : "Could not resolve flag."
+        );
       }
     });
   }
@@ -69,7 +81,9 @@ function OpenFlagRow({
       <span className="font-medium text-destructive">
         {flag.status} × {flag.qty}
       </span>
-      {flag.note ? <span className="text-muted-foreground">— {flag.note}</span> : null}
+      {flag.note ? (
+        <span className="text-muted-foreground">— {flag.note}</span>
+      ) : null}
       <span className="text-muted-foreground">
         {formatReceiptTimestamp(flag.created_at)}
       </span>
@@ -108,7 +122,13 @@ function CheckInForm({
     setError(null);
     startTransition(async () => {
       try {
-        await recordMaterialReceipt(materialId, projectId, status, parsedQty, note);
+        await recordMaterialReceipt(
+          materialId,
+          projectId,
+          status,
+          parsedQty,
+          note
+        );
         setQty("");
         setNote("");
         onLogged();
@@ -123,7 +143,9 @@ function CheckInForm({
       <select
         aria-label="Receipt status"
         value={status}
-        onChange={(event) => setStatus(event.target.value as MaterialReceiptStatus)}
+        onChange={(event) =>
+          setStatus(event.target.value as MaterialReceiptStatus)
+        }
         disabled={isPending}
         className="h-8 rounded-md border border-border bg-background px-1.5 text-xs text-foreground"
       >
@@ -158,7 +180,9 @@ function CheckInForm({
       >
         {isPending ? "Logging…" : "Log"}
       </Button>
-      {error ? <p className="w-full text-xs text-destructive">{error}</p> : null}
+      {error ? (
+        <p className="w-full text-xs text-destructive">{error}</p>
+      ) : null}
     </div>
   );
 }
@@ -179,7 +203,9 @@ export function ReceivingPanel({
   readiness: MaterialsReadiness;
 }) {
   const router = useRouter();
-  const reconByMaterial = new Map(reconciliation.map((r) => [r.material_id, r]));
+  const reconByMaterial = new Map(
+    reconciliation.map((r) => [r.material_id, r])
+  );
   const totalsByMaterial = new Map(
     receiptTotals.map((r) => [r.materialId, r.totalsByStatus])
   );
@@ -244,14 +270,20 @@ export function ReceivingPanel({
         </h2>
         {reorderList.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            Nothing short — every material&apos;s received qty meets what&apos;s needed.
+            Nothing short — every material&apos;s received qty meets what&apos;s
+            needed.
           </p>
         ) : (
           <ul className="flex flex-col gap-1.5">
             {reorderList.map(({ material, toOrder }) => (
-              <li key={material.id} className="flex items-center justify-between text-sm">
+              <li
+                key={material.id}
+                className="flex items-center justify-between text-sm"
+              >
                 <span className="text-foreground">{material.name}</span>
-                <span className="font-medium text-destructive">{toOrder} to order</span>
+                <span className="font-medium text-destructive">
+                  {toOrder} to order
+                </span>
               </li>
             ))}
           </ul>
@@ -279,28 +311,31 @@ export function ReceivingPanel({
                   className="flex flex-col gap-2 border-t border-border pt-3 first:border-t-0 first:pt-0"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="font-medium text-foreground">{material.name}</span>
+                    <span className="font-medium text-foreground">
+                      {material.name}
+                    </span>
                     <span className="text-xs text-muted-foreground">
-                      Needed {material.total_needed} · Received {material.received} ·{" "}
+                      Needed {material.total_needed} · Received{" "}
+                      {material.received} ·{" "}
                       {recon ? `To order ${recon.to_order}` : ""}
                     </span>
                   </div>
                   <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                    {STATUSES.filter((s) => s !== "ordered" && s !== "received").map(
-                      (s) => (
-                        <span
-                          key={s}
-                          className={cn(
-                            "rounded-full px-2 py-0.5",
-                            FLAG_STATUSES.has(s) && (totals[s] ?? 0) > 0
-                              ? "bg-destructive/15 text-destructive"
-                              : "bg-muted"
-                          )}
-                        >
-                          {s}: {totals[s] ?? 0}
-                        </span>
-                      )
-                    )}
+                    {STATUSES.filter(
+                      (s) => s !== "ordered" && s !== "received"
+                    ).map((s) => (
+                      <span
+                        key={s}
+                        className={cn(
+                          "rounded-full px-2 py-0.5",
+                          FLAG_STATUSES.has(s) && (totals[s] ?? 0) > 0
+                            ? "bg-destructive/15 text-destructive"
+                            : "bg-muted"
+                        )}
+                      >
+                        {s}: {totals[s] ?? 0}
+                      </span>
+                    ))}
                   </div>
                   {openFlags.length > 0 ? (
                     <div className="rounded-md border border-destructive/40 bg-destructive/5 p-2">
@@ -347,8 +382,12 @@ export function ReceivingPanel({
                                   {entry.status}
                                 </span>
                                 <span>{entry.qty}</span>
-                                <span>{formatReceiptTimestamp(entry.created_at)}</span>
-                                {entry.note ? <span>— {entry.note}</span> : null}
+                                <span>
+                                  {formatReceiptTimestamp(entry.created_at)}
+                                </span>
+                                {entry.note ? (
+                                  <span>— {entry.note}</span>
+                                ) : null}
                               </li>
                             ))}
                           </ul>

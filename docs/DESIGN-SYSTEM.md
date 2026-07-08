@@ -40,46 +40,53 @@ consumes these tokens; no stray hex/px in components.
 ## Token reference (`app/globals.css`)
 
 ### Surfaces (light values)
-| Token | Value | Use |
-|---|---|---|
-| `--background` | `#F7F7F5` | App canvas — soft off-white so cards read against it |
-| `--surface` / `--card` / `--popover` | `#FFFFFF` | Cards, panels, popovers (elevation differentiates) |
-| `--surface-sunken` / `--muted` | `#F0F0EE` | Input wells, table headers, subdued blocks |
-| `--stage` | `#E9E9E6` | Drawing-canvas stage (white drawing pops) |
+
+| Token                                | Value     | Use                                                  |
+| ------------------------------------ | --------- | ---------------------------------------------------- |
+| `--background`                       | `#F7F7F5` | App canvas — soft off-white so cards read against it |
+| `--surface` / `--card` / `--popover` | `#FFFFFF` | Cards, panels, popovers (elevation differentiates)   |
+| `--surface-sunken` / `--muted`       | `#F0F0EE` | Input wells, table headers, subdued blocks           |
+| `--stage`                            | `#E9E9E6` | Drawing-canvas stage (white drawing pops)            |
 
 ### Text
+
 `--foreground` `#1A1A18` (primary ink) · `--text-secondary` `#5A5A55` ·
 `--muted-foreground` `#8A8A83` (muted) · disabled via opacity ·
 `--primary-foreground` `#171717` (ink on yellow — never white).
 
 ### Brand
+
 `--primary`/`--brand` `#f2c00e` · `--brand-hover` `#E4B408` ·
 `--brand-pressed` `#CBA007` · `--brand-subtle` `#FAF3D7` (selected-row
 wash, active-tab tint, progress track).
 
-**Naming decision (ADR-048):** shadcn's `--accent` is the *neutral hover
-wash* every existing component consumes (`hover:bg-accent`), so brand
+**Naming decision (ADR-048):** shadcn's `--accent` is the _neutral hover
+wash_ every existing component consumes (`hover:bg-accent`), so brand
 yellow lives on `--primary`/`--brand` and `--accent` stays neutral
 (`#F0F0EE` light / `#2A2A28` dark). Redefining `accent` to yellow would
 have turned every hover state yellow — the exact disease this system
 kills.
 
 ### Semantic (each with `-subtle` bg + `-fg` text)
+
 `--success` `#16A34A` · `--warning` `#D97706` (hue-shifted orange —
 deliberately distinct from brand yellow) · `--destructive` `#DC2626` ·
 `--info` `#2563EB`.
 
 ### Borders & focus
+
 `--border-subtle` `#ECECEA` · `--border` `#E2E2DF` · `--border-strong`
 `#CFCFCB` · focus ring = global `:focus-visible` 2px `--ring` (yellow)
 with 2px offset, keyboard-only.
 
 ### Data-viz
+
 `--chart-1..8`: blue, green, orange, purple, teal, pink, slate, brown —
 tuned for white; dark theme swaps lighter variants. Progress fills:
 yellow → green at 100%.
 
 ### Spacing, radius, elevation, motion
+
 - Spacing: 4px base — 2, 4, 6, 8, 12, 16, 20, 24, 32, 40, 48, 64.
 - Radius: sm 6 / md 10 / lg 14 / xl 20 / pill.
 - Elevation: `shadow-e1..e4` (`--elevation-1..4`) — soft, low-spread; the
@@ -131,22 +138,22 @@ separators; unit suffixes as muted text.
 All in `components/ui/` unless noted; every one demoed live on
 `/styleguide`.
 
-| Component | Source | Notes |
-| --- | --- | --- |
-| `Button` | registry, refined | brand hover/pressed ramps; `loading`; `destructive-solid`; `field`/`icon-field` = 44px |
-| `Input`, `Textarea`, `Label` | registry | native `type="date"` is the date picker (OS sheet on phones) |
-| `Combobox*`, `InputGroup*` | registry | searchable select on Base UI Combobox |
-| `Select*`, `Checkbox`, `Switch` | registry | |
-| `NumberStepper` | hand-built | Base UI number-field; −/+ hold-to-repeat; `size="field"` |
-| `Tabs*`, `Breadcrumb*`, `Card*` | registry | |
-| `Dialog*`, `Sheet*`, `Popover*`, `Tooltip*`, `DropdownMenu*` | registry | |
-| `ConfirmDialog` | hand-built | destructive preset; async `onConfirm` pending state |
-| `Toaster` (sonner) | registry, refined | reads our `html.dark`, not next-themes; mounted in root layout |
-| `FileDropzone` | hand-built | drag/drop over a real `<input type=file>` (camera sheet on mobile) |
-| `DataGrid` | hand-built | sticky header + first col, sort, column groups, show/hide, density |
-| `PageHeader`/`SectionHeader`, `StatTile`, `Sparkline` | hand-built | |
-| `ProgressBar`/`ProgressRing`, `StatusPill`, `Segmented`/`SegmentedMulti` | hand-built | |
-| `EmptyState`/`ErrorState`/`Skeleton*` | hand-built | |
-| `Toolbar*` | hand-built | canvas chrome (Layout stage) |
-| `AppShell` | `components/app-shell.tsx` | desktop sidebar; mobile top bar + bottom tabs + More sheet |
-| `ThemeToggle` | `components/theme-toggle.tsx` | persists `handy-pm:theme` |
+| Component                                                                | Source                        | Notes                                                                                  |
+| ------------------------------------------------------------------------ | ----------------------------- | -------------------------------------------------------------------------------------- |
+| `Button`                                                                 | registry, refined             | brand hover/pressed ramps; `loading`; `destructive-solid`; `field`/`icon-field` = 44px |
+| `Input`, `Textarea`, `Label`                                             | registry                      | native `type="date"` is the date picker (OS sheet on phones)                           |
+| `Combobox*`, `InputGroup*`                                               | registry                      | searchable select on Base UI Combobox                                                  |
+| `Select*`, `Checkbox`, `Switch`                                          | registry                      |                                                                                        |
+| `NumberStepper`                                                          | hand-built                    | Base UI number-field; −/+ hold-to-repeat; `size="field"`                               |
+| `Tabs*`, `Breadcrumb*`, `Card*`                                          | registry                      |                                                                                        |
+| `Dialog*`, `Sheet*`, `Popover*`, `Tooltip*`, `DropdownMenu*`             | registry                      |                                                                                        |
+| `ConfirmDialog`                                                          | hand-built                    | destructive preset; async `onConfirm` pending state                                    |
+| `Toaster` (sonner)                                                       | registry, refined             | reads our `html.dark`, not next-themes; mounted in root layout                         |
+| `FileDropzone`                                                           | hand-built                    | drag/drop over a real `<input type=file>` (camera sheet on mobile)                     |
+| `DataGrid`                                                               | hand-built                    | sticky header + first col, sort, column groups, show/hide, density                     |
+| `PageHeader`/`SectionHeader`, `StatTile`, `Sparkline`                    | hand-built                    |                                                                                        |
+| `ProgressBar`/`ProgressRing`, `StatusPill`, `Segmented`/`SegmentedMulti` | hand-built                    |                                                                                        |
+| `EmptyState`/`ErrorState`/`Skeleton*`                                    | hand-built                    |                                                                                        |
+| `Toolbar*`                                                               | hand-built                    | canvas chrome (Layout stage)                                                           |
+| `AppShell`                                                               | `components/app-shell.tsx`    | desktop sidebar; mobile top bar + bottom tabs + More sheet                             |
+| `ThemeToggle`                                                            | `components/theme-toggle.tsx` | persists `handy-pm:theme`                                                              |

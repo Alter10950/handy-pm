@@ -105,7 +105,8 @@ export function CrewCalendar({
   function plannedUnitsFor(crewAssignments: OrgAssignment[]): number {
     return crewAssignments.reduce((sum, a) => {
       const dailyLoad = laborLoadByProject[a.projectId] ?? 0;
-      const sharedBy = crewCountByProjectDay.get(`${a.projectId}:${a.workDate}`)?.size ?? 1;
+      const sharedBy =
+        crewCountByProjectDay.get(`${a.projectId}:${a.workDate}`)?.size ?? 1;
       return sum + dailyLoad / Math.max(1, sharedBy);
     }, 0);
   }
@@ -115,7 +116,8 @@ export function CrewCalendar({
     crewId: string,
     workDate: string
   ) {
-    const excludeId = "assignmentId" in source ? source.assignmentId : undefined;
+    const excludeId =
+      "assignmentId" in source ? source.assignmentId : undefined;
     const hits = await checkDoubleBooking(crewId, workDate, excludeId);
     if (hits.length > 0) {
       const names = hits.map((h) => h.projectName).join(", ");
@@ -139,13 +141,19 @@ export function CrewCalendar({
       // The dispatch gate (ADR-042) rejects server-side while a project's
       // Mobilize stage is locked — a dropped chip must explain itself, not
       // silently snap back.
-      setActionError(err instanceof Error ? err.message : "Could not assign crew.");
+      setActionError(
+        err instanceof Error ? err.message : "Could not assign crew."
+      );
     } finally {
       setPending(false);
     }
   }
 
-  async function handleDrop(event: React.DragEvent, crewId: string, workDate: string) {
+  async function handleDrop(
+    event: React.DragEvent,
+    crewId: string,
+    workDate: string
+  ) {
     event.preventDefault();
     setDragOverCell(null);
     const projectId = event.dataTransfer.getData(PROJECT_DATA_TYPE);
@@ -179,117 +187,127 @@ export function CrewCalendar({
           </p>
         ) : null}
         <div className="overflow-x-auto rounded-lg border border-border">
-        <table className="w-full border-separate border-spacing-0 text-sm">
-          <thead>
-            <tr>
-              <th className="sticky left-0 z-10 min-w-32 border-b border-r border-border bg-muted p-2 text-left font-semibold text-muted-foreground">
-                Crew
-              </th>
-              {days.map((day) => (
-                <th
-                  key={day}
-                  className="min-w-40 border-b border-border bg-muted p-2 text-left font-semibold text-muted-foreground"
-                >
-                  {formatDay(day)}
+          <table className="w-full border-separate border-spacing-0 text-sm">
+            <thead>
+              <tr>
+                <th className="sticky left-0 z-10 min-w-32 border-b border-r border-border bg-muted p-2 text-left font-semibold text-muted-foreground">
+                  Crew
                 </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {crews.map((crew) => (
-              <tr key={crew.id}>
-                <td className="sticky left-0 z-10 border-b border-r border-border bg-card p-2 font-medium text-foreground">
-                  {crew.name}
-                  <div className="text-xs font-normal text-muted-foreground">
-                    {crew.size} {crew.size === 1 ? "person" : "people"}
-                  </div>
-                </td>
-                {days.map((day) => {
-                  const key = `${crew.id}:${day}`;
-                  const cellAssignments = assignmentsByCrewDay.get(key) ?? [];
-                  const plannedUnits = plannedUnitsFor(cellAssignments);
-                  const capacityHours = crew.size * 8;
-                  const overCapacity = plannedUnits > capacityHours;
-                  return (
-                    <td
-                      key={day}
-                      data-testid={`calendar-cell-${crew.id}-${day}`}
-                      onDragOver={(event) => {
-                        event.preventDefault();
-                        setDragOverCell(key);
-                      }}
-                      onDragLeave={() =>
-                        setDragOverCell((current) => (current === key ? null : current))
-                      }
-                      onDrop={(event) => void handleDrop(event, crew.id, day)}
-                      className={cn(
-                        "border-b border-border p-2 align-top",
-                        dragOverCell === key && "bg-primary/10"
-                      )}
-                    >
-                      <div className="flex min-h-12 flex-col gap-1">
-                        {cellAssignments.map((a) => (
-                          <div
-                            key={a.id}
-                            draggable={a.rowId === null}
-                            onDragStart={(event) => {
-                              event.dataTransfer.setData(ASSIGNMENT_DATA_TYPE, a.id);
-                            }}
-                            title={
-                              a.rowId !== null
-                                ? "Row/phase-scoped — reassign from the project's own schedule page"
-                                : "Drag to reassign"
-                            }
+                {days.map((day) => (
+                  <th
+                    key={day}
+                    className="min-w-40 border-b border-border bg-muted p-2 text-left font-semibold text-muted-foreground"
+                  >
+                    {formatDay(day)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {crews.map((crew) => (
+                <tr key={crew.id}>
+                  <td className="sticky left-0 z-10 border-b border-r border-border bg-card p-2 font-medium text-foreground">
+                    {crew.name}
+                    <div className="text-xs font-normal text-muted-foreground">
+                      {crew.size} {crew.size === 1 ? "person" : "people"}
+                    </div>
+                  </td>
+                  {days.map((day) => {
+                    const key = `${crew.id}:${day}`;
+                    const cellAssignments = assignmentsByCrewDay.get(key) ?? [];
+                    const plannedUnits = plannedUnitsFor(cellAssignments);
+                    const capacityHours = crew.size * 8;
+                    const overCapacity = plannedUnits > capacityHours;
+                    return (
+                      <td
+                        key={day}
+                        data-testid={`calendar-cell-${crew.id}-${day}`}
+                        onDragOver={(event) => {
+                          event.preventDefault();
+                          setDragOverCell(key);
+                        }}
+                        onDragLeave={() =>
+                          setDragOverCell((current) =>
+                            current === key ? null : current
+                          )
+                        }
+                        onDrop={(event) => void handleDrop(event, crew.id, day)}
+                        className={cn(
+                          "border-b border-border p-2 align-top",
+                          dragOverCell === key && "bg-primary/10"
+                        )}
+                      >
+                        <div className="flex min-h-12 flex-col gap-1">
+                          {cellAssignments.map((a) => (
+                            <div
+                              key={a.id}
+                              draggable={a.rowId === null}
+                              onDragStart={(event) => {
+                                event.dataTransfer.setData(
+                                  ASSIGNMENT_DATA_TYPE,
+                                  a.id
+                                );
+                              }}
+                              title={
+                                a.rowId !== null
+                                  ? "Row/phase-scoped — reassign from the project's own schedule page"
+                                  : "Drag to reassign"
+                              }
+                              className={cn(
+                                "flex items-center justify-between gap-1 rounded-md border px-1.5 py-1 text-xs",
+                                colorForProject(a.projectId),
+                                a.rowId === null
+                                  ? "cursor-grab"
+                                  : "cursor-default opacity-90"
+                              )}
+                            >
+                              <span className="truncate">
+                                {projectNameById.get(a.projectId) ??
+                                  a.projectName}
+                                {a.rowId !== null ? " (partial)" : ""}
+                              </span>
+                              <button
+                                type="button"
+                                aria-label={`Remove ${a.projectName} assignment`}
+                                disabled={pending}
+                                onClick={() => void handleRemove(a)}
+                                className="shrink-0 opacity-70 hover:opacity-100"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                        {cellAssignments.length > 0 ? (
+                          <p
                             className={cn(
-                              "flex items-center justify-between gap-1 rounded-md border px-1.5 py-1 text-xs",
-                              colorForProject(a.projectId),
-                              a.rowId === null ? "cursor-grab" : "cursor-default opacity-90"
+                              "mt-1 text-[11px]",
+                              overCapacity
+                                ? "text-destructive"
+                                : "text-muted-foreground"
                             )}
                           >
-                            <span className="truncate">
-                              {projectNameById.get(a.projectId) ?? a.projectName}
-                              {a.rowId !== null ? " (partial)" : ""}
-                            </span>
-                            <button
-                              type="button"
-                              aria-label={`Remove ${a.projectName} assignment`}
-                              disabled={pending}
-                              onClick={() => void handleRemove(a)}
-                              className="shrink-0 opacity-70 hover:opacity-100"
-                            >
-                              ×
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                      {cellAssignments.length > 0 ? (
-                        <p
-                          className={cn(
-                            "mt-1 text-[11px]",
-                            overCapacity ? "text-destructive" : "text-muted-foreground"
-                          )}
-                        >
-                          {plannedUnits.toFixed(1)} / {capacityHours}h planned
-                          {overCapacity ? " ⚠" : ""}
-                        </p>
-                      ) : null}
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-            {crews.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={8}
-                  className="p-6 text-center text-sm text-muted-foreground"
-                >
-                  Add a crew on the Scheduler page first.
-                </td>
-              </tr>
-            ) : null}
-          </tbody>
-        </table>
+                            {plannedUnits.toFixed(1)} / {capacityHours}h planned
+                            {overCapacity ? " ⚠" : ""}
+                          </p>
+                        ) : null}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+              {crews.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={8}
+                    className="p-6 text-center text-sm text-muted-foreground"
+                  >
+                    Add a crew on the Scheduler page first.
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
         </div>
       </div>
 

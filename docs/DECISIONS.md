@@ -1085,8 +1085,8 @@ excludes it once (and only once) `scope_item_progress.status = 'done'`.
 projects, unlike Layout/Receiving/Progress/Portal:** those four are
 execution-only concerns with nothing to show pre-sale (no rows, no
 install progress). Scope-of-work is different — the whole reason
-`getProjectLaborUnitsByTaskKey` needed extending is so a *draft
-estimate's* hours account for known non-install work from the start
+`getProjectLaborUnitsByTaskKey` needed extending is so a _draft
+estimate's_ hours account for known non-install work from the start
 (e.g. "this quote needs to include a 3-day teardown"), not just after
 conversion to a real project. Project-level items (no row/phase
 attachment) work fine before any rows exist yet.
@@ -1102,7 +1102,7 @@ change the symptom at all — a strong signal the diagnosis itself was
 wrong, not the fix. The dev server's own request log showed the
 `logScopeItemProgress` Server Action completing successfully in under
 200ms every time; a temporary debug marker rendering the raw
-`item.status` value confirmed the prop *did* update correctly. The
+`item.status` value confirmed the prop _did_ update correctly. The
 actual bug was in the E2E test, not the component: an unscoped
 `getByText("Done")`/`getByText("Partial")` — case-insensitive substring
 matching by default — also matches the "Mark done" and "Photo + mark
@@ -1119,12 +1119,12 @@ between two components doing the same job.
 **Real regression found and fixed in the same work:** restructuring the
 Field header's single Rows/Day toggle button into a Scope/Day pair
 broke `e2e/field-flow.spec.ts` (a 60-second timeout, not a quick
-failure) — the original toggle was reachable from *any* non-"day" view
+failure) — the original toggle was reachable from _any_ non-"day" view
 including a specific row's own detail screen (`view === "row"`), a
 deliberate shortcut to jump straight to closing out the day without
 detouring back through the rows list first. The rebuild only showed the
 new Scope/Day pair when `view === "rows"`, silently removing that
-shortcut. Fixed by showing the pair whenever `view` is `"rows"` *or*
+shortcut. Fixed by showing the pair whenever `view` is `"rows"` _or_
 `"row"`, restoring the original reachability while adding Scope
 alongside it.
 
@@ -1188,7 +1188,7 @@ active projects already get everywhere else.
 
 **Choice — a dedicated `project_pm_history` table, not folding into
 `project_comms` or a notification's own persistence:** `project_comms`
-is specifically the *customer*-facing comms log (Batch 4 Sub-phase 0);
+is specifically the _customer_-facing comms log (Batch 4 Sub-phase 0);
 this is an internal ownership record. A notification is the wrong
 vehicle for "audit log" on its own — it's per-recipient, and its
 purpose is alerting, not being a permanent, queryable record regardless
@@ -1196,7 +1196,7 @@ of anyone's read state. The table is intentionally minimal
 (`previous_pm_user_id`/`new_pm_user_id`/`changed_by`/`changed_at`, no
 `reason` column) — a reassignment isn't inherently an exceptional event
 needing justification the way a gate override is; it's a routine
-operational change worth *recording*, not necessarily *explaining*.
+operational change worth _recording_, not necessarily _explaining_.
 
 **Choice — two independent notification sends on reassignment, not one
 shared call:** the incoming PM and the outgoing PM (if any) read
@@ -1311,7 +1311,7 @@ stages are structural and fixed, items are the only editable content:**
 matches "Template management (owner)" from the brief precisely.
 `gate_template_stages.stage_key` is CHECK-constrained to the 8 fixed
 keys the whole lifecycle engine is built around (`STAGE_ORDER`); adding
-or removing a *stage* would require touching the stepper, the RLS
+or removing a _stage_ would require touching the stepper, the RLS
 scheduler carve-out (scoped specifically to `stage_key = 'schedule'`),
 and `advanceToNextStage`'s traversal — out of proportion for what the
 brief actually asks for. Items are ordinary editable content within that
@@ -1420,7 +1420,7 @@ going forward: sub-phase A's own project-stages data-access layer
 lazily creates a project's stage rows from the org's current default
 template the first time they're needed (covering both brand-new
 projects and any pre-Batch-4 project that hasn't been touched yet),
-and sub-phase J is where the *existing, already-in-progress* projects
+and sub-phase J is where the _existing, already-in-progress_ projects
 specifically get walked forward and their genuinely-already-done
 earlier stages marked `overridden`.
 
@@ -1542,7 +1542,7 @@ maintenance cost.
 390px-viewport pass (not simulated): `app/(protected)/layout.tsx`'s
 `<main>` had no `min-w-0`, so a flex item containing a wide table
 refused to shrink below the table's intrinsic width, forcing the
-*entire page* wider than the viewport on any project with a materials
+_entire page_ wider than the viewport on any project with a materials
 grid — one root-level fix, not a per-page patch. Also found and fixed:
 a long packing-slip filename with no `break-all` forcing the same kind
 of page-wide overflow, and a non-wrapping control row on the Team page
@@ -1602,7 +1602,7 @@ indistinguishable from natural expiry in the office's own management
 view). Added `share_tokens.revoked_at timestamptz`; a token is invalid
 if `revoked_at` is set OR `expires_at` has passed — the portal collapses
 both into one generic "this link is no longer valid" message (nothing
-customer-facing should explain *why* beyond "ask your PM"), while the
+customer-facing should explain _why_ beyond "ask your PM"), while the
 office UI shows the three states (`active`/`revoked`/`expired`)
 distinctly.
 
@@ -1610,7 +1610,7 @@ distinctly.
 `blockers`:** neither existing photo-bearing table can carry a
 per-photo approval cleanly — `day_logs.photo_paths` is a plain `text[]`
 (no per-photo row to hang a boolean off without normalizing crew
-uploads themselves), and `blockers.photo_path` documents a *problem*,
+uploads themselves), and `blockers.photo_path` documents a _problem_,
 not something to default-expose to a customer. A dedicated table keyed
 by the photo's own `storage_path` (`unique(project_id, storage_path)`)
 lets an office user curate photos from either source into one
@@ -1668,7 +1668,7 @@ badge (`active`/`revoked`/`expired`) is styled with a plain CSS
 `text-transform` never changes the underlying text node. An unscoped
 `getByText("Active", {exact:true})` assertion had **already been
 silently matching the wrong element** (the project header's own status
-pill, which *is* properly capitalized) rather than the token's own
+pill, which _is_ properly capitalized) rather than the token's own
 badge — a false-positive pass for the wrong reason, only caught once
 the later `getByText("Revoked", ...)` assertion had no same-named
 decoy element to accidentally match and failed outright. Fixed both
@@ -1723,10 +1723,10 @@ live.
 **Choice — "Duplicate range ×N" reuses `duplicateRows` unmodified,
 called once per source row with N pre-offset copies, not a new Server
 Action:** `duplicateRows(projectId, drawingId, sourceRowId, newRows[],
-copyMaterials)` already accepted *multiple* new rows per source (the
+copyMaterials)` already accepted _multiple_ new rows per source (the
 existing single-row "Copy" button just always passed exactly one) —
 generating `repeatCount` geometries client-side, each offset by a
-cumulative multiple of the *selection's own bounding-box* width/height
+cumulative multiple of the _selection's own bounding-box_ width/height
 (not each row's individual width/height, which would place every row
 adjacent to itself independently and overlap its neighbors once more
 than one row is involved), was the whole feature. The dialog also
@@ -1750,7 +1750,7 @@ contract ("re-uploading a page inserts a new version row, marks the
 prior latest superseded, updates `drawings` in place") — this sub-phase
 is the first code to implement it. A brand-new page has nothing yet to
 review against, so gating it would just be friction on day one with no
-safety benefit; a *revision* to an already-in-use drawing is exactly the
+safety benefit; a _revision_ to an already-in-use drawing is exactly the
 moment a PM should look before crews build off it, so it starts
 `approved_for_install = false` until someone explicitly approves it.
 Approving one version defensively un-approves every other version for
@@ -1785,10 +1785,10 @@ explicit `data-testid` instead, again.
 
 **Bug found via the new E2E specs themselves (test-only, not
 application code):** a fast client-side tab navigation (Materials →
-Layout) can read the drawing image's bounding box *before* the
+Layout) can read the drawing image's bounding box _before_ the
 zoom/pan "fit to screen" `useEffect` has recomputed it, capturing the
 image at its un-fitted natural size instead of its final on-screen
-size — invisible in every *existing* test because they all reach the
+size — invisible in every _existing_ test because they all reach the
 canvas via a slow round trip (a real upload's "uploaded." wait) that
 incidentally gives the effect time to settle first. Polling the
 bounding box for two consecutive stable reads did not reliably fix
@@ -1862,7 +1862,7 @@ real prop update needs to override stale local state.
 row, reusing the existing `window.confirm()` posture:** consistent with
 the double-booking warning (ADR-029) — this sub-phase's job is to
 surface readiness, not to gate scheduling on it (that's an explicit
-Batch 4 sub-phase E job, "wire the receiving lifecycle into a *hard*
+Batch 4 sub-phase E job, "wire the receiving lifecycle into a _hard_
 gate"). `AssignCrewForm` checks the target rows' `readiness_status`
 and confirms by name before submitting; the row picker also shows a
 "⚠ " prefix on blocked rows so the warning isn't the first time a PM
@@ -1888,10 +1888,10 @@ unlike the crew calendar's `assignOrMove`, which awaits
 `checkDoubleBooking()` first. Playwright's `.click()` does not resolve
 until a triggered native dialog is handled, so the calendar test's own
 working pattern, `Promise.all([page.waitForEvent("dialog"), click()])`,
-deadlocks for a *synchronous* dialog: `click()` can't resolve without
+deadlocks for a _synchronous_ dialog: `click()` can't resolve without
 `dismiss()`, and `dismiss()` never runs because `Promise.all` is still
 waiting on `click()` to resolve first. Fixed by registering
-`page.once("dialog", handler)` *before* the click and awaiting the
+`page.once("dialog", handler)` _before_ the click and awaiting the
 click alone (not wrapped in `Promise.all`) — the listener fires and
 dismisses independently of the click's own promise. Documented in
 `docs/ARCHITECTURE.md`'s Testing section as a third distinct dialog-
@@ -1931,7 +1931,7 @@ everything asked for with zero risk to the ~20 existing specs that
 assume `/app` is the project list.
 
 **Choice — SPI logic extracted into `lib/scheduler/spi.ts`, not
-duplicated a third time:** `computeProjectSpi` is the *exact* formula
+duplicated a third time:** `computeProjectSpi` is the _exact_ formula
 `scheduler-workspace.tsx` already had inline (`useMemo`) — pulled out
 verbatim so the dashboard can compute identical SPI for every active
 project without a second implementation to drift out of sync with the
@@ -1940,7 +1940,7 @@ three-tier success/primary/destructive convention already established
 by the SPI badge and week-view's per-day status (green ≥1.0, primary
 ≥0.8, destructive below — ADR-022) — confirmed via research that this
 codebase's risk convention is genuinely success/primary/destructive,
-not success/*warning*/destructive (the `warning` token exists but is
+not success/_warning_/destructive (the `warning` token exists but is
 used exactly once, for an unrelated qty-mismatch flag).
 
 **Choice — "crew over/under-performance" reads the estimation brain's
@@ -2025,11 +2025,11 @@ rely on timing.
 
 **Context:** A user-requested rework of `row-stage.tsx`/`row-marking-workspace.tsx`, interaction/UX only — explicitly no changes to the data model, undo/redo, bulk actions, or normalized coordinates. Three asks: (1) kill any remaining mode-toggle buttons in favor of one context-driven pointer model; (2) make panning always available at the highest input priority (middle-mouse button, or holding Space) so it can never be hijacked by a row underneath the cursor; (3) fix a real bug — a moved/resized row visibly snapped back to its old position for a moment, then jumped to the new one once the network round trip landed.
 
-**What was already true going in, not newly built:** the direct-manipulation model itself (plain drag draws, click selects, drag-on-selected-row moves, shift-click/shift-drag multi-selects/marquees, 8 resize handles, Space-held pans) was already built in an earlier session (see the `row-stage.tsx` docstring, pre-dating this ADR) — the only *mode* button still standing was Pan (a Hand-icon toggle). This ADR's actual diff is narrower than "remove several mode buttons": remove the one remaining toggle, add middle-mouse pan, and fix the snap-back bug. Worth recording plainly since it's the second time this session a user's request described the codebase as further behind than it actually was (see ADR-030's Batch 4 preamble) — checking current reality before planning the diff avoided both re-building already-working features and under-scoping the actual gap.
+**What was already true going in, not newly built:** the direct-manipulation model itself (plain drag draws, click selects, drag-on-selected-row moves, shift-click/shift-drag multi-selects/marquees, 8 resize handles, Space-held pans) was already built in an earlier session (see the `row-stage.tsx` docstring, pre-dating this ADR) — the only _mode_ button still standing was Pan (a Hand-icon toggle). This ADR's actual diff is narrower than "remove several mode buttons": remove the one remaining toggle, add middle-mouse pan, and fix the snap-back bug. Worth recording plainly since it's the second time this session a user's request described the codebase as further behind than it actually was (see ADR-030's Batch 4 preamble) — checking current reality before planning the diff avoided both re-building already-working features and under-scoping the actual gap.
 
-**Choice — middle-mouse button pans by letting non-primary-button pointerdowns bubble untouched, not by special-casing them:** every pointerdown handler on a row body, a resize handle, and the resize-handle's parent all check `event.button !== 0` FIRST and return immediately *without* `stopPropagation()` when it isn't the primary (left) button — the event then bubbles naturally to the stage's own `handleStagePointerDown`, which checks `event.button === 1` and pans regardless of `readOnly`/`shouldPan`/anything else. This is the exact same bubbling technique the existing Space-held check already used (`if (shouldPan) return; // let it bubble to the stage-level pan handler`), just extended to cover a second "let the stage handle this" condition — no new interception layer, no per-element duplicate pan logic. `event.preventDefault()` on the middle-button branch stops the browser's own native middle-click autoscroll from fighting the custom pan.
+**Choice — middle-mouse button pans by letting non-primary-button pointerdowns bubble untouched, not by special-casing them:** every pointerdown handler on a row body, a resize handle, and the resize-handle's parent all check `event.button !== 0` FIRST and return immediately _without_ `stopPropagation()` when it isn't the primary (left) button — the event then bubbles naturally to the stage's own `handleStagePointerDown`, which checks `event.button === 1` and pans regardless of `readOnly`/`shouldPan`/anything else. This is the exact same bubbling technique the existing Space-held check already used (`if (shouldPan) return; // let it bubble to the stage-level pan handler`), just extended to cover a second "let the stage handle this" condition — no new interception layer, no per-element duplicate pan logic. `event.preventDefault()` on the middle-button branch stops the browser's own native middle-click autoscroll from fighting the custom pan.
 
-**Choice — local-first optimistic position, reconciled during render, not in a `useEffect`:** the actual bug was `handlePointerUp` clearing `draftGeometries` immediately after handing the change to the parent, so the very next render fell back to the (still stale, pre-round-trip) `rows` prop — a real, visible snap-back, corrected only once `router.refresh()` eventually delivered fresh props (the "teleports ~3s later"). Fixed by NOT clearing the draft on a successful drop — it now stays showing the dropped position — and only reconciling it away once the server-confirmed `rows` prop actually matches (a plain value comparison; this app has no separate realtime subscription for row geometry to race against, so there's no separate "echo" to distinguish from a plain refetch — matching by value is exactly as correct as a client-mutation-id scheme here, without needing to plumb one through). A failed persist (`onMoveRows`/`onResizeRow`'s promise rejecting — both now return the underlying persist promise instead of firing-and-forgetting) reverts the draft immediately and fires a toast, independent of the reconciliation path. The reconciliation itself is intentionally NOT a `useEffect`: the newer, compiler-aligned `eslint-plugin-react-hooks` rules in this Next 16 / React 19 setup flag both "setState directly in an effect body" (`react-hooks/set-state-in-effect`) and "reading a ref during render" (`react-hooks/refs`) as errors — ruling out both the obvious effect-based approach and the classic ref-based `getDerivedStateFromProps` workaround. The one still-sanctioned mechanism is React's own documented "adjust state when a prop changes" pattern (react.dev — storing the previous prop value in *state*, not a ref, and calling `setState` conditionally during render when it differs) — used here to know when `rows` has actually changed, at which point any now-matching draft entries are dropped before this render ever paints (no one-frame flicker the way an effect-based fix would still have).
+**Choice — local-first optimistic position, reconciled during render, not in a `useEffect`:** the actual bug was `handlePointerUp` clearing `draftGeometries` immediately after handing the change to the parent, so the very next render fell back to the (still stale, pre-round-trip) `rows` prop — a real, visible snap-back, corrected only once `router.refresh()` eventually delivered fresh props (the "teleports ~3s later"). Fixed by NOT clearing the draft on a successful drop — it now stays showing the dropped position — and only reconciling it away once the server-confirmed `rows` prop actually matches (a plain value comparison; this app has no separate realtime subscription for row geometry to race against, so there's no separate "echo" to distinguish from a plain refetch — matching by value is exactly as correct as a client-mutation-id scheme here, without needing to plumb one through). A failed persist (`onMoveRows`/`onResizeRow`'s promise rejecting — both now return the underlying persist promise instead of firing-and-forgetting) reverts the draft immediately and fires a toast, independent of the reconciliation path. The reconciliation itself is intentionally NOT a `useEffect`: the newer, compiler-aligned `eslint-plugin-react-hooks` rules in this Next 16 / React 19 setup flag both "setState directly in an effect body" (`react-hooks/set-state-in-effect`) and "reading a ref during render" (`react-hooks/refs`) as errors — ruling out both the obvious effect-based approach and the classic ref-based `getDerivedStateFromProps` workaround. The one still-sanctioned mechanism is React's own documented "adjust state when a prop changes" pattern (react.dev — storing the previous prop value in _state_, not a ref, and calling `setState` conditionally during render when it differs) — used here to know when `rows` has actually changed, at which point any now-matching draft entries are dropped before this render ever paints (no one-frame flicker the way an effect-based fix would still have).
 
 **Choice — starting a new drag/resize reads from the row's current DISPLAYED geometry (draft-or-row), not the raw `rows` prop:** a `currentGeometry(row)` helper feeds `beginRowMove`/`beginResize`'s origin computation. Without it, a second interaction on the same row started while its first move/resize is still persisting (draft showing, prop not yet caught up) would silently compute its delta from the stale pre-first-move position — correct once the two operations were far enough apart in time to never overlap, wrong in exactly the "local-first, draft outlives the prop" scenario this rework introduces.
 
@@ -2055,7 +2055,7 @@ logic, not new columns for the core model.
 .base_labor_units` is defined as hours-per-unit at a baseline pace, so a
 material's `labor_units` (`base_labor_units × size factor`) is literally
 "how many hours this takes at standard pace." This makes
-`crew_rates.units_per_hour` a clean efficiency *multiplier* relative to
+`crew_rates.units_per_hour` a clean efficiency _multiplier_ relative to
 standard (1.0 = exactly standard, 1.2 = 20% faster) instead of an
 arbitrary unit needing its own calibration table, and makes the
 un-sampled fallback for a brand-new crew an honest, explainable `1.0`
@@ -2126,7 +2126,7 @@ stated consequence, `getProjectDailyLaborLoad`'s internals now convert
 standard labor units to actual hours via `getCompanyRatesByTaskKey`
 before the calendar ever sees the number — no change to
 `CrewCalendar`'s props or the capacity-cell UI. This is deliberately a
-per-*project* blended rate, not a per-crew-accurate one: the calendar
+per-_project_ blended rate, not a per-crew-accurate one: the calendar
 computes `laborLoadByProject` once per project, before it's known which
 specific crew a given day's cell belongs to (crews are assigned
 per-day, the load figure isn't). A true per-crew-adjusted capacity
@@ -2146,7 +2146,7 @@ Field/Scheduler already querying `status = 'active'` only); converting
 is a one-column status flip with no data migration, since it was always
 a real `projects` row. A draft's `ProjectTabs` hides Layout/Progress
 (no drawing, no install progress to show) but keeps Estimate — which is
-also shown on every *active* project, since a live forecast-to-finish is
+also shown on every _active_ project, since a live forecast-to-finish is
 useful well past the pre-sale stage.
 
 **Choice — "explain this estimate" is hidden outright when
@@ -2168,7 +2168,7 @@ placeholder whenever a project had zero rows — harmless before, since
 every real project always marked a drawing before touching Materials in
 practice, but a hard blocker for this sub-phase's whole "paste a
 material list before there's a drawing" use case. Fixed by only
-suppressing the row-assignment *columns* (which correctly render empty
+suppressing the row-assignment _columns_ (which correctly render empty
 when `rows = []`) and turning the placeholder into a small informational
 note above the table rather than a replacement for it.
 
@@ -2202,7 +2202,7 @@ whole-project assignment chip onto a different cell (move), is a
 standard `draggable` + `dragstart`/`dragover`/`drop` interaction — a
 generic DnD library would be solving a problem the platform already
 handles natively. This is a different call than `row-stage.tsx`'s
-hand-rolled *pointer* events (justified there by needing precise
+hand-rolled _pointer_ events (justified there by needing precise
 zoom-aware geometry math no library would get right); a calendar cell
 grid has no such requirement. Scoped to whole-project assignments
 (`row_id: null`) only — a rows/phase-scoped assignment is really N
@@ -2284,7 +2284,7 @@ the selected `crewId` client-side, the same "server can't filter ahead
 of render since crew selection is client state" reasoning ADR-021
 already established for day_logs/blockers. Separately, `profiles.crew_id`
 (sub-phase A) now seeds `useCrewSelection`'s default — a device that's
-never picked a crew falls back to the *signed-in user's own* assigned
+never picked a crew falls back to the _signed-in user's own_ assigned
 crew rather than "no crew selected," still overridable per-device for a
 shared tablet logging as someone else's crew.
 
@@ -2321,11 +2321,11 @@ pass.
 
 **Choice — a real, previously-latent auth gap found and fixed while
 building this: neither AI route checked who was calling it.** The
-packing-slip extraction route (ADR-025) was *indirectly* protected — an
+packing-slip extraction route (ADR-025) was _indirectly_ protected — an
 unauthenticated caller would eventually fail inside
 `getSignedPackingSlipUrl` (Storage RLS rejects the signed-URL request),
 but as an uncaught exception, not a clean response. The new voice-note
-route has *no* indirect protection at all — it never touches Supabase,
+route has _no_ indirect protection at all — it never touches Supabase,
 so nothing stopped an unauthenticated caller from spending the
 `ANTHROPIC_API_KEY` quota. Both now call `requireOrg()` (any signed-in
 org member — crew should reach both) explicitly, wrapped to return a
@@ -2372,7 +2372,7 @@ org settings (name/address/logo/default working days), and — the part
 with the widest blast radius — "enforce role permissions consistently
 everywhere... add server-side guards, not just hidden buttons." Auditing
 the existing codebase found every mutating Server Action relied
-*entirely* on Postgres RLS for role enforcement, with zero
+_entirely_ on Postgres RLS for role enforcement, with zero
 application-level check: not a security hole (RLS genuinely blocks a
 disallowed write), but a real gap from "hidden button is the only
 defense" — a raw RLS error is what a disallowed caller saw, and nothing
@@ -2398,14 +2398,14 @@ the table's own RLS policy — never looser (that would be a false sense
 of permission RLS then blocks anyway with a confusing raw error) and
 never stricter without reason. `lib/field/actions.ts` (installs/
 blockers/day_logs) deliberately keeps its existing org-only check with
-no role restriction — crew *should* reach these, that's the entire
+no role restriction — crew _should_ reach these, that's the entire
 point of the field app.
 
 **Choice — self-service full-name edit goes through a narrow
 `security definer` RPC, not a broader RLS policy:** "Account page
 (change own password/name)" — password already worked
 (`supabase.auth.updateUser`, `auth.users`, no RLS involved), but
-`profiles_update`'s existing policy only lets owner/pm update *any*
+`profiles_update`'s existing policy only lets owner/pm update _any_
 profile row, including their own — a crew/scheduler user couldn't
 self-edit their own name through it at all. Postgres RLS is row-level,
 not column-level: a policy can't say "any signed-in user may update
@@ -2479,7 +2479,7 @@ has with `material_reconciliation` itself.
 of `drawings`:** `rows.drawing_id` FKs to a specific `drawings` row, and
 existing rows must keep working. Re-uploading a page inserts a new
 `drawing_versions` row (`unique(project_id, page_index, version)`),
-marks the prior version `superseded_at`, and updates the *existing*
+marks the prior version `superseded_at`, and updates the _existing_
 `drawings` row's `storage_path`/`width`/`height` in place — same `id`,
 so no FK ever breaks. `drawings` stays "the current pointer per page";
 `drawing_versions` is the append-only history + approval trail
@@ -2492,7 +2492,7 @@ history instead of every current project showing no history at all.
 `row_progress.readiness_status` is computed as `'complete'` (pct
 already 100 — readiness stops mattering once done) → `'blocked'` (not
 `materials_ready` or not `area_accessible` — the two things that make
-work *physically* impossible to start) → `'ready'` (every prerequisite
+work _physically_ impossible to start) → `'ready'` (every prerequisite
 met, including `drawing_approved` and derived `crew_assigned`) →
 else `'partial'`. `crew_assigned` is deliberately not a stored column
 (the spec marks it "(derived)") — it's `true` when an `assignments` row
@@ -2527,7 +2527,7 @@ newer output no longer emits a separate `Views<T>` helper (views are now
 folded into `Tables<T>`'s own union) — added back a small `Views<T>`
 compatibility alias rather than rewriting every `Views<"...">` call site
 across the codebase to `Tables<"...">`. Separately, the generator marks
-*every* view column nullable (it can't prove non-nullability through
+_every_ view column nullable (it can't prove non-nullability through
 arbitrary view SQL) — re-applied the same "intentional, valid
 improvement" judgment ADR-010 already established for CHECK constraints
 to nullability: columns the view's own SQL genuinely guarantees
@@ -2544,7 +2544,7 @@ deviation categories differ). Running the full E2E suite afterward
 surfaced one genuine pre-existing test bug, unrelated to this migration:
 `scheduler-flow.spec.ts` asserted on a page-wide `getByText(/^0 \/
 \d+$/)`, which throws a strict-mode violation whenever a remaining-qty ÷
-scheduled-days split happens to give *every* scheduled day the identical
+scheduled-days split happens to give _every_ scheduled day the identical
 target number (increasingly likely the longer a test's date-relative
 schedule runs, since which calendar days fall on weekends shifts the
 day count run to run). Fixed by adding a `data-testid` to each day's
@@ -2647,7 +2647,7 @@ are viewable (zoom/pan/fullscreen) but not markable. The schema
 the UI enforcing it.
 
 **Choice — a project's first upload becomes its marking page
-automatically:** the spec's "owner/pm chooses" describes how to *change*
+automatically:** the spec's "owner/pm chooses" describes how to _change_
 the marking page, not a mandatory extra step for the common case (most
 projects have one page). Without this, a brand-new project couldn't mark
 any rows until someone explicitly designated a page first — pure friction
@@ -2659,11 +2659,11 @@ Second and later uploads default to `'reference'` (the column's own
 default) and need an explicit "Set as marking page" click.
 
 **Choice — `RowStage` gets a `readOnly` boolean prop, not a second
-component:** a non-marking page needs the *exact* same zoom/pan/
+component:** a non-marking page needs the _exact_ same zoom/pan/
 fullscreen/phase-coloring behavior as the marking page — only
 draw/move/resize/select/keyboard-shortcuts differ. Forking a whole
 second stage component (the way `MaterialsReferenceStage` exists
-separately, for a genuinely different read-only *display* need) would
+separately, for a genuinely different read-only _display_ need) would
 duplicate all of that shared behavior for a difference that's really
 just "don't start these specific interactions." `readOnly` short-circuits
 `handleStagePointerDown`'s draw/marquee branch (pan still works — that's
@@ -2717,7 +2717,7 @@ not just visually dims them:** `RowStage` filters
 `rows.filter(row => !row.phaseId || !hiddenPhaseIds.has(row.phaseId))`
 before mapping, rather than rendering hidden rows with reduced opacity.
 A hidden row shouldn't be selectable, draggable, or resizable — it's
-supposed to be *out of the way* while working on other phases, not just
+supposed to be _out of the way_ while working on other phases, not just
 less visible; not rendering it at all is simpler than rendering it and
 then disabling every interaction path individually.
 
@@ -2739,7 +2739,7 @@ text on two different pages is fine for a human (each is unambiguous in
 its own page's context), but it was a real trap for
 `e2e/phases-flow.spec.ts`: a `getByLabel("Filter by phase")` fired
 before the Progress tab's client-side navigation had actually finished
-resolved to the *Materials* tab's still-present select (Next.js keeps
+resolved to the _Materials_ tab's still-present select (Next.js keeps
 the outgoing page mounted until the incoming one's data is ready, to
 avoid a blank flash), so the test silently filtered the wrong page's
 dropdown. Fixed by waiting for a Progress-tab-specific element
@@ -2790,7 +2790,7 @@ from today forward (past-dated and any manually-set per-crew targets are
 left alone), so re-running it after progress changes gives a clean
 recompute instead of layering stale suggestions on top of fresh ones.
 
-**Choice — "assign to project/rows/phases" is assignment *granularity*,
+**Choice — "assign to project/rows/phases" is assignment _granularity_,
 not a `phase_id` column:** `assignments` has `row_id` (nullable) but no
 `phase_id`. `AssignCrewForm` offers three scopes — whole project
 (`row_id: null`), specific rows (multi-select), or a phase (resolved
@@ -2809,7 +2809,7 @@ finds an existing row by `(project_id, work_date, material_id, crew_id)`
 insert vs. update.
 
 **Consequences:** Crew rate tracking (`crew_rates.units_per_hour`) isn't
-built — the schema anticipates it as a *derived* metric (actual
+built — the schema anticipates it as a _derived_ metric (actual
 installed ÷ actual hours from `day_logs`/`installs`), which is a
 non-trivial aggregation pipeline of its own and isn't named as a Sub-phase
 C requirement; targets are generated from remaining-qty ÷ remaining-days
@@ -2943,14 +2943,14 @@ rather than to live DOM focus, which is what the feature actually needs
 (`isTypingTarget` still guards against firing while typing in a field).
 
 **Choice — resize handles get their own clipping wrapper, separate from
-the row's box:** the 8 handles are centered *on* the row's border by
+the row's box:** the 8 handles are centered _on_ the row's border by
 design (a corner handle's center is the row's actual corner), extending a
 few pixels past the row's own edges in every direction. They render as
 children of the row's box, which has `overflow-hidden` + `rounded` so the
 fill-bar/label don't visually spill past the row's rounded corners. That
 same clipping was cutting the outer half of every handle — and for corner
 handles specifically, the clip boundary ran right through the handle's
-own geometric center, since the center *is* the row's edge. A test
+own geometric center, since the center _is_ the row's edge. A test
 computing a handle's click target from its (unclipped)
 `getBoundingClientRect()` center would land exactly on that knife-edge,
 and the browser's hit-test would occasionally resolve to a different,
@@ -2962,7 +2962,7 @@ test). Fixed by moving `RowFillMarker` into its own
 row's own box, and dropping `overflow-hidden` from the row's box itself
 (its background/border still respect `rounded` on their own — clipping a
 box's own painted background never needed `overflow-hidden` in the first
-place, only clipping its *children* did). This is a real interaction bug,
+place, only clipping its _children_ did). This is a real interaction bug,
 not just a test artifact: any user resizing a row via a corner handle was
 subject to the same knife-edge unreliability.
 
@@ -2994,7 +2994,7 @@ gained `deleteRowsBatch`, `getRowSnapshots`, `restoreRows`,
 `upsertRowMaterialQtyBulk` — undo needs arbitrary `{rowId, materialId,
 requiredQty}` triples, since a redo's "before" values can differ per row,
 not just per selection). `lib/phases/{actions,queries}.ts` are new
-(`createPhase`, `listPhases`) — the Phases *sub-phase* (colors on the
+(`createPhase`, `listPhases`) — the Phases _sub-phase_ (colors on the
 drawing, legend, filtering) is still queued in Batch 2; this rework only
 needed enough to create-and-assign a phase inline from "Set phase."
 

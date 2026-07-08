@@ -25,7 +25,11 @@ export default async function ProjectLayout({
     data: { user },
   } = await supabase.auth.getUser();
   const { data: profile } = user
-    ? await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle()
+    ? await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .maybeSingle()
     : { data: null };
   // handoff_surveys and change_orders are office-only both ways (RLS),
   // same posture as Team — hide those tabs entirely rather than show

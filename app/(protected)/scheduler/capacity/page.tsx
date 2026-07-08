@@ -67,7 +67,10 @@ export default async function CapacityBoardPage({
     .select("role, org_id")
     .eq("id", user.id)
     .single();
-  if (!profile?.org_id || !["owner", "pm", "scheduler"].includes(profile.role)) {
+  if (
+    !profile?.org_id ||
+    !["owner", "pm", "scheduler"].includes(profile.role)
+  ) {
     redirect("/app");
   }
 
@@ -84,7 +87,10 @@ export default async function CapacityBoardPage({
     listCrews(),
   ]);
 
-  const assignmentsByCrewDate = new Map<string, { projectId: string; projectName: string }[]>();
+  const assignmentsByCrewDate = new Map<
+    string,
+    { projectId: string; projectName: string }[]
+  >();
   for (const a of board.assignments) {
     const key = `${a.crewId}:${a.workDate}`;
     const list = assignmentsByCrewDate.get(key) ?? [];
@@ -99,7 +105,9 @@ export default async function CapacityBoardPage({
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-lg font-semibold text-foreground">Capacity board</h1>
+          <h1 className="text-lg font-semibold text-foreground">
+            Capacity board
+          </h1>
           <p className="text-sm text-muted-foreground">
             {board.numCrews} crew{board.numCrews === 1 ? "" : "s"} of capacity —
             what&apos;s promised, to whom, and where the gaps are.
@@ -136,7 +144,10 @@ export default async function CapacityBoardPage({
       ) : null}
 
       <div className="overflow-x-auto rounded-lg border border-border">
-        <table data-testid="capacity-board" className="w-full border-separate border-spacing-0 text-xs">
+        <table
+          data-testid="capacity-board"
+          className="w-full border-separate border-spacing-0 text-xs"
+        >
           <thead>
             <tr>
               <th className="sticky left-0 z-10 min-w-28 border-b border-r border-border bg-muted p-2 text-left font-semibold text-muted-foreground">
@@ -211,7 +222,10 @@ export default async function CapacityBoardPage({
                   const assigned =
                     assignmentsByCrewDate.get(`${crew.id}:${day.date}`) ?? [];
                   return (
-                    <td key={day.date} className="border-b border-border p-1 align-top">
+                    <td
+                      key={day.date}
+                      className="border-b border-border p-1 align-top"
+                    >
                       <div className="flex flex-col gap-0.5">
                         {assigned.map((p) => (
                           <span
@@ -233,7 +247,10 @@ export default async function CapacityBoardPage({
             ))}
             {crews.length === 0 ? (
               <tr>
-                <td colSpan={board.days.length + 1} className="p-6 text-center text-sm text-muted-foreground">
+                <td
+                  colSpan={board.days.length + 1}
+                  className="p-6 text-center text-sm text-muted-foreground"
+                >
                   Add a crew on the Scheduler page first.
                 </td>
               </tr>
@@ -243,11 +260,10 @@ export default async function CapacityBoardPage({
       </div>
 
       <p className="text-xs text-muted-foreground">
-        &ldquo;Committed&rdquo; counts scheduled working days per project
-        (each needs a crew that day); the crew lanes show actual
-        assignments. A red day is promised to more customers than there are
-        crews — fix the schedule, or an owner can override with a reason
-        when committing dates.
+        &ldquo;Committed&rdquo; counts scheduled working days per project (each
+        needs a crew that day); the crew lanes show actual assignments. A red
+        day is promised to more customers than there are crews — fix the
+        schedule, or an owner can override with a reason when committing dates.
       </p>
     </div>
   );

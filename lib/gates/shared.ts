@@ -63,7 +63,9 @@ export interface NextAction {
 // project (an overridden stage can still carry an incomplete-but-overdue
 // item worth surfacing) — de-duplicated, since an active-stage item can
 // also itself be overdue.
-export function computeNextActions(lifecycle: ProjectStageWithItems[]): NextAction[] {
+export function computeNextActions(
+  lifecycle: ProjectStageWithItems[]
+): NextAction[] {
   const today = todayIso();
   const activeStage = lifecycle.find((s) => s.status === "active");
 

@@ -34,10 +34,7 @@ function WorksheetLine({
   canManage: boolean;
   onDone: () => void;
 }) {
-  const outstanding = Math.max(
-    0,
-    material.total_needed - material.received
-  );
+  const outstanding = Math.max(0, material.total_needed - material.received);
   const [qty, setQty] = useState(outstanding > 0 ? String(outstanding) : "");
   const [flagOpen, setFlagOpen] = useState(false);
   const [flagStatus, setFlagStatus] = useState<MaterialFlagStatus>("short");
@@ -84,7 +81,9 @@ function WorksheetLine({
         setFlagOpen(false);
         onDone();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Could not flag material.");
+        setError(
+          err instanceof Error ? err.message : "Could not flag material."
+        );
       }
     });
   }
@@ -107,7 +106,8 @@ function WorksheetLine({
             {material.name}
           </p>
           <p className="text-sm text-muted-foreground">
-            {[material.profile, material.size].filter(Boolean).join(" · ") || "—"}
+            {[material.profile, material.size].filter(Boolean).join(" · ") ||
+              "—"}
           </p>
         </div>
         <div className="text-right text-sm">
@@ -249,7 +249,9 @@ export function VerificationWorksheet({
   canManage: boolean;
 }) {
   const router = useRouter();
-  const reconByMaterial = new Map(reconciliation.map((r) => [r.material_id, r]));
+  const reconByMaterial = new Map(
+    reconciliation.map((r) => [r.material_id, r])
+  );
 
   // Outstanding lines first (the ones the person at the dock is here
   // for), fully-verified ones sink to the bottom as confirmation.

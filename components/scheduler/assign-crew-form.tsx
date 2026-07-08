@@ -47,7 +47,9 @@ export function AssignCrewForm({
         ? null
         : scope === "rows"
           ? [...rowIds]
-          : rows.filter((row) => row.phase_id === phaseId).map((row) => row.row_id);
+          : rows
+              .filter((row) => row.phase_id === phaseId)
+              .map((row) => row.row_id);
 
     // Warn, don't hard-block — same posture as the calendar's
     // double-booking check (ADR-029): a row can be genuinely blocked for
@@ -58,7 +60,8 @@ export function AssignCrewForm({
       const blockedLabels = rows
         .filter(
           (row) =>
-            targetRowIds.includes(row.row_id) && row.readiness_status === "blocked"
+            targetRowIds.includes(row.row_id) &&
+            row.readiness_status === "blocked"
         )
         .map((row) => row.label);
       if (blockedLabels.length > 0) {

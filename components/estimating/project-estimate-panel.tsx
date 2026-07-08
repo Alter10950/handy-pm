@@ -239,10 +239,17 @@ export function ProjectEstimatePanel({
         />
       </div>
 
-      <p className={cn("text-sm font-semibold", CONFIDENCE_CLASS[estimate.confidence])}>
+      <p
+        className={cn(
+          "text-sm font-semibold",
+          CONFIDENCE_CLASS[estimate.confidence]
+        )}
+      >
         Confidence: {estimate.confidence}
         {isPending ? (
-          <span className="ml-2 font-normal text-muted-foreground">recomputing…</span>
+          <span className="ml-2 font-normal text-muted-foreground">
+            recomputing…
+          </span>
         ) : null}
       </p>
 
@@ -250,7 +257,10 @@ export function ProjectEstimatePanel({
         <h3 className="mb-3 text-sm font-semibold text-foreground">What-if</h3>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-6">
           <div className="flex flex-col gap-1">
-            <label htmlFor="crew-count" className="text-xs text-muted-foreground">
+            <label
+              htmlFor="crew-count"
+              className="text-xs text-muted-foreground"
+            >
               Crews in parallel
             </label>
             <Input
@@ -298,7 +308,12 @@ export function ProjectEstimatePanel({
         </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-3">
-          <Button type="button" size="sm" disabled={isPending} onClick={handleSave}>
+          <Button
+            type="button"
+            size="sm"
+            disabled={isPending}
+            onClick={handleSave}
+          >
             Save this estimate
           </Button>
           {aiExplainAvailable ? (
@@ -378,9 +393,9 @@ export function ProjectEstimatePanel({
           Remaining hours by SKU
         </h3>
         <p className="mb-3 text-xs text-muted-foreground">
-          Each line resolves its own standard — learned crew rate first,
-          then a per-SKU standard, then the category default with size
-          modifiers. No more one-rate-fits-all.
+          Each line resolves its own standard — learned crew rate first, then a
+          per-SKU standard, then the category default with size modifiers. No
+          more one-rate-fits-all.
         </p>
         {estimate.lines.length === 0 ? (
           <p className="text-sm text-muted-foreground">
@@ -416,7 +431,10 @@ export function ProjectEstimatePanel({
                     return (
                       <tr key={line.skuId ?? `${line.name}-${i}`}>
                         <td className="border-b border-border-subtle px-2 py-1.5 text-foreground">
-                          <span className="block max-w-64 truncate" title={line.name}>
+                          <span
+                            className="block max-w-64 truncate"
+                            title={line.name}
+                          >
                             {line.name}
                           </span>
                           <span className="text-[11px] capitalize text-muted-foreground">
@@ -436,7 +454,9 @@ export function ProjectEstimatePanel({
                           {formatNumber(line.remainingHours, 2)}
                         </td>
                         <td className="border-b border-border-subtle px-2 py-1.5 text-right">
-                          <StatusPill tone={source.tone}>{source.label}</StatusPill>
+                          <StatusPill tone={source.tone}>
+                            {source.label}
+                          </StatusPill>
                         </td>
                       </tr>
                     );
@@ -447,7 +467,8 @@ export function ProjectEstimatePanel({
         )}
 
         {estimate.breakdown.some(
-          (entry) => !estimate.lines.some((line) => line.category === entry.taskKey)
+          (entry) =>
+            !estimate.lines.some((line) => line.category === entry.taskKey)
         ) ? (
           <div className="mt-3 border-t border-border-subtle pt-3">
             <p className="mb-1 text-xs font-semibold text-muted-foreground">
@@ -457,14 +478,18 @@ export function ProjectEstimatePanel({
               {estimate.breakdown
                 .filter(
                   (entry) =>
-                    !estimate.lines.some((line) => line.category === entry.taskKey)
+                    !estimate.lines.some(
+                      (line) => line.category === entry.taskKey
+                    )
                 )
                 .map((entry) => (
                   <li key={entry.taskKey} className="flex justify-between">
                     <span className="capitalize">
                       {entry.taskKey.replace("_", " ")}
                     </span>
-                    <span className="num">{formatNumber(entry.hours, 2)} h</span>
+                    <span className="num">
+                      {formatNumber(entry.hours, 2)} h
+                    </span>
                   </li>
                 ))}
             </ul>
@@ -499,13 +524,17 @@ export function ProjectEstimatePanel({
                   {formatNumber(entry.estimated_days)} crew-days
                 </span>
                 <span className="text-muted-foreground">
-                  {entry.forecast_finish ? formatDate(entry.forecast_finish) : "—"}
+                  {entry.forecast_finish
+                    ? formatDate(entry.forecast_finish)
+                    : "—"}
                 </span>
                 <span
                   className={cn(
                     "text-xs font-medium",
                     entry.confidence
-                      ? CONFIDENCE_CLASS[entry.confidence as ComputedEstimate["confidence"]]
+                      ? CONFIDENCE_CLASS[
+                          entry.confidence as ComputedEstimate["confidence"]
+                        ]
                       : "text-muted-foreground"
                   )}
                 >

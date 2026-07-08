@@ -63,10 +63,13 @@ export function DataGrid<Row>({
   maxHeightClassName?: string;
   testId?: string;
 }) {
-  const [sort, setSort] = useState<{ key: string; direction: "asc" | "desc" } | null>(
-    defaultSort ?? null
+  const [sort, setSort] = useState<{
+    key: string;
+    direction: "asc" | "desc";
+  } | null>(defaultSort ?? null);
+  const [density, setDensity] = useState<"comfortable" | "compact">(
+    "comfortable"
   );
-  const [density, setDensity] = useState<"comfortable" | "compact">("comfortable");
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [columnMenuOpen, setColumnMenuOpen] = useState(false);
 
@@ -86,7 +89,9 @@ export function DataGrid<Row>({
       const cmp =
         typeof va === "number" && typeof vb === "number"
           ? va - vb
-          : String(va).localeCompare(String(vb), undefined, { sensitivity: "base" });
+          : String(va).localeCompare(String(vb), undefined, {
+              sensitivity: "base",
+            });
       return sort.direction === "asc" ? cmp : -cmp;
     });
   }, [rows, sort, columns]);
@@ -127,7 +132,11 @@ export function DataGrid<Row>({
   }
 
   return (
-    <div data-testid={testId} data-density={density} className="flex flex-col gap-2">
+    <div
+      data-testid={testId}
+      data-density={density}
+      className="flex flex-col gap-2"
+    >
       {(toolbar || showDensityToggle || showColumnToggle) && (
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap items-center gap-2">{toolbar}</div>
@@ -230,7 +239,9 @@ export function DataGrid<Row>({
                 return (
                   <th
                     key={column.key}
-                    style={column.width ? { minWidth: column.width } : undefined}
+                    style={
+                      column.width ? { minWidth: column.width } : undefined
+                    }
                     className={cn(
                       "sticky z-20 border-b border-border bg-surface-sunken px-[var(--grid-pad-x)] py-2 text-xs font-semibold text-muted-foreground",
                       hasGroups ? "top-[29px]" : "top-0",
@@ -249,7 +260,11 @@ export function DataGrid<Row>({
                       >
                         {column.header}
                         <span aria-hidden className="text-[9px]">
-                          {active ? (sort!.direction === "asc" ? "▲" : "▼") : "↕"}
+                          {active
+                            ? sort!.direction === "asc"
+                              ? "▲"
+                              : "▼"
+                            : "↕"}
                         </span>
                       </button>
                     ) : (

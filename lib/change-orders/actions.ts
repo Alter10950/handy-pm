@@ -7,10 +7,14 @@ import { redirect } from "next/navigation";
 import { Resend } from "resend";
 
 import { requireRole } from "@/lib/auth/session";
+import { recordAudit } from "@/lib/audit/log";
 import { mergeApprovedChangeOrder } from "@/lib/change-orders/merge";
 import { suggestedAddedDays } from "@/lib/change-orders/shared";
 import { laborUnitsFor } from "@/lib/estimating/labor";
-import { computeProjectEstimate, loadLaborStandardsMap } from "@/lib/estimating/queries";
+import {
+  computeProjectEstimate,
+  loadLaborStandardsMap,
+} from "@/lib/estimating/queries";
 import { touchProjectActivity } from "@/lib/projects/actions";
 import { createClient } from "@/lib/supabase/server";
 import type {
@@ -128,7 +132,9 @@ export async function updateChangeOrder(
 // after any line change. Deliberately overwrites: the suggestion tracks
 // the lines until the office manually edits the figures right before
 // sending — "auto-computed via the estimator (editable)" (ADR-043).
-async function recomputeChangeOrderTotals(changeOrderId: string): Promise<void> {
+async function recomputeChangeOrderTotals(
+  changeOrderId: string
+): Promise<void> {
   const supabase = await createClient();
   const { data: items, error } = await supabase
     .from("change_order_items")
@@ -137,11 +143,15 @@ async function recomputeChangeOrderTotals(changeOrderId: string): Promise<void> 
   if (error) throw error;
 
   const laborUnits =
-    Math.round(items.reduce((sum, item) => sum + (item.labor_units ?? 0), 0) * 100) /
-    100;
+    Math.round(
+      items.reduce((sum, item) => sum + (item.labor_units ?? 0), 0) * 100
+    ) / 100;
   const { error: updateError } = await supabase
     .from("change_orders")
-    .update({ labor_units: laborUnits, added_days: suggestedAddedDays(laborUnits) })
+    .update({
+      labor_units: laborUnits,
+      added_days: suggestedAddedDays(laborUnits),
+    })
     .eq("id", changeOrderId);
   if (updateError) throw updateError;
 }
@@ -294,6 +304,14 @@ export async function recordManualApproval(
   if (error) throw error;
 
   await mergeApprovedChangeOrder(supabase, changeOrderId, projectId);
+  await recordAudit({
+    action: "co.approve",
+    entityType: "change_order",
+    entityId: changeOrderId,
+    projectId,
+    summary: `Recorded ${input.via} change-order approval by ${approverName}`,
+    detail: { via: input.via, approverName },
+  });
   await touchProjectActivity(projectId);
   revalidateChangeOrders(projectId);
   revalidatePath(`/app/project/${projectId}/materials`);
@@ -320,7 +338,9 @@ export async function sendChangeOrderForApproval(
     await Promise.all([
       supabase
         .from("change_orders")
-        .select("status, number, title, description, labor_units, added_days, price")
+        .select(
+          "status, number, title, description, labor_units, added_days, price"
+        )
         .eq("id", changeOrderId)
         .single(),
       supabase
@@ -349,7 +369,10 @@ export async function sendChangeOrderForApproval(
   const token = randomBytes(16).toString("hex");
   const baseUrl =
     process.env.NEXT_PUBLIC_SITE_URL ||
-    process.env.VERCEL_PROJECT_PRODUCTION_URL?.replace(/^(?!https?:\/\/)/, "https://") ||
+    process.env.VERCEL_PROJECT_PRODUCTION_URL?.replace(
+      /^(?!https?:\/\/)/,
+      "https://"
+    ) ||
     "http://localhost:3001";
   const approvalUrl = `${baseUrl}/portal/co/${token}`;
 

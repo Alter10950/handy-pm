@@ -4,6 +4,69 @@ Engineering journal. Newest entries at top.
 
 ---
 
+## 2026-07-08 — Phases 14–16: QC/punch, flywheel, audit, ⌘K, final QA
+
+**Phase 14 (depth I).** Progress tab gains the QC + punch panel
+(`components/qc/qc-punch-panel.tsx`): a 6-check per-row QC checklist
+(plumb, anchors, shims, beam locks, decks, capacity labels —
+`lib/qc/shared.ts`) with per-row pass status and a project QC progress
+bar, plus the punch list (crew-raisable, open items = the closeout
+blocker signal, resolved_by/at stamped). Photo approvals now tag a
+before/during/after phase and the customer portal groups its gallery
+into that story. All of it feature-guarded (ADR-051 pattern): reads
+degrade to an "awaiting migration" panel, writes throw a clear pending
+message, and `e2e/qc-punch-flow.spec.ts` skips itself until
+`punch_items` exists.
+
+**Phase 15 (depth II).** `recomputeCrewRates` now chains the per-SKU
+productivity flywheel (`lib/estimating/flywheel.ts`): same rolling
+window, blocker-day exclusion, and proportional attribution as the
+task-key learner, but weighted by engine STANDARD hours (never the
+poisoned stored labor_units) and keyed (crew, SKU). Only SKU-linked
+materials teach, so it self-activates after the Phase 13 push+backfill
+and feeds `resolveStandard()`'s top tier — estimates sharpen with every
+logged day. Targets/SPI, reports, and notifications already existed
+(Batches 3–4) and were left alone.
+
+**Phase 16 (polish).** Append-only `audit_events` (ADR-053) with
+fire-and-forget `recordAudit` wired into role changes, gate overrides,
+and manual CO approvals. ⌘K/Ctrl-K command palette
+(`components/command-palette.tsx` on cmdk): role-aware nav jumps + live
+RLS-scoped project search (verified end-to-end: type "bingo" → Enter →
+project opens); a Search button with the ⌘K hint sits in the desktop
+top bar. A11y: skip-to-content link + `id="main-content"` in the
+AppShell (global focus rings, reduced-motion, and AA text tokens landed
+in Phases 10/12). PWA theme colors were updated in Phase 10.
+
+**Verify:** lint/typecheck/build green, 15/15 unit tests, full E2E as
+the final smoke QA (result recorded below/in PROGRESS). Fixed during
+verification: CommandDialog needs an explicit `<Command>` root (cmdk
+store crash), portal photo group heading collided with the status pill
+text, and one orphaned sanity draft was removed by exact id.
+
+**NEEDS ME (consolidated — the only human steps in the whole batch):**
+
+1. **Approve + push migrations** — `npx supabase db push` applies three
+   files: `20260708120000_sku_catalog_labor_standards.sql` (SKU catalog,
+   per-SKU standards, crew×SKU rates, corrective labor_standards
+   updates), `20260708150000_depth_qc_punch_photos.sql` (row_qc_checks,
+   punch_items, approved_photos.phase), `20260708180000_audit_log.sql`
+   (audit_events). All additive/idempotent; the session's permission
+   gate blocks pushes to the live DB.
+2. **Run the backfill** — `node --env-file=.env.local
+scripts/backfill-skus.mjs` (builds the SKU catalog, links
+   materials.sku_id, repairs stored labor_units). Idempotent.
+3. Then optionally regenerate types (`npx supabase gen types …`) — the
+   hand-maintained additions already match the migrations.
+4. (Carried from earlier batches: Resend domain verification; Vercel
+   production promotion of this batch once you've eyeballed it.)
+
+The app is fully correct WITHOUT steps 1–2 (read-time parsing); they
+unlock the editable SKU catalog, per-SKU overrides, QC/punch, the audit
+trail, and the flywheel.
+
+---
+
 ## 2026-07-08 — Phase 13: per-SKU labor model live; 25,268 h → 1,302.7 h
 
 **The bug, fixed and verified end-to-end.** A Bingo-Warehouse-scale BOM
@@ -607,7 +670,7 @@ card looked stuck after clicking "Mark done" — status never updated,
 buttons stayed rendered and disabled. Two rounds of plausible-looking
 component fixes (adding `router.refresh()`, then removing a local
 status-override state to match the office version's simpler pattern)
-changed *nothing* about the symptom — the tell that the diagnosis was
+changed _nothing_ about the symptom — the tell that the diagnosis was
 wrong. The dev server's request log showed the Server Action completing
 in under 200ms every time; a temporary debug marker confirmed the
 underlying prop updated correctly. The actual bug was in the test:
@@ -621,7 +684,7 @@ they were ever the actual fix.
 **Also found and fixed:** restructuring the Field header's single
 Rows/Day toggle into a Scope/Day pair broke `e2e/field-flow.spec.ts`
 with a full 60-second timeout — the original toggle was reachable from
-*any* view including a specific row's own detail screen (a deliberate
+_any_ view including a specific row's own detail screen (a deliberate
 shortcut to close out the day without detouring back through the rows
 list), and the rebuild only showed it from the rows list. Fixed by
 restoring that reachability alongside the new Scope button.
@@ -723,9 +786,9 @@ and email each affected recipient one combined digest (gated on
   page started rendering a hidden file input (the "Attach photo"
   control on the Handoff stage's "Site survey" item). Every one of them
   followed the pattern `click "Layout" link → immediately grab a bare
-  input[type="file"] locator` with no wait for navigation — previously
+input[type="file"] locator` with no wait for navigation — previously
   safe because only the destination page ever had a file input; now a
-  race against this new one on the page being navigated *away from*.
+  race against this new one on the page being navigated _away from_.
   Fixed all twelve to use the `drawing-upload-input`/
   `packing-slip-upload-input` testids already established for exactly
   this ambiguity in an earlier sub-phase, rather than patching the
@@ -860,7 +923,7 @@ reference. Then fixed what was concrete and proportionate:
 pass** (screenshotted every major screen, not simulated): `app/
 (protected)/layout.tsx`'s `<main>` had no `min-w-0`, so a flex item
 containing the materials grid's wide table refused to shrink below the
-table's intrinsic width — the *entire page* went wider than the
+table's intrinsic width — the _entire page_ went wider than the
 viewport on any project with materials, not just the grid itself. One
 root-level fix instead of patching every wide-content page individually.
 Also fixed: a long packing-slip filename with no `break-all` causing
@@ -937,7 +1000,7 @@ the public page falls back to the friendly invalid-link message.
 
 **Bug found via this new spec (test-only):** the share-link status
 badge's CSS `capitalize` class only changes how "active"/"revoked"
-*look*, not the actual lowercase DOM text `getByText()` matches — an
+_look_, not the actual lowercase DOM text `getByText()` matches — an
 unscoped assertion had been silently passing against the wrong element
 (the project header's own, properly-capitalized status pill) rather
 than the token badge itself. Fixed both assertions to check the
@@ -1194,7 +1257,7 @@ previous prop" comparison, `react-hooks/refs` (reading a ref's
 `.current` during render is now ALSO an error — the classic
 `getDerivedStateFromProps`-via-ref workaround is no longer allowed).
 Landed on React's own currently-documented pattern instead: store the
-previous prop value in *state* (not a ref) and call `setState`
+previous prop value in _state_ (not a ref) and call `setState`
 conditionally during render when it differs — the one mechanism the
 newer rules still sanction for this exact "adjust state when a prop
 changes" shape.
@@ -1374,15 +1437,15 @@ anything saves. `BlockerForm` gained optional `initialCode`/
 
 **Real gap found and fixed:** neither new-ish AI route (packing-slip
 extraction, voice-note) had an explicit auth check. Packing-slip was
-*indirectly* protected (would eventually fail inside
+_indirectly_ protected (would eventually fail inside
 `getSignedPackingSlipUrl`, but as a raw exception); voice-note had
-*zero* protection, since it never touches Supabase at all — anyone,
+_zero_ protection, since it never touches Supabase at all — anyone,
 signed in or not, could have spent the `ANTHROPIC_API_KEY` quota. Both
 now call the sub-phase A `requireOrg()` helper explicitly, returning a
 clean 401 instead. Found this by asking "what actually stops an
 anonymous POST here" while writing the route, not by a test catching it
 — worth calling out since it's exactly the kind of gap ADR-027's audit
-was meant to close, and these two routes were added *after* that audit.
+was meant to close, and these two routes were added _after_ that audit.
 
 **Blocked, honestly: one migration didn't apply this session.**
 `day_logs.photo_paths` (`20260706105523_day_log_photos.sql`) hit a
@@ -1416,7 +1479,7 @@ unauthenticated request, and (gated on a real key) that the AI both
 cleans up filler words and correctly flags a described stoppage as a
 `MISSING_MATERIAL` blocker. Found a real Playwright quirk while writing
 the 401 test: both `browser.newContext()` and `request.newContext()`
-inconsistently carried *some* valid session through to the server (a
+inconsistently carried _some_ valid session through to the server (a
 genuinely cookie-less `curl` to the same running server, immediately
 after, correctly got 401 — proving the server-side guard itself is
 sound) — resolved by using plain Node `fetch()` for that one assertion,
@@ -1498,7 +1561,7 @@ version 1); `labor_standards` (org-scoped, seeded with reasonable default
 hours-per-unit for upright/beam/wire_deck/anchor/row_spacer/
 end_barrier/post_protector/general) and `project_estimates` (append-only)
 for the estimation engine; `notifications` (per-user inbox, the one new
-table that's *not* org-wide readable). `row_progress` gains a derived
+table that's _not_ org-wide readable). `row_progress` gains a derived
 `crew_assigned` and a computed `readiness_status`
 (complete/blocked/ready/partial — see ADR-026 for the exact precedence).
 RLS on every new table follows the existing `current_org_id()`/
@@ -1541,7 +1604,7 @@ back in chat). With the Anthropic key now live, re-ran
 this is the batch-2 item that had been sitting in the NEEDS-YOU list.
 
 **Found and fixed a real test bug (not an app bug) while validating:**
-the first run's content assertions all passed *vacuously* — every review-
+the first run's content assertions all passed _vacuously_ — every review-
 table cell is a real `<input>`, and an `<input>`'s current value is never
 part of its `innerText`/`textContent` (no text node; the value is
 rendered by the browser's own form-control widget). `allInnerTexts()` was
@@ -1678,7 +1741,7 @@ to view-only with "Auto rows" disabled, confirming a drag on the
 view-only page creates no row at all (a direct DB count, not just "no
 error shown"), zoom and fullscreen still working there, and switching
 the marking page to page 2 — confirming both that page 2 flips to
-`'marking'` *and* that page 1 flips back to `'reference'` (the "exactly
+`'marking'` _and_ that page 1 flips back to `'reference'` (the "exactly
 one" constraint enforced both ways, not just checking the new page).
 
 ## 2026-07-03 — Sub-phase D: Phases full UI
@@ -1712,13 +1775,13 @@ phase and confirming its border color actually changed (polled via
 `getComputedStyle`, not just "the legend entry appeared"), hiding the
 phase and confirming the row disappears from the drawing while the
 other row stays, un-hiding it, filtering the Materials tab (confirms
-the *other* row's label is no longer visible), and filtering the
+the _other_ row's label is no longer visible), and filtering the
 Progress tab. The Progress-tab step caught a real test-design trap
 worth remembering generally: the Materials and Progress tabs both have
 a `<select>` labeled "Filter by phase," and clicking the "Progress" nav
 link doesn't block until the client-side navigation finishes — a
 `getByLabel("Filter by phase")` that fires too early silently resolves
-to the *Materials* tab's still-mounted select instead (Next.js keeps
+to the _Materials_ tab's still-mounted select instead (Next.js keeps
 the outgoing page around until the incoming one's data is ready).
 Fixed by waiting for a Progress-tab-specific element first.
 

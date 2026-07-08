@@ -44,27 +44,32 @@ test("layout editor: modeless interaction, pan priority, marquee, no snap-back",
 
     // No mode-toggle buttons anywhere in the toolbar — drawing is always
     // available via a plain drag, not gated behind a "Draw" tool.
-    await expect(
-      page.getByRole("button", { name: "Pan mode" })
-    ).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Pan mode" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: /^Draw/ })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Edit mode" })).toHaveCount(
       0
     );
-    await expect(
-      page.getByRole("button", { name: "Select mode" })
-    ).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Select mode" })).toHaveCount(
+      0
+    );
 
     const layoutImage = page.locator('img[alt="Layout drawing"]');
     await layoutImage.scrollIntoViewIfNeeded();
     const stageBox = (await layoutImage.boundingBox())!;
 
     async function drawRow(x0: number, y0: number, x1: number, y1: number) {
-      await page.mouse.move(stageBox.x + x0 * stageBox.width, stageBox.y + y0 * stageBox.height);
+      await page.mouse.move(
+        stageBox.x + x0 * stageBox.width,
+        stageBox.y + y0 * stageBox.height
+      );
       await page.mouse.down();
-      await page.mouse.move(stageBox.x + x1 * stageBox.width, stageBox.y + y1 * stageBox.height, {
-        steps: 5,
-      });
+      await page.mouse.move(
+        stageBox.x + x1 * stageBox.width,
+        stageBox.y + y1 * stageBox.height,
+        {
+          steps: 5,
+        }
+      );
       await page.mouse.up();
     }
 
@@ -214,9 +219,7 @@ test("layout editor: modeless interaction, pan priority, marquee, no snap-back",
       })
       .not.toEqual(geometryBefore);
 
-    const settledBox = (await page
-      .getByTestId("row-box-Row 3")
-      .boundingBox())!;
+    const settledBox = (await page.getByTestId("row-box-Row 3").boundingBox())!;
     expect(Math.abs(settledBox.x - immediateBox.x)).toBeLessThan(2);
     expect(Math.abs(settledBox.y - immediateBox.y)).toBeLessThan(2);
   });

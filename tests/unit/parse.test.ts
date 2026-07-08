@@ -23,7 +23,7 @@ test("category classification: real Handy Equip material names", () => {
   assert.equal(classifyCategory("Mystery Item 9000"), "other");
 });
 
-test('UNIT SEMANTICS: 42"x24\' upright → depth 42 in, height 288 in (feet marked explicitly)', () => {
+test("UNIT SEMANTICS: 42\"x24' upright → depth 42 in, height 288 in (feet marked explicitly)", () => {
   const attrs = parseSizeText("upright", `42"x24'`);
   assert.equal(attrs.depthIn, 42);
   assert.equal(attrs.heightIn, 288);

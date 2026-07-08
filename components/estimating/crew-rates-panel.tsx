@@ -46,13 +46,19 @@ export function CrewRatesPanel({
         <div>
           <h2 className="text-sm font-semibold text-foreground">Crew rates</h2>
           <p className="text-xs text-muted-foreground">
-            Learned efficiency vs. standard pace (1.0 = standard), from the
-            last 90 days of install history. Needs {MIN_SAMPLES_FOR_CREW_RATE}
-            + sampled days before a crew&apos;s own rate is trusted over the
+            Learned efficiency vs. standard pace (1.0 = standard), from the last
+            90 days of install history. Needs {MIN_SAMPLES_FOR_CREW_RATE}+
+            sampled days before a crew&apos;s own rate is trusted over the
             company blend.
           </p>
         </div>
-        <Button type="button" size="sm" variant="outline" disabled={isPending} onClick={handleRecompute}>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={isPending}
+          onClick={handleRecompute}
+        >
           {isPending ? "Recomputing…" : "Recompute from install history"}
         </Button>
       </div>
@@ -68,8 +74,13 @@ export function CrewRatesPanel({
           {crews.map((crew) => {
             const crewRates = ratesByCrew.get(crew.id) ?? [];
             return (
-              <div key={crew.id} className="border-t border-border pt-2 first:border-t-0 first:pt-0">
-                <p className="text-sm font-medium text-foreground">{crew.name}</p>
+              <div
+                key={crew.id}
+                className="border-t border-border pt-2 first:border-t-0 first:pt-0"
+              >
+                <p className="text-sm font-medium text-foreground">
+                  {crew.name}
+                </p>
                 {crewRates.length === 0 ? (
                   <p className="text-xs text-muted-foreground">
                     No learned rates yet — standard pace applies until enough
@@ -78,7 +89,10 @@ export function CrewRatesPanel({
                 ) : (
                   <div className="mt-1 flex flex-wrap gap-3">
                     {crewRates.map((rate) => (
-                      <span key={rate.task_key} className="text-xs text-muted-foreground">
+                      <span
+                        key={rate.task_key}
+                        className="text-xs text-muted-foreground"
+                      >
                         {rate.task_key}:{" "}
                         <span
                           className={

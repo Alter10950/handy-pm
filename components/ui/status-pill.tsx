@@ -1,12 +1,7 @@
 import { cn } from "@/lib/utils";
 
 export type PillTone =
-  | "neutral"
-  | "brand"
-  | "success"
-  | "warning"
-  | "danger"
-  | "info";
+  "neutral" | "brand" | "success" | "warning" | "danger" | "info";
 
 const TONE_CLASS: Record<PillTone, string> = {
   neutral: "bg-muted text-text-secondary",

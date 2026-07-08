@@ -5,7 +5,10 @@ import { useRef, useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
 import { renderFileToPages } from "@/lib/pdf/render-drawing-file";
-import { approveDrawingVersion, uploadDrawingVersion } from "@/lib/drawings/actions";
+import {
+  approveDrawingVersion,
+  uploadDrawingVersion,
+} from "@/lib/drawings/actions";
 import { createClient } from "@/lib/supabase/client";
 
 export interface DrawingVersionSummary {
@@ -108,7 +111,9 @@ export function DrawingVersionPanel({
               : "bg-destructive/15 text-destructive"
           }`}
         >
-          {latest?.approvedForInstall ? "Approved for install" : "Pending approval"}
+          {latest?.approvedForInstall
+            ? "Approved for install"
+            : "Pending approval"}
         </span>
 
         <div className="ml-auto flex items-center gap-2">
@@ -148,9 +153,9 @@ export function DrawingVersionPanel({
 
       {latest && !latest.approvedForInstall ? (
         <p className="text-xs font-medium text-destructive">
-          This drawing was updated on {formatDate(latest.createdAt)} and hasn&apos;t
-          been approved for install yet — check with your PM before marking or
-          installing off of it.
+          This drawing was updated on {formatDate(latest.createdAt)} and
+          hasn&apos;t been approved for install yet — check with your PM before
+          marking or installing off of it.
         </p>
       ) : null}
 
@@ -164,7 +169,9 @@ export function DrawingVersionPanel({
           <ul className="mt-1.5 flex flex-col gap-1">
             {history.map((entry) => (
               <li key={entry.id} className="text-xs text-muted-foreground">
-                <span className="font-medium text-foreground">v{entry.version}</span>{" "}
+                <span className="font-medium text-foreground">
+                  v{entry.version}
+                </span>{" "}
                 — {formatDate(entry.createdAt)}
                 {entry.approvedForInstall ? " · approved" : ""}
                 {entry.supersededAt ? " · superseded" : ""}

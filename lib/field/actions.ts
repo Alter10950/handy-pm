@@ -50,7 +50,10 @@ async function maybeSendProgressMilestones(
         .select("is_complete, has_materials")
         .eq("phase_id", row.phase_id);
       const withMaterials = (phaseRows ?? []).filter((r) => r.has_materials);
-      if (withMaterials.length > 0 && withMaterials.every((r) => r.is_complete)) {
+      if (
+        withMaterials.length > 0 &&
+        withMaterials.every((r) => r.is_complete)
+      ) {
         const { data: phase } = await supabase
           .from("phases")
           .select("name")

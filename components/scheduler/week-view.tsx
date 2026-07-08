@@ -113,13 +113,25 @@ export function WeekView({
           let status: { label: string; className: string } | null = null;
           if (isScheduled && target > 0) {
             if (actual >= target * 1.1) {
-              status = { label: "Exceeded", className: "bg-success/20 text-success-fg" };
+              status = {
+                label: "Exceeded",
+                className: "bg-success/20 text-success-fg",
+              };
             } else if (actual >= target) {
-              status = { label: "Hit", className: "bg-success/20 text-success-fg" };
+              status = {
+                label: "Hit",
+                className: "bg-success/20 text-success-fg",
+              };
             } else if (actual >= target * 0.7) {
-              status = { label: "Close", className: "bg-brand-subtle text-foreground" };
+              status = {
+                label: "Close",
+                className: "bg-brand-subtle text-foreground",
+              };
             } else {
-              status = { label: "Miss", className: "bg-destructive/20 text-destructive" };
+              status = {
+                label: "Miss",
+                className: "bg-destructive/20 text-destructive",
+              };
             }
           }
 
@@ -137,7 +149,9 @@ export function WeekView({
                 <span className="font-medium text-foreground">
                   {formatLabel(date)}
                   {date === today ? (
-                    <span className="ml-1.5 rounded-full bg-brand-subtle px-1.5 text-xs font-medium text-foreground">Today</span>
+                    <span className="ml-1.5 rounded-full bg-brand-subtle px-1.5 text-xs font-medium text-foreground">
+                      Today
+                    </span>
                   ) : null}
                 </span>
                 {!isScheduled ? (
@@ -186,7 +200,9 @@ export function WeekView({
                     })}
                     <button
                       type="button"
-                      onClick={() => setAssignDate(assignDate === date ? null : date)}
+                      onClick={() =>
+                        setAssignDate(assignDate === date ? null : date)
+                      }
                       className="rounded-full border border-dashed border-border px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground"
                     >
                       + Assign crew

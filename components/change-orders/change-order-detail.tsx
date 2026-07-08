@@ -208,7 +208,9 @@ export function ChangeOrderDetail({
   }
   const [emailInput, setEmailInput] = useState(customerEmail ?? "");
   const [approverName, setApproverName] = useState("");
-  const [approvalVia, setApprovalVia] = useState<"verbal" | "written">("verbal");
+  const [approvalVia, setApprovalVia] = useState<"verbal" | "written">(
+    "verbal"
+  );
   const [showManualApproval, setShowManualApproval] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -278,7 +280,10 @@ export function ChangeOrderDetail({
         <h3 className="text-sm font-semibold text-foreground">Details</h3>
         <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="co-edit-title" className="text-xs text-muted-foreground">
+            <label
+              htmlFor="co-edit-title"
+              className="text-xs text-muted-foreground"
+            >
               Title
             </label>
             <Input
@@ -290,7 +295,10 @@ export function ChangeOrderDetail({
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="co-edit-reason" className="text-xs text-muted-foreground">
+            <label
+              htmlFor="co-edit-reason"
+              className="text-xs text-muted-foreground"
+            >
               Reason
             </label>
             <select
@@ -312,7 +320,10 @@ export function ChangeOrderDetail({
           </div>
         </div>
         <div className="mt-3 flex flex-col gap-1.5">
-          <label htmlFor="co-edit-description" className="text-xs text-muted-foreground">
+          <label
+            htmlFor="co-edit-description"
+            className="text-xs text-muted-foreground"
+          >
             Description (the customer will see this)
           </label>
           <textarea
@@ -371,7 +382,9 @@ export function ChangeOrderDetail({
                     <button
                       type="button"
                       onClick={() =>
-                        run(() => removeChangeOrderItem(item.id, co.id, projectId))
+                        run(() =>
+                          removeChangeOrderItem(item.id, co.id, projectId)
+                        )
                       }
                       disabled={isPending}
                       className="text-destructive hover:underline"
@@ -445,14 +458,22 @@ export function ChangeOrderDetail({
       </div>
 
       <div className="rounded-lg border border-border bg-card shadow-e1 p-4">
-        <h3 className="text-sm font-semibold text-foreground">Customer approval</h3>
+        <h3 className="text-sm font-semibold text-foreground">
+          Customer approval
+        </h3>
 
         {co.status === "approved" ? (
-          <p className="mt-2 text-sm text-success-fg" data-testid="co-approved-line">
-            Approved {co.customer_approved_via ? `(${co.customer_approved_via})` : ""}
-            {co.customer_approver_name ? ` by ${co.customer_approver_name}` : ""} on{" "}
-            {formatDateTime(co.customer_approved_at)}. Its scope and materials
-            have merged into the project.
+          <p
+            className="mt-2 text-sm text-success-fg"
+            data-testid="co-approved-line"
+          >
+            Approved{" "}
+            {co.customer_approved_via ? `(${co.customer_approved_via})` : ""}
+            {co.customer_approver_name
+              ? ` by ${co.customer_approver_name}`
+              : ""}{" "}
+            on {formatDateTime(co.customer_approved_at)}. Its scope and
+            materials have merged into the project.
           </p>
         ) : co.status === "rejected" ? (
           <p className="mt-2 text-sm text-destructive">
@@ -472,7 +493,9 @@ export function ChangeOrderDetail({
               <div className="flex flex-col gap-2">
                 <p className="text-xs text-muted-foreground">
                   Email the customer a secure approve/decline link
-                  {resendConfigured ? "" : " (email isn't configured — use manual approval below)"}
+                  {resendConfigured
+                    ? ""
+                    : " (email isn't configured — use manual approval below)"}
                   :
                 </p>
                 <div className="flex flex-wrap items-center gap-2">
@@ -485,7 +508,8 @@ export function ChangeOrderDetail({
                     disabled={isPending || !resendConfigured}
                     className="h-8 w-64 text-sm"
                   />
-                  {emailInput.trim() && emailInput.trim() !== (customerEmail ?? "") ? (
+                  {emailInput.trim() &&
+                  emailInput.trim() !== (customerEmail ?? "") ? (
                     <Button
                       type="button"
                       size="sm"
@@ -535,7 +559,10 @@ export function ChangeOrderDetail({
                     variant="ghost"
                     disabled={isPending}
                     onClick={() =>
-                      run(() => cancelChangeOrder(co.id, projectId), "Cancelled.")
+                      run(
+                        () => cancelChangeOrder(co.id, projectId),
+                        "Cancelled."
+                      )
                     }
                   >
                     Cancel CO

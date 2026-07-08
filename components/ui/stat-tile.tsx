@@ -67,7 +67,11 @@ export function StatTile({
             deltaTone
           )}
         >
-          {deltaDirection === "up" ? "▲ " : deltaDirection === "down" ? "▼ " : ""}
+          {deltaDirection === "up"
+            ? "▲ "
+            : deltaDirection === "down"
+              ? "▼ "
+              : ""}
           {delta}
         </span>
       ) : null}

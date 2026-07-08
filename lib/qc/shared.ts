@@ -14,7 +14,7 @@ export const QC_CHECKS: QcCheckDef[] = [
   {
     key: "plumb_level",
     label: "Uprights plumb & level",
-    hint: "Within 1/8\" per 10 ft, both directions.",
+    hint: 'Within 1/8" per 10 ft, both directions.',
   },
   {
     key: "anchors_torqued",
@@ -47,7 +47,10 @@ export const QC_CHECK_KEYS = QC_CHECKS.map((check) => check.key);
 
 export type QcRowStatus = "not_started" | "in_progress" | "passed";
 
-export function qcRowStatus(passedCount: number, total = QC_CHECKS.length): QcRowStatus {
+export function qcRowStatus(
+  passedCount: number,
+  total = QC_CHECKS.length
+): QcRowStatus {
   if (passedCount <= 0) return "not_started";
   return passedCount >= total ? "passed" : "in_progress";
 }

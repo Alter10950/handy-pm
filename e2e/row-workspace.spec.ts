@@ -168,9 +168,7 @@ test("direct-manipulation canvas: zoom accuracy, select/copy/move/resize/rename/
     await page.getByTestId("row-box-Row 2").click();
     await expect(page.getByText("1 row selected")).toBeVisible();
 
-    await page
-      .getByTestId("row-box-Row 3")
-      .click({ modifiers: ["Shift"] });
+    await page.getByTestId("row-box-Row 3").click({ modifiers: ["Shift"] });
     await expect(page.getByText("2 rows selected")).toBeVisible();
 
     await page.getByRole("button", { name: "Set materials" }).click();
@@ -219,7 +217,8 @@ test("direct-manipulation canvas: zoom accuracy, select/copy/move/resize/rename/
 
     const [copyResponse] = await Promise.all([
       page.waitForResponse(
-        (res) => res.request().method() === "POST" && res.url().endsWith("/mark")
+        (res) =>
+          res.request().method() === "POST" && res.url().endsWith("/mark")
       ),
       page.getByRole("button", { name: "Copy" }).click(),
     ]);
@@ -241,9 +240,9 @@ test("direct-manipulation canvas: zoom accuracy, select/copy/move/resize/rename/
       .select("required_qty")
       .eq("row_id", row15.id);
     if (rmError) throw rmError;
-    expect(row15Materials.map((m) => m.required_qty).sort((a, b) => a - b)).toEqual(
-      [20, 140]
-    );
+    expect(
+      row15Materials.map((m) => m.required_qty).sort((a, b) => a - b)
+    ).toEqual([20, 140]);
 
     // Rename the copy (the just-created row auto-selects as the new
     // single selection after Copy).
@@ -331,7 +330,8 @@ test("direct-manipulation canvas: zoom accuracy, select/copy/move/resize/rename/
     await page.mouse.move(startX + 30, startY + 15, { steps: 5 });
     const [resizeResponse] = await Promise.all([
       page.waitForResponse(
-        (res) => res.request().method() === "POST" && res.url().endsWith("/mark")
+        (res) =>
+          res.request().method() === "POST" && res.url().endsWith("/mark")
       ),
       page.mouse.up(),
     ]);
@@ -406,8 +406,8 @@ test("direct-manipulation canvas: zoom accuracy, select/copy/move/resize/rename/
           .eq("project_id", projectId!)
           .eq("label", "Row 14")
           .single();
-        return (data as unknown as { phases: { name: string } | null })
-          ?.phases?.name;
+        return (data as unknown as { phases: { name: string } | null })?.phases
+          ?.name;
       })
       .toBe("Phase 1");
   });
@@ -418,7 +418,8 @@ test("direct-manipulation canvas: zoom accuracy, select/copy/move/resize/rename/
 
     const [deleteResponse] = await Promise.all([
       page.waitForResponse(
-        (res) => res.request().method() === "POST" && res.url().endsWith("/mark")
+        (res) =>
+          res.request().method() === "POST" && res.url().endsWith("/mark")
       ),
       page.getByRole("button", { name: "Delete" }).click(),
     ]);
@@ -429,7 +430,8 @@ test("direct-manipulation canvas: zoom accuracy, select/copy/move/resize/rename/
 
     const [undoResponse] = await Promise.all([
       page.waitForResponse(
-        (res) => res.request().method() === "POST" && res.url().endsWith("/mark")
+        (res) =>
+          res.request().method() === "POST" && res.url().endsWith("/mark")
       ),
       page.keyboard.press("Control+z"),
     ]);
@@ -441,7 +443,8 @@ test("direct-manipulation canvas: zoom accuracy, select/copy/move/resize/rename/
 
     const [redoResponse] = await Promise.all([
       page.waitForResponse(
-        (res) => res.request().method() === "POST" && res.url().endsWith("/mark")
+        (res) =>
+          res.request().method() === "POST" && res.url().endsWith("/mark")
       ),
       page.keyboard.press("Control+Shift+z"),
     ]);

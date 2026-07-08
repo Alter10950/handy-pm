@@ -105,7 +105,12 @@ export function RowCommandPanel({
         >
           Delete
         </Button>
-        <Button type="button" size="sm" variant="ghost" onClick={onClearSelection}>
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          onClick={onClearSelection}
+        >
           Clear
         </Button>
       </div>

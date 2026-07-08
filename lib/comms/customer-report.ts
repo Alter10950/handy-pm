@@ -61,7 +61,11 @@ export async function buildCustomerReportData(
     { data: schedule, error: scheduleError },
     { data: latestEstimate, error: estimateError },
   ] = await Promise.all([
-    admin.from("project_progress").select("pct").eq("project_id", projectId).maybeSingle(),
+    admin
+      .from("project_progress")
+      .select("pct")
+      .eq("project_id", projectId)
+      .maybeSingle(),
     admin.from("rows").select("id").eq("project_id", projectId),
     admin
       .from("project_schedule")
@@ -129,7 +133,9 @@ export function renderCustomerReportHtml(data: CustomerReportData): string {
         <tr>
           <td style="padding:8px;border:1px solid #eee;font-size:13px;color:#666;">Expected finish</td>
           <td style="padding:8px;border:1px solid #eee;font-size:15px;font-weight:bold;">${
-            data.forecastFinish ? formatDate(data.forecastFinish) : "To be confirmed"
+            data.forecastFinish
+              ? formatDate(data.forecastFinish)
+              : "To be confirmed"
           }</td>
         </tr>
       </table>

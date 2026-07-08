@@ -18,7 +18,9 @@ export async function listScopeItems(projectId: string) {
 // (not duplicated in lib/estimating or lib/scheduler) since it's a
 // scope_items-native aggregate, not derived from anything those modules
 // already fetch.
-export async function getTotalScopeLaborUnits(projectId: string): Promise<number> {
+export async function getTotalScopeLaborUnits(
+  projectId: string
+): Promise<number> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("scope_items")

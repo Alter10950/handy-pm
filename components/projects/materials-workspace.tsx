@@ -180,7 +180,10 @@ export function MaterialsWorkspace({
               const qty = phaseAssignedByMaterial.get(material.id) ?? 0;
               if (qty === 0) return null;
               return (
-                <span key={material.id} className="text-sm text-muted-foreground">
+                <span
+                  key={material.id}
+                  className="text-sm text-muted-foreground"
+                >
                   {material.name}:{" "}
                   <span className="font-medium text-foreground">
                     {qty} {material.unit}

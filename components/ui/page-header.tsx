@@ -20,7 +20,12 @@ export function PageHeader({
   className?: string;
 }) {
   return (
-    <header className={cn("flex flex-wrap items-start justify-between gap-x-6 gap-y-3", className)}>
+    <header
+      className={cn(
+        "flex flex-wrap items-start justify-between gap-x-6 gap-y-3",
+        className
+      )}
+    >
       <div className="min-w-0">
         {overline ? (
           <p className="type-overline text-muted-foreground">{overline}</p>
@@ -30,11 +35,15 @@ export function PageHeader({
           {status}
         </div>
         {description ? (
-          <p className="type-body mt-1 max-w-2xl text-text-secondary">{description}</p>
+          <p className="type-body mt-1 max-w-2xl text-text-secondary">
+            {description}
+          </p>
         ) : null}
       </div>
       {actions ? (
-        <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {actions}
+        </div>
       ) : null}
     </header>
   );
@@ -53,14 +62,23 @@ export function SectionHeader({
   className?: string;
 }) {
   return (
-    <div className={cn("flex flex-wrap items-center justify-between gap-x-4 gap-y-2", className)}>
+    <div
+      className={cn(
+        "flex flex-wrap items-center justify-between gap-x-4 gap-y-2",
+        className
+      )}
+    >
       <div className="min-w-0">
         <h2 className="type-h3 text-foreground">{title}</h2>
         {description ? (
-          <p className="type-body-sm mt-0.5 text-muted-foreground">{description}</p>
+          <p className="type-body-sm mt-0.5 text-muted-foreground">
+            {description}
+          </p>
         ) : null}
       </div>
-      {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
+      {actions ? (
+        <div className="flex shrink-0 items-center gap-2">{actions}</div>
+      ) : null}
     </div>
   );
 }

@@ -31,9 +31,9 @@ export function LaborStandardsEditor({
         Labor standards
       </h2>
       <p className="mb-3 text-xs text-muted-foreground">
-        Standard hours to install one unit at a normal pace — 1 labor unit =
-        1 hour at standard pace. Editing these reshapes every estimate that
-        uses the company-wide or standard-pace fallback.
+        Standard hours to install one unit at a normal pace — 1 labor unit = 1
+        hour at standard pace. Editing these reshapes every estimate that uses
+        the company-wide or standard-pace fallback.
       </p>
       <table className="w-full text-sm">
         <thead>
@@ -47,7 +47,9 @@ export function LaborStandardsEditor({
           {standards.map((standard) => (
             <tr key={standard.id} className="border-t border-border">
               <td className="py-1.5 text-foreground">{standard.task_key}</td>
-              <td className="py-1.5 text-muted-foreground">{standard.unit_basis}</td>
+              <td className="py-1.5 text-muted-foreground">
+                {standard.unit_basis}
+              </td>
               <td className="py-1.5 text-right">
                 <Input
                   type="number"
@@ -57,8 +59,16 @@ export function LaborStandardsEditor({
                   disabled={isPending}
                   onBlur={(event) => {
                     const value = Number(event.target.value);
-                    if (Number.isFinite(value) && value > 0 && value !== standard.base_labor_units) {
-                      run(() => updateLaborStandard(standard.id, { base_labor_units: value }));
+                    if (
+                      Number.isFinite(value) &&
+                      value > 0 &&
+                      value !== standard.base_labor_units
+                    ) {
+                      run(() =>
+                        updateLaborStandard(standard.id, {
+                          base_labor_units: value,
+                        })
+                      );
                     }
                   }}
                   className="h-8 w-24 text-right text-xs"

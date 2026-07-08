@@ -62,7 +62,8 @@ export function DuplicateRangeDialog({
     }
   }
 
-  const maxForDirection = direction === "right" ? maxRepeatsRight : maxRepeatsBelow;
+  const maxForDirection =
+    direction === "right" ? maxRepeatsRight : maxRepeatsBelow;
   const noRoom = maxRepeatsRight === 0 && maxRepeatsBelow === 0;
 
   return (
@@ -72,15 +73,14 @@ export function DuplicateRangeDialog({
           <DialogTitle>Duplicate range</DialogTitle>
           <DialogDescription>
             Repeats the selected rows as one block — e.g. select rows 1-10 and
-            duplicate ×1 to the right to create rows 11-20 in the same
-            pattern.
+            duplicate ×1 to the right to create rows 11-20 in the same pattern.
           </DialogDescription>
         </DialogHeader>
 
         {noRoom ? (
           <p className="text-sm text-destructive">
-            No room to duplicate this selection in either direction — make
-            space on the drawing first.
+            No room to duplicate this selection in either direction — make space
+            on the drawing first.
           </p>
         ) : (
           <>
@@ -92,7 +92,8 @@ export function DuplicateRangeDialog({
                 onChange={(event) => {
                   const next = event.target.value as DuplicateDirection;
                   setDirection(next);
-                  const max = next === "right" ? maxRepeatsRight : maxRepeatsBelow;
+                  const max =
+                    next === "right" ? maxRepeatsRight : maxRepeatsBelow;
                   setRepeatCount((count) => Math.min(count, Math.max(1, max)));
                 }}
                 className="h-10 rounded-md border border-border bg-card px-3 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50"

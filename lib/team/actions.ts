@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { requireRole } from "@/lib/auth/session";
+import { recordAudit } from "@/lib/audit/log";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type { ProfileRole } from "@/lib/supabase/database.types";
@@ -87,6 +88,14 @@ export async function updateTeamMemberRole(formData: FormData) {
     .select("id")
     .single();
   if (error) throw error;
+
+  await recordAudit({
+    action: "role.change",
+    entityType: "profile",
+    entityId: memberId,
+    summary: `Changed a team member's role to ${role}`,
+    detail: { memberId, role },
+  });
 
   revalidatePath("/app/team");
 }

@@ -1,6 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 
-import { deleteAuthUserByEmail, deleteProjectCompletely } from "./helpers/cleanup";
+import {
+  deleteAuthUserByEmail,
+  deleteProjectCompletely,
+} from "./helpers/cleanup";
 import { createAdminClient } from "./helpers/supabase-admin";
 
 const PROJECT_NAME = `[E2E] Handoff survey ${Date.now()}`;
@@ -86,8 +89,12 @@ test("handoff survey: structured intake, teardown auto-creates scope item, dual 
     await page.getByLabel("Warehouse is live/operating during install").check();
     await page.getByLabel("Forklift available onsite").check();
     await page.locator("#working_hours").fill("7am-3pm, no weekends");
-    await page.locator("#floor_condition").fill("Concrete, minor cracking near dock 3");
-    await page.locator("#access_notes").fill("Freight elevator on east side only");
+    await page
+      .locator("#floor_condition")
+      .fill("Concrete, minor cracking near dock 3");
+    await page
+      .locator("#access_notes")
+      .fill("Freight elevator on east side only");
 
     await page.getByRole("button", { name: "Save survey" }).click();
     await expect(page.getByText("Saved.")).toBeVisible();
@@ -140,10 +147,14 @@ test("handoff survey: structured intake, teardown auto-creates scope item, dual 
       .from("project_gate_items")
       .select("label, done")
       .eq("project_stage_id", stage!.id);
-    const doneLabels = new Set((items ?? []).filter((i) => i.done).map((i) => i.label));
+    const doneLabels = new Set(
+      (items ?? []).filter((i) => i.done).map((i) => i.label)
+    );
     expect(doneLabels.has("Site survey completed with photos")).toBe(false); // no photo yet
     expect(doneLabels.has("Existing racking condition recorded")).toBe(true);
-    expect(doneLabels.has("Teardown scope confirmed (yes/no) and documented")).toBe(true);
+    expect(
+      doneLabels.has("Teardown scope confirmed (yes/no) and documented")
+    ).toBe(true);
     expect(doneLabels.has("Site constraints recorded")).toBe(true);
   });
 
@@ -202,7 +213,9 @@ test("handoff survey: structured intake, teardown auto-creates scope item, dual 
     const { data: stillThere } = await admin.storage
       .from("daily-photos")
       .list(removedPath.split("/").slice(0, -1).join("/"));
-    expect((stillThere ?? []).some((f) => removedPath.endsWith(f.name))).toBe(false);
+    expect((stillThere ?? []).some((f) => removedPath.endsWith(f.name))).toBe(
+      false
+    );
 
     // Re-upload so the rest of this flow (which asserts exactly one
     // photo survives sign-off) still has a photo to work with.
@@ -274,7 +287,9 @@ test("handoff survey: structured intake, teardown auto-creates scope item, dual 
       .from("project_gate_items")
       .select("label, done")
       .eq("project_stage_id", stage!.id);
-    const doneLabels = new Set((items ?? []).filter((i) => i.done).map((i) => i.label));
+    const doneLabels = new Set(
+      (items ?? []).filter((i) => i.done).map((i) => i.label)
+    );
     expect(doneLabels.has("Estimator sign-off")).toBe(true);
     expect(doneLabels.has("PM sign-off")).toBe(true);
   });
@@ -339,11 +354,18 @@ test("handoff AI draft: drafts fields from rough notes for review, never auto-sa
     );
   await page.getByRole("button", { name: "Draft with AI" }).click();
 
-  await expect(page.locator("#existing_racking_condition")).not.toHaveValue("", {
-    timeout: 30_000,
-  });
-  await expect(page.getByLabel("Teardown of existing racking is required")).toBeChecked();
-  await expect(page.getByLabel("Warehouse is live/operating during install")).toBeChecked();
+  await expect(page.locator("#existing_racking_condition")).not.toHaveValue(
+    "",
+    {
+      timeout: 30_000,
+    }
+  );
+  await expect(
+    page.getByLabel("Teardown of existing racking is required")
+  ).toBeChecked();
+  await expect(
+    page.getByLabel("Warehouse is live/operating during install")
+  ).toBeChecked();
   await expect(page.getByLabel("Forklift available onsite")).toBeChecked();
   await expect(page.locator("#floor_condition")).toHaveValue(/crack/i);
 

@@ -44,9 +44,9 @@ export default async function ChangeOrdersPage({
       <div>
         <h2 className="text-lg font-semibold text-foreground">Change orders</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Scope growth becomes a numbered, priced, customer-approved decision
-          — not silent margin loss. Approved changes merge into the
-          project&apos;s scope and materials automatically.
+          Scope growth becomes a numbered, priced, customer-approved decision —
+          not silent margin loss. Approved changes merge into the project&apos;s
+          scope and materials automatically.
         </p>
       </div>
 

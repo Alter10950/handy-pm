@@ -4,8 +4,15 @@
 // sku_id + catalog rows exist, the persisted attributes win (they're
 // office-editable, the parse is only a first guess).
 
-import type { EstimateLineInput, LearnedRate, SkuCategory } from "@/lib/estimating/engine";
-import { CATEGORY_DEFAULT_HOURS, resolveStandard } from "@/lib/estimating/engine";
+import type {
+  EstimateLineInput,
+  LearnedRate,
+  SkuCategory,
+} from "@/lib/estimating/engine";
+import {
+  CATEGORY_DEFAULT_HOURS,
+  resolveStandard,
+} from "@/lib/estimating/engine";
 import {
   classifyCategory,
   extractSizeFromName,
@@ -82,7 +89,8 @@ export function categoryHoursFromDb(
 ): Partial<Record<SkuCategory, number>> {
   const out: Partial<Record<SkuCategory, number>> = {};
   for (const row of rows) {
-    if (row.unit_basis !== "per_each" && row.unit_basis !== "per_piece") continue;
+    if (row.unit_basis !== "per_each" && row.unit_basis !== "per_piece")
+      continue;
     if (!(row.task_key in CATEGORY_DEFAULT_HOURS)) continue;
     const category = row.task_key as SkuCategory;
     if (row.base_labor_units > 0) out[category] = row.base_labor_units;
@@ -108,7 +116,9 @@ export function materialToLineInput(
     ? null
     : parseSizeText(
         category,
-        material.size?.trim() ? material.size : extractSizeFromName(material.name)
+        material.size?.trim()
+          ? material.size
+          : extractSizeFromName(material.name)
       );
   const heightIn = catalog ? catalog.heightIn : (parsed?.heightIn ?? null);
   const skuId = material.skuId ?? null;

@@ -10,7 +10,11 @@ import { WeekView } from "@/components/scheduler/week-view";
 import { Input } from "@/components/ui/input";
 import { generateTargets, upsertPlannedDays } from "@/lib/scheduler/actions";
 import type { PhaseTimelineEntry } from "@/lib/scheduler/queries";
-import { RISK_TIER_CLASS, classifySpi, computeProjectSpi } from "@/lib/scheduler/spi";
+import {
+  RISK_TIER_CLASS,
+  classifySpi,
+  computeProjectSpi,
+} from "@/lib/scheduler/spi";
 import type { Tables, Views } from "@/lib/supabase/database.types";
 
 export function SchedulerWorkspace({
@@ -54,7 +58,10 @@ export function SchedulerWorkspace({
   const targetsByDate = useMemo(() => {
     const map = new Map<string, number>();
     for (const target of targets) {
-      map.set(target.work_date, (map.get(target.work_date) ?? 0) + target.target_qty);
+      map.set(
+        target.work_date,
+        (map.get(target.work_date) ?? 0) + target.target_qty
+      );
     }
     return map;
   }, [targets]);
@@ -130,7 +137,11 @@ export function SchedulerWorkspace({
         </span>
       </div>
 
-      <ScheduleBuilder projectId={project.id} schedule={schedule} isOwner={isOwner} />
+      <ScheduleBuilder
+        projectId={project.id}
+        schedule={schedule}
+        isOwner={isOwner}
+      />
 
       <div className="flex flex-wrap items-center gap-3">
         <button

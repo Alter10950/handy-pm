@@ -91,12 +91,16 @@ test("projects page: search, cards/list toggle persistence, A–Z order, complet
     // No matches → clear-search action restores everything. (Scoped:
     // the input's × carries the same accessible name.)
     await search.fill("zzz-no-such-project");
-    await expect(page.getByTestId("no-matches")).toContainText("No projects match.");
+    await expect(page.getByTestId("no-matches")).toContainText(
+      "No projects match."
+    );
     await page
       .getByTestId("no-matches")
       .getByRole("button", { name: "Clear search" })
       .click();
-    await expect(page.getByTestId("active-projects-section").getByText(ALPHA)).toBeVisible();
+    await expect(
+      page.getByTestId("active-projects-section").getByText(ALPHA)
+    ).toBeVisible();
 
     // The × button clears too.
     await search.fill("Alpha");
@@ -147,7 +151,9 @@ test("projects page: search, cards/list toggle persistence, A–Z order, complet
       "true"
     );
     await expect(
-      page.getByTestId("active-projects-section").getByTestId("projects-list-table")
+      page
+        .getByTestId("active-projects-section")
+        .getByTestId("projects-list-table")
     ).toHaveCount(0);
   });
 });

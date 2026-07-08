@@ -198,7 +198,36 @@ lib/
                                create dialog and the reset-password form
   pdf/render-drawing-file.ts  browser-only PDF/image → JPEG Blob rendering
                              (pdfjs-dist + canvas) for drawing uploads
+  skus/parse.ts               free-text material name/size → typed SKU
+                             attributes (backfill/write-time only; bare
+                             numbers are INCHES — see ADR-049)
+  estimating/
+    engine.ts                  PURE per-SKU estimate engine — typed inches,
+                             per-piece standards, learned→SKU→category
+                             resolution, guardrails (ADR-049; unit tests
+                             in tests/unit)
+    standards.ts               bridge: material rows → engine line inputs;
+                             read-time attribute parsing until the SKU
+                             catalog is populated (ADR-051)
+    flywheel.ts                per-(crew, SKU) learned-rate recompute —
+                             chained into recomputeCrewRates (ADR-052)
+    labor.ts / queries.ts / actions.ts   legacy task-key tiers (scope
+                             items), estimate compute/save actions
+  qc/                         per-row QC checklist (shared.ts vocabulary,
+                             guarded queries/actions — ADR-052)
+  punch/                      punch list queries/actions (guarded)
+  audit/log.ts                fire-and-forget append-only audit recorder
+                             (ADR-053)
+  search/actions.ts           ⌘K palette's RLS-scoped project search
   utils.ts                    cn() class merge helper (shadcn)
+
+tests/unit/                   node --test unit tests (npm run test:unit) —
+                              engine regression (the 144"-beam 7.2h bug is
+                              pinned here) + parser semantics
+
+scripts/backfill-skus.mjs     idempotent SKU-catalog backfill + stored
+                              labor_units repair (run after the Phase 13
+                              migration is pushed — see BUILD-LOG NEEDS ME)
 
 proxy.ts                      Next.js 16 "proxy" (formerly middleware) —
                                guards /app, /scheduler, /field

@@ -27,10 +27,14 @@ test("change orders: draft with lines, manual approval merges scope+materials an
     projectId = /\/app\/project\/([^/]+)$/.exec(page.url())![1];
 
     await page.getByRole("link", { name: "Materials" }).click();
-    await page.getByRole("button", { name: /Paste from packing slip/i }).click();
+    await page
+      .getByRole("button", { name: /Paste from packing slip/i })
+      .click();
     await page.locator("textarea").fill("Beam, 10");
     await page.getByRole("button", { name: "Add materials" }).click();
-    await expect(page.locator("table").first().locator("tbody tr")).toHaveCount(1);
+    await expect(page.locator("table").first().locator("tbody tr")).toHaveCount(
+      1
+    );
   });
 
   await test.step("create CO-1 as a draft", async () => {
@@ -94,7 +98,9 @@ test("change orders: draft with lines, manual approval merges scope+materials an
       .single();
     expect(before!.original_estimate_saved_at).toBeNull();
 
-    await page.getByRole("button", { name: "Record approval manually" }).click();
+    await page
+      .getByRole("button", { name: "Record approval manually" })
+      .click();
     await page.getByLabel("Approval channel").selectOption("verbal");
     await page.getByLabel("Approver name").fill("Pat Customer");
     await page.getByRole("button", { name: "Record approval" }).click();
@@ -102,7 +108,9 @@ test("change orders: draft with lines, manual approval merges scope+materials an
     await expect(page.getByTestId("co-status-badge")).toHaveText("Approved", {
       timeout: 10_000,
     });
-    await expect(page.getByTestId("co-approved-line")).toContainText("Pat Customer");
+    await expect(page.getByTestId("co-approved-line")).toContainText(
+      "Pat Customer"
+    );
 
     // Scope line became a real scope item.
     const { data: scopeItems } = await admin
@@ -162,16 +170,16 @@ test("change orders: draft with lines, manual approval merges scope+materials an
     await page.waitForURL(/\/change-orders\/[^/]+$/);
     await expect(page.getByText("CO-2", { exact: true })).toBeVisible();
 
-    await page
-      .getByLabel("Customer email")
-      .fill("delivered@resend.dev");
+    await page.getByLabel("Customer email").fill("delivered@resend.dev");
     await page.getByRole("button", { name: "Save email" }).click();
     await expect(page.getByText("Customer email saved.")).toBeVisible();
     await page.getByRole("button", { name: "Send for approval" }).click();
-    await expect(page.getByText(/Sent — the customer has the approval link/)).toBeVisible(
-      { timeout: 20_000 }
+    await expect(
+      page.getByText(/Sent — the customer has the approval link/)
+    ).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByTestId("co-status-badge")).toHaveText(
+      "Pending customer"
     );
-    await expect(page.getByTestId("co-status-badge")).toHaveText("Pending customer");
 
     const { data: co2 } = await admin
       .from("change_orders")
@@ -213,7 +221,9 @@ test("change orders: draft with lines, manual approval merges scope+materials an
     ).toBeVisible();
 
     await publicPage.locator("#approver-name").fill("Casey Customer");
-    await publicPage.getByRole("button", { name: "Approve this change" }).click();
+    await publicPage
+      .getByRole("button", { name: "Approve this change" })
+      .click();
     await expect(publicPage.getByTestId("co-decision-done")).toContainText(
       "Approved — thank you!"
     );
@@ -223,7 +233,9 @@ test("change orders: draft with lines, manual approval merges scope+materials an
       .poll(async () => {
         const { data } = await admin
           .from("change_orders")
-          .select("status, approval_token, customer_approver_name, customer_approved_via")
+          .select(
+            "status, approval_token, customer_approver_name, customer_approved_via"
+          )
           .eq("project_id", projectId!)
           .eq("number", 2)
           .single();
@@ -244,9 +256,12 @@ test("change orders: draft with lines, manual approval merges scope+materials an
     await page.getByRole("button", { name: "Create change order" }).click();
     await page.waitForURL(/\/change-orders\/[^/]+$/);
     await page.getByRole("button", { name: "Send for approval" }).click();
-    await expect(page.getByTestId("co-status-badge")).toHaveText("Pending customer", {
-      timeout: 20_000,
-    });
+    await expect(page.getByTestId("co-status-badge")).toHaveText(
+      "Pending customer",
+      {
+        timeout: 20_000,
+      }
+    );
 
     const { data: co3 } = await admin
       .from("change_orders")
@@ -261,9 +276,15 @@ test("change orders: draft with lines, manual approval merges scope+materials an
     const publicPage = await publicContext.newPage();
     await publicPage.goto(`/portal/co/${co3!.approval_token}`);
     await publicPage.getByRole("button", { name: "Decline…" }).click();
-    await publicPage.locator("#decline-note").fill("Budget's spent for this quarter");
-    await publicPage.getByRole("button", { name: "Decline this change" }).click();
-    await expect(publicPage.getByTestId("co-decision-done")).toContainText("Declined");
+    await publicPage
+      .locator("#decline-note")
+      .fill("Budget's spent for this quarter");
+    await publicPage
+      .getByRole("button", { name: "Decline this change" })
+      .click();
+    await expect(publicPage.getByTestId("co-decision-done")).toContainText(
+      "Declined"
+    );
     await publicContext.close();
 
     const { data: after } = await admin
@@ -298,7 +319,9 @@ test("change orders: draft with lines, manual approval merges scope+materials an
       .single();
     expect(co2!.approval_token).toBeNull();
     await publicPage.goto(`/portal/co/deadbeefdeadbeefdeadbeefdeadbeef`);
-    await expect(publicPage.getByText("This link is no longer valid")).toBeVisible();
+    await expect(
+      publicPage.getByText("This link is no longer valid")
+    ).toBeVisible();
     await publicContext.close();
   });
 
@@ -317,7 +340,13 @@ test("change orders: draft with lines, manual approval merges scope+materials an
       .from("project_stages")
       .update({ status: "complete", completed_at: now })
       .eq("project_id", projectId!)
-      .in("stage_key", ["handoff", "scope", "schedule", "materials", "mobilize"]);
+      .in("stage_key", [
+        "handoff",
+        "scope",
+        "schedule",
+        "materials",
+        "mobilize",
+      ]);
     await admin
       .from("project_stages")
       .update({ status: "active" })

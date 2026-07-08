@@ -41,7 +41,9 @@ test("capacity: hard block over num_crews with conflicts + feasible start, owner
     await page.getByRole("button", { name: "Build schedule" }).click();
     await page.getByRole("button", { name: "Generate days" }).click();
     await page.getByRole("button", { name: "Save schedule" }).click();
-    await expect(page.getByText(/scheduled days?/)).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(/scheduled days?/)).toBeVisible({
+      timeout: 10_000,
+    });
 
     await expect
       .poll(async () => {
@@ -103,7 +105,9 @@ test("capacity: hard block over num_crews with conflicts + feasible start, owner
       .getByLabel("Override reason")
       .fill("Borrowed a third crew from HE South for two weeks");
     await page.getByRole("button", { name: "Override & save anyway" }).click();
-    await expect(page.getByText(/scheduled days?/)).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(/scheduled days?/)).toBeVisible({
+      timeout: 10_000,
+    });
 
     const { data: cSchedule } = await admin
       .from("project_schedule")
@@ -154,7 +158,9 @@ test("capacity: hard block over num_crews with conflicts + feasible start, owner
       .order("work_date")
       .limit(1)
       .single();
-    await page.goto(`/scheduler/capacity?month=${firstDay!.work_date.slice(0, 7)}`);
+    await page.goto(
+      `/scheduler/capacity?month=${firstDay!.work_date.slice(0, 7)}`
+    );
     await expect(page.getByTestId("over-capacity-summary")).toBeVisible();
     const board = page.getByTestId("capacity-board");
     await expect(board.getByText(PROJECT_A).first()).toBeVisible();

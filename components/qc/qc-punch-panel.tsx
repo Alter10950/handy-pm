@@ -68,10 +68,12 @@ export function QcPunchPanel({
   if (!qcAvailable && !punchAvailable) {
     return (
       <div className="rounded-lg border border-dashed border-border bg-card p-5 text-sm text-muted-foreground shadow-e1">
-        <p className="font-medium text-foreground">QC checklists & punch list</p>
+        <p className="font-medium text-foreground">
+          QC checklists & punch list
+        </p>
         <p className="mt-1">
-          Built and ready — they turn on when the Phase 14 database migration
-          is applied (see docs/BUILD-LOG.md “NEEDS ME”).
+          Built and ready — they turn on when the Phase 14 database migration is
+          applied (see docs/BUILD-LOG.md “NEEDS ME”).
         </p>
       </div>
     );
@@ -82,7 +84,9 @@ export function QcPunchPanel({
       try {
         await setRowQcCheck(projectId, row.id, checkKey, next);
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Couldn't save QC check.");
+        toast.error(
+          error instanceof Error ? error.message : "Couldn't save QC check."
+        );
       }
     });
   }
@@ -101,7 +105,9 @@ export function QcPunchPanel({
         setDetail("");
         setRowId("");
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Couldn't add punch item.");
+        toast.error(
+          error instanceof Error ? error.message : "Couldn't add punch item."
+        );
       }
     });
   }
@@ -115,7 +121,9 @@ export function QcPunchPanel({
           item.status === "open" ? "done" : "open"
         );
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Couldn't update punch item.");
+        toast.error(
+          error instanceof Error ? error.message : "Couldn't update punch item."
+        );
       }
     });
   }
@@ -187,7 +195,9 @@ export function QcPunchPanel({
                               key={check.key}
                               type="button"
                               disabled={!canWrite || isPending}
-                              onClick={() => toggleCheck(row, check.key, !passed)}
+                              onClick={() =>
+                                toggleCheck(row, check.key, !passed)
+                              }
                               className={cn(
                                 "flex items-start gap-2.5 rounded-md px-2 py-1.5 text-left transition-colors",
                                 canWrite ? "hover:bg-accent" : "cursor-default"
@@ -244,7 +254,9 @@ export function QcPunchPanel({
             actions={
               canWrite ? (
                 <Dialog open={punchOpen} onOpenChange={setPunchOpen}>
-                  <DialogTrigger render={<Button variant="outline" size="sm" />}>
+                  <DialogTrigger
+                    render={<Button variant="outline" size="sm" />}
+                  >
                     <PlusIcon aria-hidden data-icon="inline-start" /> Add item
                   </DialogTrigger>
                   <DialogContent className="max-w-md">
@@ -347,7 +359,9 @@ export function QcPunchPanel({
                         {item.status === "open" ? "Mark done" : "Reopen"}
                       </Button>
                     ) : (
-                      <StatusPill tone={item.status === "open" ? "warning" : "success"}>
+                      <StatusPill
+                        tone={item.status === "open" ? "warning" : "success"}
+                      >
                         {item.status === "open" ? "Open" : "Done"}
                       </StatusPill>
                     )}

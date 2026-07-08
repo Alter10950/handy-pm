@@ -35,7 +35,11 @@ function getServerSnapshot() {
 export function useCrewSelection(
   defaultCrewId: string | null = null
 ): [string | null, (id: string | null) => void] {
-  const stored = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const stored = useSyncExternalStore(
+    subscribe,
+    getSnapshot,
+    getServerSnapshot
+  );
   const crewId = stored ?? defaultCrewId;
 
   function updateCrewId(id: string | null) {

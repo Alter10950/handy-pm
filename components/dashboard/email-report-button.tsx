@@ -44,10 +44,18 @@ export function EmailReportButton({ period }: { period: ReportPeriod }) {
 
   return (
     <div className="flex flex-col items-start gap-1">
-      <Button type="button" size="sm" variant="outline" disabled={isPending} onClick={handleClick}>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        disabled={isPending}
+        onClick={handleClick}
+      >
         {isPending ? "Sending…" : `Email ${period} report now`}
       </Button>
-      {message ? <p className="text-xs text-muted-foreground">{message}</p> : null}
+      {message ? (
+        <p className="text-xs text-muted-foreground">{message}</p>
+      ) : null}
     </div>
   );
 }

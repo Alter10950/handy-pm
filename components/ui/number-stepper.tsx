@@ -59,7 +59,10 @@ export function NumberStepper({
         className={cn(buttonClass, "border-r")}
         aria-label={`Decrease ${ariaLabel}`}
       >
-        <MinusIcon aria-hidden className={size === "field" ? "size-5" : "size-3.5"} />
+        <MinusIcon
+          aria-hidden
+          className={size === "field" ? "size-5" : "size-3.5"}
+        />
       </NumberField.Decrement>
       <NumberField.Input
         aria-label={ariaLabel}
@@ -74,7 +77,10 @@ export function NumberStepper({
         className={cn(buttonClass, "border-l")}
         aria-label={`Increase ${ariaLabel}`}
       >
-        <PlusIcon aria-hidden className={size === "field" ? "size-5" : "size-3.5"} />
+        <PlusIcon
+          aria-hidden
+          className={size === "field" ? "size-5" : "size-3.5"}
+        />
       </NumberField.Increment>
     </NumberField.Root>
   );

@@ -93,13 +93,15 @@ export async function recordMaterialReceipt(
   const { userId } = await requireRole(RECEIVERS);
   const supabase = await createClient();
 
-  const { error: receiptError } = await supabase.from("material_receipts").insert({
-    material_id: materialId,
-    status,
-    qty,
-    note: note.trim() || null,
-    created_by: userId,
-  });
+  const { error: receiptError } = await supabase
+    .from("material_receipts")
+    .insert({
+      material_id: materialId,
+      status,
+      qty,
+      note: note.trim() || null,
+      created_by: userId,
+    });
   if (receiptError) throw receiptError;
 
   if (status === "received") {
@@ -139,10 +141,24 @@ export async function logVerifiedReceipt(
   const supabase = await createClient();
 
   const trimmedNote = note.trim() || null;
-  const { error: insertError } = await supabase.from("material_receipts").insert([
-    { material_id: materialId, status: "received", qty, note: trimmedNote, created_by: userId },
-    { material_id: materialId, status: "verified", qty, note: trimmedNote, created_by: userId },
-  ]);
+  const { error: insertError } = await supabase
+    .from("material_receipts")
+    .insert([
+      {
+        material_id: materialId,
+        status: "received",
+        qty,
+        note: trimmedNote,
+        created_by: userId,
+      },
+      {
+        material_id: materialId,
+        status: "verified",
+        qty,
+        note: trimmedNote,
+        created_by: userId,
+      },
+    ]);
   if (insertError) throw insertError;
 
   const { data: material, error: materialError } = await supabase
@@ -185,13 +201,15 @@ export async function flagMaterial(
   const { userId, orgId } = await requireRole(RECEIVERS);
   const supabase = await createClient();
 
-  const { error: receiptError } = await supabase.from("material_receipts").insert({
-    material_id: materialId,
-    status,
-    qty,
-    note: note.trim() || null,
-    created_by: userId,
-  });
+  const { error: receiptError } = await supabase
+    .from("material_receipts")
+    .insert({
+      material_id: materialId,
+      status,
+      qty,
+      note: note.trim() || null,
+      created_by: userId,
+    });
   if (receiptError) throw receiptError;
 
   // Same-day PM notification: the project's PM of record if set (and not
@@ -199,7 +217,11 @@ export async function flagMaterial(
   // convention as the gate nags.
   try {
     const [{ data: project }, { data: material }] = await Promise.all([
-      supabase.from("projects").select("name, pm_user_id").eq("id", projectId).single(),
+      supabase
+        .from("projects")
+        .select("name, pm_user_id")
+        .eq("id", projectId)
+        .single(),
       supabase.from("materials").select("name").eq("id", materialId).single(),
     ]);
     let recipients: string[] = [];

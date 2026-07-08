@@ -59,7 +59,9 @@ export async function createProject(formData: FormData) {
     .maybeSingle();
   if (pmError) throw pmError;
   if (!pmProfile || (pmProfile.role !== "owner" && pmProfile.role !== "pm")) {
-    throw new Error("The selected PM isn't a valid owner/pm in this organization.");
+    throw new Error(
+      "The selected PM isn't a valid owner/pm in this organization."
+    );
   }
 
   const { data: project, error } = await supabase
@@ -95,7 +97,9 @@ export async function reassignProjectPm(
     .maybeSingle();
   if (pmError) throw pmError;
   if (!pmProfile || (pmProfile.role !== "owner" && pmProfile.role !== "pm")) {
-    throw new Error("The selected PM isn't a valid owner/pm in this organization.");
+    throw new Error(
+      "The selected PM isn't a valid owner/pm in this organization."
+    );
   }
 
   const { data: project, error: projectError } = await supabase
@@ -113,12 +117,14 @@ export async function reassignProjectPm(
     .eq("id", projectId);
   if (updateError) throw updateError;
 
-  const { error: historyError } = await supabase.from("project_pm_history").insert({
-    project_id: projectId,
-    previous_pm_user_id: previousPmUserId,
-    new_pm_user_id: newPmUserId,
-    changed_by: userId,
-  });
+  const { error: historyError } = await supabase
+    .from("project_pm_history")
+    .insert({
+      project_id: projectId,
+      previous_pm_user_id: previousPmUserId,
+      new_pm_user_id: newPmUserId,
+      changed_by: userId,
+    });
   if (historyError) throw historyError;
 
   // Two independent notifications, not a shared batch call — the new PM
@@ -132,7 +138,11 @@ export async function reassignProjectPm(
       isNewPm: true,
     }).catch((err) => console.error("pm_reassigned notification failed", err));
   }
-  if (previousPmUserId && previousPmUserId !== newPmUserId && previousPmUserId !== userId) {
+  if (
+    previousPmUserId &&
+    previousPmUserId !== newPmUserId &&
+    previousPmUserId !== userId
+  ) {
     await notifyUsers(supabase, orgId, [previousPmUserId], "pm_reassigned", {
       projectId,
       projectName: project.name,
@@ -322,7 +332,8 @@ export async function confirmExtractedMaterials(
       qty: Math.round(Number(item.qty)),
     }))
     .filter(
-      (item) => item.name.length > 0 && Number.isFinite(item.qty) && item.qty >= 0
+      (item) =>
+        item.name.length > 0 && Number.isFinite(item.qty) && item.qty >= 0
     );
   if (cleaned.length === 0) {
     throw new Error("No valid material lines to add.");
@@ -348,7 +359,12 @@ export async function confirmExtractedMaterials(
       task_key: item.taskKey,
       total_needed: item.qty,
       received: item.qty,
-      labor_units: hoursPerUnitForMaterial(item.name, item.size, tiers, item.taskKey),
+      labor_units: hoursPerUnitForMaterial(
+        item.name,
+        item.size,
+        tiers,
+        item.taskKey
+      ),
     }))
   );
   if (error) throw error;
@@ -425,7 +441,12 @@ export async function importMaterials(
       capacity: item.capacity,
       condition: item.condition,
       compatible_system: item.compatibleSystem,
-      labor_units: hoursPerUnitForMaterial(item.name, item.size, tiers, item.taskKey),
+      labor_units: hoursPerUnitForMaterial(
+        item.name,
+        item.size,
+        tiers,
+        item.taskKey
+      ),
     }))
   );
   if (error) throw error;
@@ -504,15 +525,17 @@ export async function recordDrawingUpload(
   // version of a brand-new page, so there's nothing to supersede and no
   // review gate on day one (see lib/drawings/actions.ts#uploadDrawingVersion
   // for the re-upload path, which does supersede and does reset approval).
-  const { error: versionError } = await supabase.from("drawing_versions").insert(
-    pages.map((page) => ({
-      project_id: projectId,
-      page_index: page.pageIndex,
-      storage_path: page.storagePath,
-      version: 1,
-      approved_for_install: true,
-    }))
-  );
+  const { error: versionError } = await supabase
+    .from("drawing_versions")
+    .insert(
+      pages.map((page) => ({
+        project_id: projectId,
+        page_index: page.pageIndex,
+        storage_path: page.storagePath,
+        version: 1,
+        approved_for_install: true,
+      }))
+    );
   if (versionError) throw versionError;
 
   // A project's very first upload becomes its marking page automatically —

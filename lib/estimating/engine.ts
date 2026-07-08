@@ -63,7 +63,10 @@ export function inchesToFeet(inches: number): number {
 // ── Attribute modifiers (13.2): size/weight bands scale the CATEGORY
 // default only — per-SKU standards and learned rates already embody the
 // SKU's reality and are used as-is. ──
-function categoryModifiers(attrs: SkuAttributes): { factor: number; trail: string[] } {
+function categoryModifiers(attrs: SkuAttributes): {
+  factor: number;
+  trail: string[];
+} {
   const trail: string[] = [];
   let factor = 1;
   if (attrs.category === "beam") {
@@ -113,7 +116,11 @@ export function resolveStandard(input: {
 }): ResolvedStandard {
   const minSamples = input.minLearnedSamples ?? 3;
 
-  if (input.learned && input.learned.samples >= minSamples && input.learned.hoursPerUnit > 0) {
+  if (
+    input.learned &&
+    input.learned.samples >= minSamples &&
+    input.learned.hoursPerUnit > 0
+  ) {
     return {
       hoursPerUnit: input.learned.hoursPerUnit,
       source: "learned",
@@ -122,7 +129,11 @@ export function resolveStandard(input: {
       modifiers: [],
     };
   }
-  if (input.skuStandard !== null && input.skuStandard !== undefined && input.skuStandard > 0) {
+  if (
+    input.skuStandard !== null &&
+    input.skuStandard !== undefined &&
+    input.skuStandard > 0
+  ) {
     return {
       hoursPerUnit: input.skuStandard,
       source: "sku",
@@ -145,7 +156,13 @@ export function resolveStandard(input: {
       modifiers: trail,
     };
   }
-  return { hoursPerUnit: 0, source: "none", confidence: "low", samples: 0, modifiers: [] };
+  return {
+    hoursPerUnit: 0,
+    source: "none",
+    confidence: "low",
+    samples: 0,
+    modifiers: [],
+  };
 }
 
 // ── Category defaults (13.2): the in-code source of truth for the
@@ -230,7 +247,10 @@ export interface EstimateLine {
 export function computeLine(input: EstimateLineInput): EstimateLine {
   const resolved = resolveStandard(input);
   const quantity = Math.max(0, input.quantity);
-  const remainingQuantity = Math.max(0, quantity - Math.max(0, input.installedQuantity));
+  const remainingQuantity = Math.max(
+    0,
+    quantity - Math.max(0, input.installedQuantity)
+  );
   return {
     skuId: input.skuId,
     name: input.name,
@@ -255,9 +275,13 @@ export interface ProjectEstimate {
   warnings: string[];
 }
 
-export function computeProjectLines(inputs: EstimateLineInput[]): ProjectEstimate {
+export function computeProjectLines(
+  inputs: EstimateLineInput[]
+): ProjectEstimate {
   const lines = inputs.map(computeLine);
-  const totalHours = round2(lines.reduce((sum, line) => sum + line.totalHours, 0));
+  const totalHours = round2(
+    lines.reduce((sum, line) => sum + line.totalHours, 0)
+  );
   const remainingHours = round2(
     lines.reduce((sum, line) => sum + line.remainingHours, 0)
   );

@@ -32,16 +32,21 @@ export interface ParsedSkuAttributes {
 // first. Unrecognized names land in 'other' + needsReview, never a guess.
 export function classifyCategory(name: string): SkuCategory {
   const n = name.toLowerCase();
-  if (/(wire\s*deck|wiredeck|wire\s*mesh\s*deck|\bdeck(ing)?\b)/.test(n)) return "wire_deck";
+  if (/(wire\s*deck|wiredeck|wire\s*mesh\s*deck|\bdeck(ing)?\b)/.test(n))
+    return "wire_deck";
   if (/(row\s*spacer|\bspacer\b)/.test(n)) return "row_spacer";
-  if (/(post\s*protector|column\s*protector|\bprotector\b)/.test(n)) return "post_protector";
-  if (/(end\s*barrier|rack\s*guard|\bbarrier\b|end\s*of\s*aisle)/.test(n)) return "end_barrier";
+  if (/(post\s*protector|column\s*protector|\bprotector\b)/.test(n))
+    return "post_protector";
+  if (/(end\s*barrier|rack\s*guard|\bbarrier\b|end\s*of\s*aisle)/.test(n))
+    return "end_barrier";
   if (/(foot\s*plate|footplate|base\s*plate)/.test(n)) return "footplate";
   if (/\bshim\b/.test(n)) return "shim";
   if (/\banchor\b|wedge|\bbolt\b/.test(n)) return "anchor";
   if (/(upright|\bframe\b|column)/.test(n)) return "upright";
-  if (/(\bbeam\b|step\s*beam|stepbeam|box\s*beam|load\s*beam)/.test(n)) return "beam";
-  if (/(pallet\s*support|crossbar|safety\s*clip|\bclip\b|hardware)/.test(n)) return "accessory";
+  if (/(\bbeam\b|step\s*beam|stepbeam|box\s*beam|load\s*beam)/.test(n))
+    return "beam";
+  if (/(pallet\s*support|crossbar|safety\s*clip|\bclip\b|hardware)/.test(n))
+    return "accessory";
   return "other";
 }
 
@@ -55,7 +60,10 @@ interface Dimension {
 // denominated by convention) — the historical bug was treating these as
 // FEET at calc time.
 function parseDimension(token: string): Dimension | null {
-  const m = /^\s*(\d+(?:\.\d+)?)\s*(?:("|in(?:ch(?:es)?)?)|('|ft|feet))?\s*$/i.exec(token);
+  const m =
+    /^\s*(\d+(?:\.\d+)?)\s*(?:("|in(?:ch(?:es)?)?)|('|ft|feet))?\s*$/i.exec(
+      token
+    );
   if (!m) return null;
   const value = Number(m[1]);
   if (!Number.isFinite(value) || value <= 0) return null;

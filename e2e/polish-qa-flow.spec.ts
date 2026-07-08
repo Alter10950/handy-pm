@@ -58,7 +58,9 @@ test.describe("mobile pass (390×844)", () => {
         ).toBeVisible();
       }
       // Tap a non-active stage pill — the checklist follows.
-      await page.getByRole("button", { name: "Materials", exact: true }).click();
+      await page
+        .getByRole("button", { name: "Materials", exact: true })
+        .click();
       await expect(
         page.getByTestId("gate-checklist").getByText("100% of BOM received")
       ).toBeVisible();
@@ -114,7 +116,9 @@ test.describe("mobile pass (390×844)", () => {
         .getByTestId("capacity-board")
         .evaluate((table) => {
           const container = table.closest(".overflow-x-auto");
-          return container ? container.scrollWidth > container.clientWidth : false;
+          return container
+            ? container.scrollWidth > container.clientWidth
+            : false;
         });
       expect(boardScrolls).toBe(true);
     });
@@ -126,7 +130,11 @@ test("dashboard holds up with 25+ active projects", async ({ page }) => {
   test.setTimeout(180_000);
 
   await test.step("create 25 active projects directly", async () => {
-    const { data: org } = await admin.from("organizations").select("id").limit(1).single();
+    const { data: org } = await admin
+      .from("organizations")
+      .select("id")
+      .limit(1)
+      .single();
     const rows = Array.from({ length: 25 }, (_, i) => ({
       org_id: org!.id,
       name: `${PERF_PREFIX} #${String(i + 1).padStart(2, "0")}`,
@@ -151,7 +159,9 @@ test("dashboard holds up with 25+ active projects", async ({ page }) => {
     expect(elapsed).toBeLessThan(15_000);
 
     await expect(page.getByText(/Active projects \(\d+\)/)).toBeVisible();
-    const heading = await page.getByText(/Active projects \(\d+\)/).textContent();
+    const heading = await page
+      .getByText(/Active projects \(\d+\)/)
+      .textContent();
     const count = Number(/\((\d+)\)/.exec(heading ?? "")?.[1] ?? 0);
     expect(count).toBeGreaterThanOrEqual(25);
 

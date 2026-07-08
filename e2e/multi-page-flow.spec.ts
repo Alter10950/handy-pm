@@ -62,16 +62,12 @@ test("multi-page drawings: first upload auto-marks, second page is view-only, sw
     // Not a bare input[type="file"] locator — sub-phase G's drawing
     // versioning panel added a second file input (its own "Upload new
     // version" control) to this same page, making that ambiguous.
-    await page
-      .getByTestId("drawing-upload-input")
-      .setInputFiles(FIXTURE_PATH);
+    await page.getByTestId("drawing-upload-input").setInputFiles(FIXTURE_PATH);
     await expect(page.getByText(/uploaded\.$/)).toBeVisible({
       timeout: 30_000,
     });
     await page.getByRole("button", { name: "Page 2" }).click();
-    await expect(
-      page.getByText("View-only reference page")
-    ).toBeVisible();
+    await expect(page.getByText("View-only reference page")).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Set as marking page" })
     ).toBeVisible();
@@ -118,7 +114,8 @@ test("multi-page drawings: first upload auto-marks, second page is view-only, sw
   await test.step("switch the marking page to page 2", async () => {
     const [response] = await Promise.all([
       page.waitForResponse(
-        (res) => res.request().method() === "POST" && res.url().endsWith("/mark")
+        (res) =>
+          res.request().method() === "POST" && res.url().endsWith("/mark")
       ),
       page.getByRole("button", { name: "Set as marking page" }).click(),
     ]);

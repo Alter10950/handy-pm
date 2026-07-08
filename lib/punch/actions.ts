@@ -5,7 +5,10 @@ import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 
-function migrationPendingError(error: { code?: string; message: string }): Error {
+function migrationPendingError(error: {
+  code?: string;
+  message: string;
+}): Error {
   if (error.code === "PGRST205" || /punch_items/.test(error.message)) {
     return new Error(
       "The punch list isn't enabled yet — the Phase 14 database migration is pending."
@@ -17,7 +20,12 @@ function migrationPendingError(error: { code?: string; message: string }): Error
 // Crew raises punch items from the field walkthrough; office too.
 export async function createPunchItem(
   projectId: string,
-  input: { title: string; detail?: string; rowId?: string | null; photoPath?: string | null }
+  input: {
+    title: string;
+    detail?: string;
+    rowId?: string | null;
+    photoPath?: string | null;
+  }
 ) {
   const title = input.title.trim();
   if (!title) throw new Error("A punch item needs a title.");
@@ -58,7 +66,11 @@ export async function setPunchItemStatus(
     .from("punch_items")
     .update(
       status === "done"
-        ? { status, resolved_by: user?.id ?? null, resolved_at: new Date().toISOString() }
+        ? {
+            status,
+            resolved_by: user?.id ?? null,
+            resolved_at: new Date().toISOString(),
+          }
         : { status, resolved_by: null, resolved_at: null }
     )
     .eq("id", punchItemId);

@@ -1,4 +1,11 @@
-import { Document, Image, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
+import {
+  Document,
+  Image,
+  Page,
+  StyleSheet,
+  Text,
+  View,
+} from "@react-pdf/renderer";
 
 import type { BlockerCode } from "@/lib/supabase/database.types";
 
@@ -93,14 +100,27 @@ const styles = StyleSheet.create({
     borderBottom: "1 solid #cccccc",
     paddingBottom: 3,
   },
-  drawing: { width: "100%", maxHeight: 320, objectFit: "contain", marginBottom: 8 },
+  drawing: {
+    width: "100%",
+    maxHeight: 320,
+    objectFit: "contain",
+    marginBottom: 8,
+  },
   table: { display: "flex", width: "auto" },
   tableRow: { flexDirection: "row", borderBottom: "1 solid #eeeeee" },
-  tableHeaderRow: { flexDirection: "row", borderBottom: "1 solid #333333", paddingBottom: 3 },
+  tableHeaderRow: {
+    flexDirection: "row",
+    borderBottom: "1 solid #333333",
+    paddingBottom: 3,
+  },
   th: { flex: 1, fontWeight: 700, fontSize: 8, color: "#666666" },
   td: { flex: 1, fontSize: 9, paddingVertical: 3 },
   empty: { fontSize: 9, color: "#999999", marginBottom: 8 },
-  signRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 48 },
+  signRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 48,
+  },
   signBlock: { width: "45%" },
   signLine: { borderBottom: "1 solid #333333", marginBottom: 4, height: 24 },
   signLabel: { fontSize: 9, color: "#666666" },
@@ -145,7 +165,8 @@ export function CloseoutPdfDocument({ data }: { data: CloseoutPdfData }) {
         <Text style={styles.title}>{data.projectName} — Closeout Report</Text>
         <Text style={styles.subtitle}>
           {data.projectAddress ? `${data.projectAddress} — ` : ""}
-          Started {formatDate(data.createdAt)} — {Math.round(data.pct * 100)}% complete
+          Started {formatDate(data.createdAt)} — {Math.round(data.pct * 100)}%
+          complete
         </Text>
 
         <Text style={styles.sectionTitle}>As-built drawing</Text>
@@ -266,7 +287,9 @@ export function CloseoutPdfDocument({ data }: { data: CloseoutPdfData }) {
 
         {data.autopsy ? (
           <>
-            <Text style={styles.sectionTitle}>Closeout autopsy — estimated vs actual</Text>
+            <Text style={styles.sectionTitle}>
+              Closeout autopsy — estimated vs actual
+            </Text>
             <View style={styles.table}>
               <View style={styles.tableHeaderRow}>
                 <Text style={[styles.th, { flex: 2 }]}>Dimension</Text>
@@ -276,24 +299,40 @@ export function CloseoutPdfDocument({ data }: { data: CloseoutPdfData }) {
               </View>
               <View style={styles.tableRow}>
                 <Text style={[styles.td, { flex: 2 }]}>Days on site</Text>
-                <Text style={styles.td}>{data.autopsy.estimatedDays ?? "—"}</Text>
+                <Text style={styles.td}>
+                  {data.autopsy.estimatedDays ?? "—"}
+                </Text>
                 <Text style={styles.td}>{data.autopsy.actualDays ?? "—"}</Text>
                 <Text style={[styles.td, { flex: 2 }]}>
-                  {verdictText(data.autopsy.estimatedDays, data.autopsy.actualDays)}
+                  {verdictText(
+                    data.autopsy.estimatedDays,
+                    data.autopsy.actualDays
+                  )}
                 </Text>
               </View>
               <View style={styles.tableRow}>
                 <Text style={[styles.td, { flex: 2 }]}>Productive hours</Text>
-                <Text style={styles.td}>{data.autopsy.estimatedHours ?? "—"}</Text>
-                <Text style={styles.td}>{data.autopsy.actualLaborHours ?? "—"}</Text>
+                <Text style={styles.td}>
+                  {data.autopsy.estimatedHours ?? "—"}
+                </Text>
+                <Text style={styles.td}>
+                  {data.autopsy.actualLaborHours ?? "—"}
+                </Text>
                 <Text style={[styles.td, { flex: 2 }]}>
-                  {verdictText(data.autopsy.estimatedHours, data.autopsy.actualLaborHours)}
+                  {verdictText(
+                    data.autopsy.estimatedHours,
+                    data.autopsy.actualLaborHours
+                  )}
                 </Text>
               </View>
               <View style={styles.tableRow}>
                 <Text style={[styles.td, { flex: 2 }]}>Labor units</Text>
-                <Text style={styles.td}>{data.autopsy.estimatedLaborUnits ?? "—"}</Text>
-                <Text style={styles.td}>{data.autopsy.actualLaborUnits ?? "—"}</Text>
+                <Text style={styles.td}>
+                  {data.autopsy.estimatedLaborUnits ?? "—"}
+                </Text>
+                <Text style={styles.td}>
+                  {data.autopsy.actualLaborUnits ?? "—"}
+                </Text>
                 <Text style={[styles.td, { flex: 2 }]}>
                   {verdictText(
                     data.autopsy.estimatedLaborUnits,
@@ -310,7 +349,9 @@ export function CloseoutPdfDocument({ data }: { data: CloseoutPdfData }) {
                 </Text>
               </View>
               <View style={styles.tableRow}>
-                <Text style={[styles.td, { flex: 2 }]}>Blocker-affected days</Text>
+                <Text style={[styles.td, { flex: 2 }]}>
+                  Blocker-affected days
+                </Text>
                 <Text style={styles.td}>—</Text>
                 <Text style={styles.td}>{data.autopsy.blockerDays}</Text>
                 <Text style={[styles.td, { flex: 2 }]} />
@@ -331,7 +372,9 @@ export function CloseoutPdfDocument({ data }: { data: CloseoutPdfData }) {
           </View>
           <View style={styles.signBlock}>
             <View style={styles.signLine} />
-            <Text style={styles.signLabel}>{data.orgName} representative / date</Text>
+            <Text style={styles.signLabel}>
+              {data.orgName} representative / date
+            </Text>
           </View>
         </View>
       </Page>

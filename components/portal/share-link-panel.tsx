@@ -11,7 +11,8 @@ type TokenStatus = "active" | "revoked" | "expired";
 
 function tokenStatus(token: Tables<"share_tokens">): TokenStatus {
   if (token.revoked_at) return "revoked";
-  if (token.expires_at && new Date(token.expires_at) < new Date()) return "expired";
+  if (token.expires_at && new Date(token.expires_at) < new Date())
+    return "expired";
   return "active";
 }
 
@@ -65,7 +66,11 @@ export function ShareLinkPanel({
   }
 
   function handleRevoke(tokenId: string) {
-    if (!window.confirm("Revoke this link? Anyone using it will immediately lose access.")) {
+    if (
+      !window.confirm(
+        "Revoke this link? Anyone using it will immediately lose access."
+      )
+    ) {
       return;
     }
     setError(null);
@@ -89,7 +94,9 @@ export function ShareLinkPanel({
   return (
     <div className="flex flex-col gap-4 rounded-lg border border-border bg-card shadow-e1 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold text-foreground">Customer share links</h2>
+        <h2 className="text-sm font-semibold text-foreground">
+          Customer share links
+        </h2>
         <div className="flex flex-wrap items-center gap-2">
           <select
             aria-label="Link expiry"
@@ -99,12 +106,20 @@ export function ShareLinkPanel({
             className="h-9 rounded-md border border-border bg-background px-2 text-sm text-foreground"
           >
             {EXPIRY_OPTIONS.map((option) => (
-              <option key={option.label} value={option.days === null ? "null" : option.days}>
+              <option
+                key={option.label}
+                value={option.days === null ? "null" : option.days}
+              >
                 {option.label}
               </option>
             ))}
           </select>
-          <Button type="button" size="sm" disabled={isPending} onClick={handleGenerate}>
+          <Button
+            type="button"
+            size="sm"
+            disabled={isPending}
+            onClick={handleGenerate}
+          >
             {isPending ? "Working..." : "+ Generate link"}
           </Button>
         </div>
@@ -114,8 +129,8 @@ export function ShareLinkPanel({
 
       {tokens.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          No share links yet — generate one to give this customer a read-only status
-          page.
+          No share links yet — generate one to give this customer a read-only
+          status page.
         </p>
       ) : (
         <ul className="flex flex-col gap-2">

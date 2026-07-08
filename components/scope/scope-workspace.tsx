@@ -86,14 +86,20 @@ function ScopeItemForm({
   initial?: { id: string; input: ScopeItemInput };
   onDone: () => void;
 }) {
-  const [input, setInput] = useState<ScopeItemInput>(initial?.input ?? emptyInput());
+  const [input, setInput] = useState<ScopeItemInput>(
+    initial?.input ?? emptyInput()
+  );
   const [attachTo, setAttachTo] = useState<"none" | "row" | "phase">(
     initial?.input.rowId ? "row" : initial?.input.phaseId ? "phase" : "none"
   );
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
-  const suggested = suggestedLaborUnits(laborStandards, input.workType, input.qty);
+  const suggested = suggestedLaborUnits(
+    laborStandards,
+    input.workType,
+    input.qty
+  );
 
   function handleSubmit() {
     if (!input.description.trim()) {
@@ -129,7 +135,10 @@ function ScopeItemForm({
           <select
             value={input.workType}
             onChange={(e) =>
-              setInput((v) => ({ ...v, workType: e.target.value as ScopeWorkType }))
+              setInput((v) => ({
+                ...v,
+                workType: e.target.value as ScopeWorkType,
+              }))
             }
             disabled={isPending}
             className="h-9 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
@@ -159,7 +168,9 @@ function ScopeItemForm({
       {attachTo === "row" ? (
         <select
           value={input.rowId ?? ""}
-          onChange={(e) => setInput((v) => ({ ...v, rowId: e.target.value || null }))}
+          onChange={(e) =>
+            setInput((v) => ({ ...v, rowId: e.target.value || null }))
+          }
           disabled={isPending}
           className="h-9 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
         >
@@ -175,7 +186,9 @@ function ScopeItemForm({
       {attachTo === "phase" ? (
         <select
           value={input.phaseId ?? ""}
-          onChange={(e) => setInput((v) => ({ ...v, phaseId: e.target.value || null }))}
+          onChange={(e) =>
+            setInput((v) => ({ ...v, phaseId: e.target.value || null }))
+          }
           disabled={isPending}
           className="h-9 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
         >
@@ -192,7 +205,9 @@ function ScopeItemForm({
         <label className="text-xs text-muted-foreground">Description</label>
         <Input
           value={input.description}
-          onChange={(e) => setInput((v) => ({ ...v, description: e.target.value }))}
+          onChange={(e) =>
+            setInput((v) => ({ ...v, description: e.target.value }))
+          }
           disabled={isPending}
           placeholder="e.g. Tear down existing 3-level run along north wall"
         />
@@ -217,7 +232,9 @@ function ScopeItemForm({
           <label className="text-xs text-muted-foreground">Unit</label>
           <Input
             value={input.unit ?? ""}
-            onChange={(e) => setInput((v) => ({ ...v, unit: e.target.value || null }))}
+            onChange={(e) =>
+              setInput((v) => ({ ...v, unit: e.target.value || null }))
+            }
             disabled={isPending}
             placeholder="bays, hrs…"
           />
@@ -231,7 +248,8 @@ function ScopeItemForm({
             onChange={(e) =>
               setInput((v) => ({
                 ...v,
-                laborUnits: e.target.value === "" ? null : Number(e.target.value),
+                laborUnits:
+                  e.target.value === "" ? null : Number(e.target.value),
               }))
             }
             disabled={isPending}
@@ -251,7 +269,12 @@ function ScopeItemForm({
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
       <div className="flex items-center gap-2">
-        <Button type="button" size="sm" disabled={isPending} onClick={handleSubmit}>
+        <Button
+          type="button"
+          size="sm"
+          disabled={isPending}
+          onClick={handleSubmit}
+        >
           {initial ? "Save" : "+ Add scope item"}
         </Button>
         <Button type="button" size="sm" variant="outline" onClick={onDone}>
@@ -286,7 +309,9 @@ function ScopeItemRow({
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
-  const rowLabel = item.row_id ? rows.find((r) => r.id === item.row_id)?.label : null;
+  const rowLabel = item.row_id
+    ? rows.find((r) => r.id === item.row_id)?.label
+    : null;
   const phaseName = item.phase_id
     ? phases.find((p) => p.id === item.phase_id)?.name
     : null;
@@ -303,7 +328,10 @@ function ScopeItemRow({
     });
   }
 
-  async function submitProgress(status: "partial" | "done", photoPath: string | null) {
+  async function submitProgress(
+    status: "partial" | "done",
+    photoPath: string | null
+  ) {
     setError(null);
     startTransition(async () => {
       try {
@@ -316,7 +344,9 @@ function ScopeItemRow({
         setLoggingProgress(false);
         router.refresh();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Could not log progress.");
+        setError(
+          err instanceof Error ? err.message : "Could not log progress."
+        );
       }
     });
   }
@@ -386,7 +416,9 @@ function ScopeItemRow({
             {rowLabel ? (
               <span className="text-xs text-muted-foreground">{rowLabel}</span>
             ) : phaseName ? (
-              <span className="text-xs text-muted-foreground">Phase: {phaseName}</span>
+              <span className="text-xs text-muted-foreground">
+                Phase: {phaseName}
+              </span>
             ) : null}
           </div>
           <p className="mt-1 text-sm text-foreground">{item.description}</p>
@@ -395,7 +427,9 @@ function ScopeItemRow({
             {item.labor_units ? `${item.labor_units} hrs` : "no labor estimate"}
           </p>
           {item.note ? (
-            <p className="mt-1 text-xs text-muted-foreground">Note: {item.note}</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Note: {item.note}
+            </p>
           ) : null}
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -525,8 +559,8 @@ export function ScopeWorkspace({
         {items.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             No scope items yet — add teardown, level changes, relocation, or
-            repair work here so it&apos;s estimated and tracked, not
-            discovered on site.
+            repair work here so it&apos;s estimated and tracked, not discovered
+            on site.
           </p>
         ) : (
           <ul className="flex flex-col">

@@ -57,10 +57,18 @@ export function DayLogPanel({
   crewId: string | null;
   dayLog: Tables<"day_logs"> | null;
   photoUrls: Record<string, string>;
-  todaySummary: { rowLabel: string; materialName: string; unit: string; netQty: number }[];
+  todaySummary: {
+    rowLabel: string;
+    materialName: string;
+    unit: string;
+    netQty: number;
+  }[];
   todayBlockerCount: number;
   onBack: () => void;
-  onReportBlocker: (initialNote: string, initialCode: BlockerCode | null) => void;
+  onReportBlocker: (
+    initialNote: string,
+    initialCode: BlockerCode | null
+  ) => void;
 }) {
   const [note, setNote] = useState(dayLog?.note ?? "");
   const [pending, setPending] = useState(false);
@@ -74,7 +82,9 @@ export function DayLogPanel({
   async function mark(field: keyof DayLogFields) {
     setPending(true);
     try {
-      await upsertDayLog(projectId, crewId, { [field]: new Date().toISOString() });
+      await upsertDayLog(projectId, crewId, {
+        [field]: new Date().toISOString(),
+      });
       router.refresh();
     } finally {
       setPending(false);
@@ -170,7 +180,9 @@ export function DayLogPanel({
         >
           ← Back to edit
         </button>
-        <h2 className="font-semibold text-foreground">Review today &amp; close</h2>
+        <h2 className="font-semibold text-foreground">
+          Review today &amp; close
+        </h2>
 
         <div className="rounded-lg border border-border bg-card shadow-e1 p-3">
           <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
@@ -197,7 +209,9 @@ export function DayLogPanel({
             Installed today
           </h3>
           {todaySummary.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nothing logged today.</p>
+            <p className="text-sm text-muted-foreground">
+              Nothing logged today.
+            </p>
           ) : (
             <div className="flex flex-col gap-1 text-sm">
               {todaySummary.map((item) => (
@@ -422,13 +436,13 @@ export function DayLogPanel({
         ) : null}
       </div>
 
-      {!closed ? (
-        <VoiceNoteRecorder onDraft={setVoiceDraft} />
-      ) : null}
+      {!closed ? <VoiceNoteRecorder onDraft={setVoiceDraft} /> : null}
 
       {voiceDraft ? (
         <div className="flex flex-col gap-2 rounded-lg border border-primary bg-primary/10 p-3">
-          <p className="text-sm text-foreground">&ldquo;{voiceDraft.cleanedNote}&rdquo;</p>
+          <p className="text-sm text-foreground">
+            &ldquo;{voiceDraft.cleanedNote}&rdquo;
+          </p>
           {voiceDraft.isBlocker ? (
             <p className="text-xs text-info-fg">
               This sounds like it might be a blocker

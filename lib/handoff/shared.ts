@@ -36,7 +36,8 @@ export function parseConstraints(raw: unknown): HandoffConstraints {
     accessNotes: typeof r.accessNotes === "string" ? r.accessNotes : "",
     forkliftOnsite: Boolean(r.forkliftOnsite),
     workingHours: typeof r.workingHours === "string" ? r.workingHours : "",
-    floorCondition: typeof r.floorCondition === "string" ? r.floorCondition : "",
+    floorCondition:
+      typeof r.floorCondition === "string" ? r.floorCondition : "",
     permitsNeeded: Boolean(r.permitsNeeded),
   };
 }
@@ -45,7 +46,7 @@ export function isSurveyComplete(survey: HandoffSurveyRow | null): boolean {
   if (!survey) return false;
   return Boolean(
     survey.site_visit_date &&
-      survey.existing_racking_condition &&
-      survey.photo_paths.length > 0
+    survey.existing_racking_condition &&
+    survey.photo_paths.length > 0
   );
 }

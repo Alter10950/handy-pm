@@ -67,7 +67,9 @@ export function peekQueue(): QueuedInstall[] {
 }
 
 export function removeFromQueue(idempotencyKey: string): void {
-  writeQueue(readQueue().filter((item) => item.idempotencyKey !== idempotencyKey));
+  writeQueue(
+    readQueue().filter((item) => item.idempotencyKey !== idempotencyKey)
+  );
 }
 
 export function getPendingCount(): number {
