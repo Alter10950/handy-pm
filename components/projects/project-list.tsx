@@ -296,7 +296,7 @@ export function ProjectList({
       ) : matches.length === 0 ? (
         <div data-testid="no-matches">
           <EmptyState
-            title={query ? "No projects match" : "No projects assigned to you"}
+            title={query ? "No projects match." : "No projects assigned to you."}
             action={
               query ? (
                 <button

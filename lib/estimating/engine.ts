@@ -148,6 +148,26 @@ export function resolveStandard(input: {
   return { hoursPerUnit: 0, source: "none", confidence: "low", samples: 0, modifiers: [] };
 }
 
+// ── Category defaults (13.2): the in-code source of truth for the
+// fallback tier, hours per PIECE at standard pace. The DB's
+// labor_standards rows override these once corrected (per-each
+// semantics); rows still carrying the poisoned per-linear-ft /
+// per-ft-height seeds are ignored in favor of these. Same numbers the
+// Phase 13 migration seeds/fixes.
+export const CATEGORY_DEFAULT_HOURS: Record<SkuCategory, number> = {
+  upright: 0.25,
+  beam: 0.08,
+  wire_deck: 0.03,
+  row_spacer: 0.05,
+  anchor: 0.05,
+  end_barrier: 0.3,
+  post_protector: 0.15,
+  footplate: 0.05,
+  shim: 0.02,
+  accessory: 0.05,
+  other: 0.1,
+};
+
 // ── Guardrails (13.3): a bad standard must never silently ship. ──
 const MAX_HOURS_PER_UNIT: Record<SkuCategory, number> = {
   upright: 2,

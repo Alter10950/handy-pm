@@ -5,6 +5,51 @@ Consequences.
 
 ---
 
+## ADR-051: Phase 13 wiring — read-time attributes now, catalog tiers on migration
+
+**Decision date:** 2026-07-08
+
+**Context:** the corrective migration
+(`20260708120000_sku_catalog_labor_standards.sql`) and backfill script
+are authored, but `supabase db push` against the LIVE production
+database was blocked by the session's permission gate (it contains
+data-mutating UPDATEs to `labor_standards`; a human should approve).
+The 25,268-hour estimate bug shouldn't wait on that approval.
+
+**Choice — the fix ships in two self-activating layers.**
+Layer 1 (no schema change): `lib/estimating/standards.ts` parses SKU
+attributes at read time from each material's (name, size) via
+`lib/skus/parse.ts` and resolves standards through the pure engine.
+`labor_standards` rows participate ONLY if their `unit_basis` is
+per-each/per-piece — the poisoned `per_linear_ft`/`per_ft_height` seed
+rows are ignored in favor of the engine's in-code
+`CATEGORY_DEFAULT_HOURS`, so estimates are sane immediately, before any
+DB change. Layer 2 (after Alter approves the push + backfill): the SKU
+catalog persists parsed attributes (office-editable, `needs_review`
+flow), materials point at `sku_id`, and the per-SKU / learned crew×SKU
+tiers activate through the same `resolveStandard()` precedence — no
+further code change. Reads of the new tables are guarded so a missing
+relation degrades to Layer 1 instead of erroring.
+
+**Choice — old `crew_rates` are quarantined from the new engine.** Their
+`units_per_hour` was learned against the poisoned labor_units and would
+re-import the corruption; V2 confidence comes from standard-source
+coverage until `crew_sku_rates` accumulates real samples (Phase 15
+flywheel).
+
+**Choice — stored `materials.labor_units` is repaired by recompute.**
+It's derived data (hours/unit at standard pace); the backfill recomputes
+it from the corrected model while leaving every raw input (name, size,
+task_key, quantities, installs) untouched — that's the "lossless
+backfill."
+
+**Consequences:** the Estimate tab is correct from this commit onward;
+the migration becomes a pure enhancement (catalog + overrides +
+learning) rather than a prerequisite; a NEEDS ME item tracks the
+approval.
+
+---
+
 ## ADR-050: Phase 11 — component library strategy (generate, then refine)
 
 **Decision date:** 2026-07-08

@@ -74,7 +74,13 @@ test("PM of record: defaults to creator, shows everywhere, reassignment logs an 
   await test.step("PM shows on the project card", async () => {
     await page.goto("/app");
     const card = page.locator("a").filter({ hasText: PROJECT_NAME });
-    await expect(card.getByText(/^PM: /)).toBeVisible();
+    // Redesigned card shows the PM as icon + name (no "PM:" prefix) and
+    // an explicit warning state when unassigned — so assert the absence
+    // of the warning plus the presence of the owner's label.
+    await expect(card.getByText("No PM assigned")).toHaveCount(0);
+    await expect(
+      card.getByText(/@|E2E Owner/i)
+    ).toBeVisible();
   });
 
   await test.step("reassign the PM — updates DB, logs history, notifies the new PM", async () => {

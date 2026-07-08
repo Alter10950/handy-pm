@@ -100,6 +100,17 @@ update labor_standards
 set base_labor_units = 0.25, unit_basis = 'per_each'
 where task_key = 'upright' and unit_basis = 'per_ft_height' and base_labor_units = 0.20;
 
+-- Normalize the remaining still-at-seed rows to the engine's canonical
+-- per-piece figures (lib/estimating/engine.ts CATEGORY_DEFAULT_HOURS) so
+-- code and DB agree. Guarded to the exact original seed values.
+update labor_standards
+set base_labor_units = 0.03, unit_basis = 'per_each'
+where task_key = 'wire_deck' and unit_basis = 'per_piece' and base_labor_units = 0.15;
+
+update labor_standards
+set base_labor_units = 0.05
+where task_key = 'anchor' and unit_basis = 'per_each' and base_labor_units = 0.08;
+
 -- New install categories the SKU parser recognizes but the original seed
 -- didn't cover. Same idempotent posture as the original seed.
 insert into labor_standards (org_id, task_key, base_labor_units, unit_basis)
