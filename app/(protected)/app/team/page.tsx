@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { AddTeamMemberDialog } from "@/components/team/add-team-member-dialog";
+import { PageHeader } from "@/components/ui/page-header";
 import { TeamMemberRow } from "@/components/team/team-member-row";
 import { listCrews } from "@/lib/crews/queries";
 import { createClient } from "@/lib/supabase/server";
@@ -32,18 +33,17 @@ export default async function TeamPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Team
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+      <PageHeader
+        overline="Workspace"
+        title="Team"
+        description={
+          <>
             Create logins for your team — there&apos;s no public sign-up, so
             every account starts here.
-          </p>
-        </div>
-        <AddTeamMemberDialog />
-      </div>
+          </>
+        }
+        actions={<AddTeamMemberDialog />}
+      />
 
       <div className="flex flex-col gap-3">
         {members.map((member) => (

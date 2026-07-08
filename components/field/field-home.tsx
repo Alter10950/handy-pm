@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo } from "react";
 
 import { useCrewSelection } from "@/components/field/use-crew-selection";
+import { ProgressBar } from "@/components/ui/progress-meter";
 import type { TodayAssignment } from "@/lib/field/queries";
 import type { Tables, Views } from "@/lib/supabase/database.types";
 
@@ -20,23 +21,21 @@ function ProjectLink({
       href={`/field/${project.project_id}`}
       className={
         highlighted
-          ? "flex items-center justify-between gap-2 rounded-lg border border-primary bg-primary/10 p-4 active:bg-primary/20"
-          : "flex flex-col gap-2 rounded-lg border border-border bg-card shadow-e1 p-4 active:bg-accent"
+          ? "flex items-center justify-between gap-2 rounded-xl border-2 border-brand bg-brand-subtle p-4 shadow-e1 active:bg-brand-subtle/70"
+          : "flex flex-col gap-2 rounded-xl border border-border bg-surface p-4 shadow-e1 active:bg-accent"
       }
     >
       <div className="flex-1">
         <div className="flex items-center justify-between gap-2">
           <span className="font-medium text-foreground">{project.name}</span>
-          <span className="text-sm text-muted-foreground">{pct}%</span>
+          <span className="num text-sm text-muted-foreground">{pct}%</span>
         </div>
         {project.site_address ? (
           <span className="text-sm text-muted-foreground">
             {project.site_address}
           </span>
         ) : null}
-        <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-background">
-          <div className="h-full bg-primary" style={{ width: `${pct}%` }} />
-        </div>
+        <ProgressBar pct={pct} className="mt-2" />
       </div>
     </Link>
   );
@@ -70,17 +69,25 @@ export function FieldHome({
 
   return (
     <div className="flex flex-col gap-4 p-4">
-      <h1 className="text-lg font-semibold text-foreground">Field</h1>
+      <div>
+        <p className="type-overline text-muted-foreground">Handy Equip</p>
+        <h1 className="text-xl font-bold tracking-tight text-foreground">
+          Field
+        </h1>
+      </div>
 
-      <div className="flex items-center gap-2">
-        <label className="text-sm text-muted-foreground" htmlFor="home-crew-select">
+      <div className="flex items-center gap-2 rounded-xl border border-border bg-surface p-3 shadow-e1">
+        <label
+          className="shrink-0 text-sm text-muted-foreground"
+          htmlFor="home-crew-select"
+        >
           Logging as
         </label>
         <select
           id="home-crew-select"
           value={crewId ?? ""}
           onChange={(event) => setCrewId(event.target.value || null)}
-          className="flex-1 rounded-md border border-border bg-background px-2 py-1.5 text-sm text-foreground"
+          className="h-11 min-w-0 flex-1 rounded-lg border border-border bg-surface px-2 text-base text-foreground"
         >
           <option value="">No crew selected</option>
           {crews.map((crew) => (

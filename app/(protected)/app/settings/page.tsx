@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { OrgLogoUpload } from "@/components/org/org-logo-upload";
+import { PageHeader } from "@/components/ui/page-header";
 import { OrgSettingsForm } from "@/components/org/org-settings-form";
 import { TemplateEditor } from "@/components/gates/template-editor";
 import {
@@ -48,14 +49,11 @@ export default async function OrgSettingsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">
-          Organization settings
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Shown across the app and on any customer-facing pages.
-        </p>
-      </div>
+      <PageHeader
+        overline="Workspace"
+        title="Organization settings"
+        description="Shown across the app and on any customer-facing pages."
+      />
 
       <div className="flex flex-col gap-3">
         <h2 className="text-lg font-semibold text-foreground">Logo</h2>

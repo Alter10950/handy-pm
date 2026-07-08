@@ -10,6 +10,8 @@ import { LifecycleAttentionList } from "@/components/dashboard/lifecycle-attenti
 import { ProjectRiskList } from "@/components/dashboard/project-risk-list";
 import { ShortageList } from "@/components/dashboard/shortage-list";
 import { TodayActivityPanel } from "@/components/dashboard/today-activity";
+import { PageHeader } from "@/components/ui/page-header";
+import { StatTile } from "@/components/ui/stat-tile";
 import {
   getCrewPerformanceSummary,
   getTodayActivitySummary,
@@ -88,16 +90,41 @@ export default async function DashboardPage() {
     listCapacityOverrides(),
   ]);
 
+  const openBlockers = blockers.length;
+  const shortCount = shortages.length;
+  const attentionCount = lifecycleAttention.length;
+
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">
-          Dashboard
-        </h1>
-        <div className="flex flex-wrap gap-2">
-          <EmailReportButton period="daily" />
-          <EmailReportButton period="weekly" />
-        </div>
+      <PageHeader
+        overline="Handy Equip"
+        title="Dashboard"
+        description="What needs your attention right now, across every job."
+        actions={
+          <>
+            <EmailReportButton period="daily" />
+            <EmailReportButton period="weekly" />
+          </>
+        }
+      />
+
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <StatTile label="Active projects" value={String(projects.length)} />
+        <StatTile
+          label="Needs attention"
+          value={String(attentionCount)}
+          tone={attentionCount > 0 ? "warning" : "default"}
+        />
+        <StatTile
+          label="Open blockers"
+          value={String(openBlockers)}
+          tone={openBlockers > 0 ? "danger" : "default"}
+        />
+        <StatTile
+          label="Materials short"
+          value={String(shortCount)}
+          tone={shortCount > 0 ? "warning" : "default"}
+        />
       </div>
 
       <Section title={`Active projects (${projects.length})`}>

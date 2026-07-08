@@ -119,51 +119,51 @@ export function MaterialsGrid({
           projects that have one).
         </div>
       ) : null}
-      <div className="max-h-[70vh] overflow-auto rounded-lg border border-border">
+      <div className="max-h-[70vh] overflow-auto rounded-lg border border-border bg-surface shadow-e1">
         <table className="border-separate border-spacing-0 text-xs">
           <thead>
             <tr>
-              <th className="sticky top-0 z-20 border-b border-border bg-muted p-2" />
-              <th className="sticky left-0 top-0 z-30 min-w-40 border-b border-r border-border bg-muted p-2 text-left font-semibold text-muted-foreground">
+              <th className="sticky top-0 z-20 border-b border-border bg-surface-sunken p-2" />
+              <th className="sticky left-0 top-0 z-30 min-w-40 border-b border-r border-border bg-surface-sunken p-2 text-left font-semibold text-muted-foreground">
                 Part
               </th>
-              <th className="sticky top-0 z-20 min-w-28 border-b border-border bg-muted p-2 text-left font-semibold text-muted-foreground">
+              <th className="sticky top-0 z-20 min-w-28 border-b border-border bg-surface-sunken p-2 text-left font-semibold text-muted-foreground">
                 Task
               </th>
-              <th className="sticky top-0 z-20 min-w-20 border-b border-border bg-muted p-2 text-left font-semibold text-muted-foreground">
+              <th className="sticky top-0 z-20 min-w-20 border-b border-border bg-surface-sunken p-2 text-left font-semibold text-muted-foreground">
                 Size
               </th>
-              <th className="sticky top-0 z-20 border-b border-border bg-muted p-2 text-right font-semibold text-muted-foreground">
+              <th className="sticky top-0 z-20 border-b border-border bg-surface-sunken p-2 text-right font-semibold text-muted-foreground">
                 Needed
               </th>
-              <th className="sticky top-0 z-20 border-b border-border bg-muted p-2 text-right font-semibold text-muted-foreground">
+              <th className="sticky top-0 z-20 border-b border-border bg-surface-sunken p-2 text-right font-semibold text-muted-foreground">
                 Recv
               </th>
-              <th className="sticky top-0 z-20 border-b border-border bg-muted p-2 text-right font-semibold text-muted-foreground">
+              <th className="sticky top-0 z-20 border-b border-border bg-surface-sunken p-2 text-right font-semibold text-muted-foreground">
                 Assigned
               </th>
-              <th className="sticky top-0 z-20 border-b border-border bg-muted p-2 text-right font-semibold text-muted-foreground">
+              <th className="sticky top-0 z-20 border-b border-border bg-surface-sunken p-2 text-right font-semibold text-muted-foreground">
                 Left
               </th>
-              <th className="sticky top-0 z-20 border-b border-border bg-muted p-2 text-right font-semibold text-muted-foreground">
+              <th className="sticky top-0 z-20 border-b border-border bg-surface-sunken p-2 text-right font-semibold text-muted-foreground">
                 To order
               </th>
               <th
                 title="Standard hours to install one unit, from labor standards × size — feeds the Estimate tab"
-                className="sticky top-0 z-20 border-b border-border bg-muted p-2 text-right font-semibold text-muted-foreground"
+                className="sticky top-0 z-20 border-b border-border bg-surface-sunken p-2 text-right font-semibold text-muted-foreground"
               >
                 Labor
               </th>
-              <th className="sticky top-0 z-20 min-w-24 border-b border-border bg-muted p-2 text-left font-semibold text-muted-foreground">
+              <th className="sticky top-0 z-20 min-w-24 border-b border-border bg-surface-sunken p-2 text-left font-semibold text-muted-foreground">
                 Profile
               </th>
-              <th className="sticky top-0 z-20 min-w-24 border-b border-border bg-muted p-2 text-left font-semibold text-muted-foreground">
+              <th className="sticky top-0 z-20 min-w-24 border-b border-border bg-surface-sunken p-2 text-left font-semibold text-muted-foreground">
                 Capacity
               </th>
-              <th className="sticky top-0 z-20 min-w-20 border-b border-border bg-muted p-2 text-left font-semibold text-muted-foreground">
+              <th className="sticky top-0 z-20 min-w-20 border-b border-border bg-surface-sunken p-2 text-left font-semibold text-muted-foreground">
                 Cond.
               </th>
-              <th className="sticky top-0 z-20 min-w-28 border-b border-border bg-muted p-2 text-left font-semibold text-muted-foreground">
+              <th className="sticky top-0 z-20 min-w-28 border-b border-border bg-surface-sunken p-2 text-left font-semibold text-muted-foreground">
                 System
               </th>
               {rows.map((row) => (
@@ -175,7 +175,7 @@ export function MaterialsGrid({
                   }}
                   title={row.label}
                   className={cn(
-                    "sticky top-0 z-20 whitespace-nowrap border-b border-border bg-muted p-2 text-right font-semibold text-muted-foreground",
+                    "sticky top-0 z-20 whitespace-nowrap border-b border-border bg-surface-sunken p-2 text-right font-semibold text-muted-foreground",
                     highlightedRowId === row.id && "bg-blue-500/30"
                   )}
                 >
@@ -183,7 +183,7 @@ export function MaterialsGrid({
                   {row.label}
                 </th>
               ))}
-              <th className="sticky top-0 z-20 border-b border-border bg-muted p-2" />
+              <th className="sticky top-0 z-20 border-b border-border bg-surface-sunken p-2" />
             </tr>
           </thead>
           <tbody>
@@ -197,7 +197,7 @@ export function MaterialsGrid({
 
               return (
                 <tr key={material.id} data-testid={`material-row-${material.id}`}>
-                  <td className="border-b border-border p-1.5">
+                  <td className="border-b border-border-subtle p-1.5">
                     <input
                       type="checkbox"
                       data-testid={`material-select-${material.id}`}
@@ -207,7 +207,7 @@ export function MaterialsGrid({
                       className="size-4 rounded border-border"
                     />
                   </td>
-                  <td className="sticky left-0 z-10 border-b border-r border-border bg-card p-1.5">
+                  <td className="sticky left-0 z-10 border-b border-r border-border-subtle bg-surface p-1.5">
                     <Input
                       data-testid={`material-name-${material.id}`}
                       defaultValue={material.name}
@@ -224,7 +224,7 @@ export function MaterialsGrid({
                       className="h-8 min-w-36 text-left text-xs"
                     />
                   </td>
-                  <td className="border-b border-border p-1.5">
+                  <td className="border-b border-border-subtle p-1.5">
                     <select
                       data-testid={`material-task-${material.id}`}
                       aria-label={`Task for ${material.name}`}
@@ -246,7 +246,7 @@ export function MaterialsGrid({
                       ))}
                     </select>
                   </td>
-                  <td className="border-b border-border p-1.5">
+                  <td className="border-b border-border-subtle p-1.5">
                     <Input
                       data-testid={`material-size-${material.id}`}
                       defaultValue={material.size ?? ""}
@@ -265,7 +265,7 @@ export function MaterialsGrid({
                       className="h-8 w-20 text-left text-xs"
                     />
                   </td>
-                  <td className="border-b border-border p-1.5">
+                  <td className="border-b border-border-subtle p-1.5">
                     <Input
                       data-testid={`material-needed-${material.id}`}
                       type="number"
@@ -288,7 +288,7 @@ export function MaterialsGrid({
                       className="h-8 w-20 text-right text-xs"
                     />
                   </td>
-                  <td className="border-b border-border p-1.5">
+                  <td className="border-b border-border-subtle p-1.5">
                     <Input
                       data-testid={`material-received-${material.id}`}
                       type="number"
@@ -313,14 +313,14 @@ export function MaterialsGrid({
                   </td>
                   <td
                     data-testid={`material-assigned-${material.id}`}
-                    className="border-b border-border p-1.5 text-right tabular-nums text-muted-foreground"
+                    className="border-b border-border-subtle p-1.5 text-right tabular-nums text-muted-foreground"
                   >
                     {assigned}
                   </td>
                   <td
                     data-testid={`material-left-${material.id}`}
                     className={cn(
-                      "border-b border-border p-1.5 text-right tabular-nums",
+                      "border-b border-border-subtle p-1.5 text-right tabular-nums",
                       left < 0
                         ? "text-destructive"
                         : left === 0
@@ -333,7 +333,7 @@ export function MaterialsGrid({
                   <td
                     data-testid={`material-to-order-${material.id}`}
                     className={cn(
-                      "border-b border-border p-1.5 text-right tabular-nums",
+                      "border-b border-border-subtle p-1.5 text-right tabular-nums",
                       toOrder > 0 ? "text-destructive" : "text-success-fg"
                     )}
                   >
@@ -341,11 +341,11 @@ export function MaterialsGrid({
                   </td>
                   <td
                     data-testid={`material-labor-${material.id}`}
-                    className="border-b border-border p-1.5 text-right tabular-nums text-muted-foreground"
+                    className="border-b border-border-subtle p-1.5 text-right tabular-nums text-muted-foreground"
                   >
                     {material.labor_units.toFixed(2)}
                   </td>
-                  <td className="border-b border-border p-1.5">
+                  <td className="border-b border-border-subtle p-1.5">
                     <Input
                       data-testid={`material-profile-${material.id}`}
                       defaultValue={material.profile ?? ""}
@@ -361,7 +361,7 @@ export function MaterialsGrid({
                       className="h-8 w-full text-left text-xs"
                     />
                   </td>
-                  <td className="border-b border-border p-1.5">
+                  <td className="border-b border-border-subtle p-1.5">
                     <Input
                       data-testid={`material-capacity-${material.id}`}
                       defaultValue={material.capacity ?? ""}
@@ -377,7 +377,7 @@ export function MaterialsGrid({
                       className="h-8 w-full text-left text-xs"
                     />
                   </td>
-                  <td className="border-b border-border p-1.5">
+                  <td className="border-b border-border-subtle p-1.5">
                     <select
                       data-testid={`material-condition-${material.id}`}
                       aria-label={`Condition for ${material.name}`}
@@ -399,7 +399,7 @@ export function MaterialsGrid({
                       ))}
                     </select>
                   </td>
-                  <td className="border-b border-border p-1.5">
+                  <td className="border-b border-border-subtle p-1.5">
                     <Input
                       data-testid={`material-system-${material.id}`}
                       defaultValue={material.compatible_system ?? ""}
@@ -460,7 +460,7 @@ export function MaterialsGrid({
                       </td>
                     );
                   })}
-                  <td className="border-b border-border p-1.5">
+                  <td className="border-b border-border-subtle p-1.5">
                     <Button
                       type="button"
                       variant="outline"

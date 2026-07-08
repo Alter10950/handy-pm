@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { EstimateAccuracy } from "@/components/autopsy/estimate-accuracy";
+import { PageHeader } from "@/components/ui/page-header";
 import { CrewRatesPanel } from "@/components/estimating/crew-rates-panel";
 import { LaborStandardsEditor } from "@/components/estimating/labor-standards-editor";
 import { NewEstimateDialog } from "@/components/estimating/new-estimate-dialog";
@@ -60,12 +61,12 @@ export default async function EstimatingPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">
-          Estimating
-        </h1>
-        <NewEstimateDialog />
-      </div>
+      <PageHeader
+        overline="Handy Equip"
+        title="Estimating"
+        description="Price future jobs from a pasted material list — before a drawing exists."
+        actions={<NewEstimateDialog />}
+      />
 
       <div>
         <h2 className="mb-3 text-lg font-semibold text-foreground">

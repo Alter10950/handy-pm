@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { CrewManager } from "@/components/scheduler/crew-manager";
+import { PageHeader } from "@/components/ui/page-header";
 import { SchedulerProjectList } from "@/components/scheduler/scheduler-project-list";
 import { listCrewMembers, listCrews } from "@/lib/crews/queries";
 import { listActiveProjectsForField } from "@/lib/field/queries";
@@ -48,23 +49,27 @@ export default async function SchedulerPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-lg font-semibold text-foreground">Scheduler</h1>
-        <div className="flex flex-wrap gap-2">
-          <Link
-            href="/scheduler/capacity"
-            className="rounded-md border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted"
-          >
-            📊 Capacity Board
-          </Link>
-          <Link
-            href="/scheduler/calendar"
-            className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground"
-          >
-            📅 Crew Calendar
-          </Link>
-        </div>
-      </div>
+      <PageHeader
+        overline="Handy Equip"
+        title="Scheduler"
+        description="Who's where, this week and next."
+        actions={
+          <>
+            <Link
+              href="/scheduler/capacity"
+              className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-foreground shadow-e1 transition-colors hover:bg-muted"
+            >
+              Capacity board
+            </Link>
+            <Link
+              href="/scheduler/calendar"
+              className="rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground shadow-e1 transition-colors hover:bg-[var(--brand-hover)]"
+            >
+              Crew calendar
+            </Link>
+          </>
+        }
+      />
       <div>
         <h2 className="mb-3 text-lg font-semibold text-foreground">Crews</h2>
         <CrewManager crews={crews} members={members} />

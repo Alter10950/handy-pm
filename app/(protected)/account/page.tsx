@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { ChangePasswordForm } from "@/components/account/change-password-form";
+import { PageHeader } from "@/components/ui/page-header";
 import { UpdateNameForm } from "@/components/account/update-name-form";
 import { createClient } from "@/lib/supabase/server";
 
@@ -26,9 +27,11 @@ export default async function AccountPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-bold tracking-tight text-foreground">
-        Account
-      </h1>
+      <PageHeader
+        overline="Your profile"
+        title="Account"
+        description="Your display name and sign-in credentials."
+      />
 
       <div className="flex flex-col gap-3">
         <h2 className="text-lg font-semibold text-foreground">

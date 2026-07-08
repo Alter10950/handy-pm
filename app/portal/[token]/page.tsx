@@ -1,6 +1,7 @@
 import Image from "next/image";
 import type { Metadata } from "next";
 
+import { ProgressBar } from "@/components/ui/progress-meter";
 import { getPortalData, resolveShareToken } from "@/lib/portal/public";
 
 export const metadata: Metadata = {
@@ -21,14 +22,30 @@ function formatDate(value: string): string {
   });
 }
 
+// The customer's window into their job — always light (app/portal/layout.tsx
+// wraps in .force-light), calm, and readable by someone who has never seen
+// the app. One card, big progress, latest update, photos.
 function PortalShell({ children }: { children: React.ReactNode }) {
   return (
-    <main className="flex min-h-full flex-1 flex-col items-center bg-background px-4 py-16">
+    <main className="flex min-h-full flex-1 flex-col items-center bg-background px-4 py-12 sm:py-16">
       <div className="w-full max-w-2xl">
-        <p className="mb-8 text-xl font-bold tracking-tight text-foreground">
-          Handy<span className="text-text-secondary">PM</span>
-        </p>
+        <div className="mb-8 flex items-center gap-2.5">
+          <span className="grid size-8 place-items-center rounded-lg bg-primary text-sm font-black text-primary-foreground shadow-e1">
+            H
+          </span>
+          <div className="leading-tight">
+            <p className="text-lg font-bold tracking-tight text-foreground">
+              Handy<span className="text-text-secondary">PM</span>
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Your install, live from the floor
+            </p>
+          </div>
+        </div>
         {children}
+        <p className="mt-10 text-center text-xs text-muted-foreground">
+          Provided by Handy Equip · questions? Reply to your project manager.
+        </p>
       </div>
     </main>
   );
@@ -45,7 +62,7 @@ export default async function CustomerPortalPage({
   if (!resolved) {
     return (
       <PortalShell>
-        <div className="rounded-lg border border-border bg-card shadow-e1 p-6 text-center">
+        <div className="rounded-xl border border-border bg-surface p-8 text-center shadow-e2">
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
             This link is no longer valid
           </h1>
@@ -59,11 +76,12 @@ export default async function CustomerPortalPage({
   }
 
   const data = await getPortalData(resolved.projectId);
+  const pct = Math.round(data.pct * 100);
 
   return (
     <PortalShell>
       <div className="flex flex-col gap-4">
-        <div className="rounded-lg border border-border bg-card shadow-e1 p-6">
+        <div className="rounded-xl border border-border bg-surface p-6 shadow-e2 sm:p-8">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h1 className="text-2xl font-bold tracking-tight text-foreground">
               {data.projectName}
@@ -73,33 +91,33 @@ export default async function CustomerPortalPage({
             </span>
           </div>
 
-          <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="rounded-lg bg-muted p-4">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Complete
+          <div className="mt-6">
+            <div className="mb-2 flex items-baseline justify-between">
+              <p className="type-overline text-muted-foreground">
+                Install progress
               </p>
-              <p className="mt-1 text-3xl font-bold tabular-nums text-foreground">
-                {Math.round(data.pct * 100)}%
-              </p>
+              <p className="num text-3xl font-bold text-foreground">{pct}%</p>
             </div>
-            {data.nextMilestone ? (
-              <div className="rounded-lg bg-muted p-4">
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Target completion
-                </p>
-                <p className="mt-1 text-lg font-semibold text-foreground">
-                  {formatDate(data.nextMilestone)}
-                </p>
-              </div>
-            ) : null}
+            <ProgressBar pct={pct} size="lg" />
           </div>
 
-          {data.mostRecentUpdate ? (
-            <div className="mt-6 border-t border-border pt-4">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Most recent update — {formatDate(data.mostRecentUpdate.workDate)}
+          {data.nextMilestone ? (
+            <div className="mt-6 rounded-lg bg-surface-sunken p-4">
+              <p className="type-overline text-muted-foreground">
+                Target completion
               </p>
-              <p className="mt-1 text-foreground">
+              <p className="mt-1 text-lg font-semibold text-foreground">
+                {formatDate(data.nextMilestone)}
+              </p>
+            </div>
+          ) : null}
+
+          {data.mostRecentUpdate ? (
+            <div className="mt-6 border-t border-border-subtle pt-4">
+              <p className="type-overline text-muted-foreground">
+                Latest from the site — {formatDate(data.mostRecentUpdate.workDate)}
+              </p>
+              <p className="mt-1.5 text-foreground">
                 {data.mostRecentUpdate.note || "Work was logged on site."}
               </p>
             </div>
@@ -107,14 +125,12 @@ export default async function CustomerPortalPage({
         </div>
 
         {data.photos.length > 0 ? (
-          <div className="rounded-lg border border-border bg-card shadow-e1 p-6">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              Photos
-            </h2>
+          <div className="rounded-xl border border-border bg-surface p-6 shadow-e2 sm:p-8">
+            <h2 className="type-overline text-muted-foreground">Photos</h2>
             <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
               {data.photos.map((photo, index) => (
                 <div key={index} className="flex flex-col gap-1">
-                  <div className="relative aspect-[4/3] overflow-hidden rounded-md bg-muted">
+                  <div className="relative aspect-[4/3] overflow-hidden rounded-lg bg-surface-sunken">
                     <Image
                       src={photo.url}
                       alt={photo.caption ?? "Project photo"}
