@@ -149,7 +149,21 @@ test("layout editor: modeless interaction, pan priority, marquee, no snap-back",
     await page.mouse.move(centerX, centerY);
     await page.mouse.down({ button: "middle" });
     await page.mouse.move(centerX + 80, centerY + 60, { steps: 8 });
+
+    // Cursor feedback mid-pan: grabbing, even though the pointer is over a
+    // row (the viewport's descendant override beats the row's cursor-move).
+    const grabbingCursor = await page
+      .getByTestId("row-box-Row 1")
+      .evaluate((el) => getComputedStyle(el).cursor);
+    expect(grabbingCursor).toBe("grabbing");
+
     await page.mouse.up({ button: "middle" });
+
+    // Released: the row's contextual move cursor is back.
+    const restoredCursor = await page
+      .getByTestId("row-box-Row 1")
+      .evaluate((el) => getComputedStyle(el).cursor);
+    expect(restoredCursor).toBe("move");
 
     // The row's underlying geometry is untouched — only the view panned.
     const { data: geometryAfter } = await admin
@@ -167,6 +181,30 @@ test("layout editor: modeless interaction, pan priority, marquee, no snap-back",
       .boundingBox())!;
     expect(rowBoxAfter.x - rowBoxBefore.x).toBeGreaterThan(40);
     expect(rowBoxAfter.y - rowBoxBefore.y).toBeGreaterThan(20);
+  });
+
+  await test.step("space-held shows the grab cursor; releasing restores the crosshair", async () => {
+    const viewport = page.getByTestId("stage-viewport");
+    await viewport.focus();
+
+    await page.keyboard.down(" ");
+    const grabCursor = await viewport.evaluate(
+      (el) => getComputedStyle(el).cursor
+    );
+    expect(grabCursor).toBe("grab");
+    // The override reaches rows too — a could-pan hover over a row is a
+    // hand, not a move arrow.
+    const rowCursorWhileSpace = await page
+      .getByTestId("row-box-Row 1")
+      .evaluate((el) => getComputedStyle(el).cursor);
+    expect(rowCursorWhileSpace).toBe("grab");
+    await page.keyboard.up(" ");
+
+    // Contextual cursors restored: crosshair on the drawable stage.
+    const stageCursor = await page
+      .locator('img[alt="Layout drawing"]')
+      .evaluate((el) => getComputedStyle(el.parentElement!).cursor);
+    expect(stageCursor).toBe("crosshair");
   });
 
   await test.step("dragging a selected row's body shows zero snap-back: the dropped position is correct immediately, and stays correct once persisted", async () => {

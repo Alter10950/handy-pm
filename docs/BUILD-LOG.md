@@ -4,6 +4,39 @@ Engineering journal. Newest entries at top.
 
 ---
 
+## 2026-07-08 — Layout pan cursor feedback + Projects-page spec audit
+
+**Pan cursor feedback (the leftover).** The layout editor's pans worked
+but gave no cursor feedback. `row-stage.tsx` now shows `grab` while
+space is held (a pan _could_ start), `grabbing` during any active pan —
+middle-mouse or space+drag — via a `**:` descendant override so the hand
+wins even over rows and resize handles, and restores contextual cursors
+on release. Contextual cursors also got their missing pieces: crosshair
+on the drawable stage (draw affordance), `cursor-move` on rows (drag
+affordance); handles already had their resize cursors.
+`layout-interaction-flow.spec.ts` now asserts the computed cursor
+mid-pan over a row ("grabbing"), after release ("move"), while space is
+held ("grab" — including over rows), and the restored crosshair.
+
+**Projects page upgrade — audited, already shipped.** The second task
+item (search bar with clear ×, cards/list toggle persisted per user,
+A–Z in both views, Active/Completed split with a collapsed muted
+"Completed (N)" section that auto-expands on search matches, PM column,
+empty/no-match states) landed in the pre-redesign batch and was restyled
+onto the design system in Phase 12. Verified line-by-line against the
+spec and re-ran `projects-page-flow.spec.ts` (search filtering, toggle
+persistence across reload, completed-section isolation, mobile overflow
+for both views) — green, no changes needed. Two deliberate deviations,
+unchanged: the view toggle is a hand-rolled raised-chip pair (keeps the
+E2E testids Segmented can't carry) and the list view is a styled table
+rather than DataGrid (keeps the click-anywhere row contract) — both
+token-styled, no one-off colors.
+
+**Verify:** lint/typecheck/build/format green; layout + projects specs
+green. Pushed to origin/master (Vercel deploys from it).
+
+---
+
 ## 2026-07-08 — Phases 14–16: QC/punch, flywheel, audit, ⌘K, final QA
 
 **Phase 14 (depth I).** Progress tab gains the QC + punch panel

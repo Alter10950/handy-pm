@@ -726,6 +726,8 @@ export function RowStage({
     onNudgeRows(changes);
   }
 
+  const isPanning = drag?.mode === "pan";
+
   return (
     <div
       ref={viewportRef}
@@ -734,12 +736,24 @@ export function RowStage({
       onKeyDown={handleKeyDown}
       className={cn(
         "relative h-full w-full touch-none touch-manipulation select-none overflow-hidden outline-none",
-        shouldPan && (drag?.mode === "pan" ? "cursor-grabbing" : "cursor-grab")
+        // Pan cursor feedback: grabbing during ANY active pan (middle-mouse
+        // or space+drag), grab while space is held and a pan could start.
+        // The **: descendant override beats the contextual cursors below
+        // (crosshair/move/resize) so the hand shows even over rows; on
+        // release the classes drop and the contextual cursors return.
+        isPanning
+          ? "cursor-grabbing **:cursor-grabbing!"
+          : shouldPan && "cursor-grab **:cursor-grab!"
       )}
     >
       <div
         ref={stageRef}
-        className="absolute top-0 left-0 origin-top-left"
+        className={cn(
+          "absolute top-0 left-0 origin-top-left",
+          // Contextual cursor on empty stage: crosshair = "you can draw
+          // here" (left-drag draws a row). Read-only stages keep default.
+          !readOnly && "cursor-crosshair"
+        )}
         style={{
           width: effectiveWidth,
           height: effectiveHeight,
@@ -786,6 +800,8 @@ export function RowStage({
                 onPointerDown={(event) => handleRowPointerDown(event, row)}
                 className={cn(
                   "absolute rounded border-2 border-white/50 bg-[#5b6675]/30",
+                  // Contextual cursor: rows are draggable when editable.
+                  !readOnly && "cursor-move",
                   !row.hasMaterials &&
                     "border-dashed border-destructive bg-destructive/15",
                   isSelected &&
