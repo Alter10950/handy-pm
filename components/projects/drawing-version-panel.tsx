@@ -93,7 +93,7 @@ export function DrawingVersionPanel({
   }
 
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-border bg-card p-2">
+    <div className="flex flex-col gap-2 rounded-lg border border-border bg-card shadow-e1 p-2">
       <div className="flex flex-wrap items-center gap-2">
         <span
           data-testid="drawing-version-badge"
@@ -104,7 +104,7 @@ export function DrawingVersionPanel({
         <span
           className={`rounded-full px-2 py-0.5 text-xs font-medium ${
             latest?.approvedForInstall
-              ? "bg-success/15 text-success"
+              ? "bg-success/15 text-success-fg"
               : "bg-destructive/15 text-destructive"
           }`}
         >

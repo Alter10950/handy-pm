@@ -18,7 +18,7 @@ import {
 import { cn } from "@/lib/utils";
 
 const VERDICT_CLASS = {
-  under: "text-success",
+  under: "text-success-fg",
   on: "text-foreground",
   over: "text-destructive",
 } as const;
@@ -117,7 +117,7 @@ export function AutopsyPanel({
   );
 
   return (
-    <div data-testid="autopsy-panel" className="rounded-lg border border-border bg-card p-5">
+    <div data-testid="autopsy-panel" className="rounded-lg border border-border bg-card shadow-e1 p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
           Closeout autopsy
@@ -285,7 +285,7 @@ export function AutopsyPanel({
         </div>
       )}
 
-      {notice ? <p className="mt-2 text-sm text-success">{notice}</p> : null}
+      {notice ? <p className="mt-2 text-sm text-success-fg">{notice}</p> : null}
       {error ? <p className="mt-2 text-sm text-destructive">{error}</p> : null}
     </div>
   );

@@ -70,7 +70,7 @@ export function BulkMaterialsPanel({
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
+    <div className="flex flex-col gap-3 rounded-lg border border-border bg-card shadow-e1 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm font-semibold text-foreground">
           Set materials for {selectedCount} selected row
@@ -111,7 +111,7 @@ export function BulkMaterialsPanel({
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       {applied && !error ? (
-        <p className="text-sm text-success">
+        <p className="text-sm text-success-fg">
           Applied to {selectedCount} row{selectedCount === 1 ? "" : "s"}.
         </p>
       ) : null}

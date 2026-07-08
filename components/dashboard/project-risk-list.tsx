@@ -45,7 +45,7 @@ export function ProjectRiskList({ projects }: { projects: DashboardProject[] }) 
                 {project.pmName ? (
                   <span className="text-muted-foreground">{project.pmName}</span>
                 ) : (
-                  <span className="font-medium text-warning">Unassigned</span>
+                  <span className="font-medium text-warning-fg">Unassigned</span>
                 )}
               </td>
               <td className="py-2">

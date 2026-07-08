@@ -46,7 +46,7 @@ export function ProjectTimeline({
   const crewNameById = new Map(crews.map((c) => [c.id, c.name]));
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-3">
+    <div className="flex flex-col gap-3 rounded-lg border border-border bg-card shadow-e1 p-3">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
           Timeline

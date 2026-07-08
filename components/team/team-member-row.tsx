@@ -119,7 +119,7 @@ export function TeamMemberRow({
     <div
       data-testid={`team-member-row-${member.email}`}
       className={cn(
-        "flex flex-col gap-3 rounded-lg border border-border bg-card p-4",
+        "flex flex-col gap-3 rounded-lg border border-border bg-card shadow-e1 p-4",
         !isActive && "opacity-60"
       )}
     >
@@ -133,7 +133,7 @@ export function TeamMemberRow({
               className={cn(
                 "rounded-full px-2 py-0.5 text-xs font-medium",
                 isActive
-                  ? "bg-success/15 text-success"
+                  ? "bg-success/15 text-success-fg"
                   : "bg-destructive/15 text-destructive"
               )}
             >

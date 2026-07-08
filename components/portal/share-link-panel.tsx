@@ -16,7 +16,7 @@ function tokenStatus(token: Tables<"share_tokens">): TokenStatus {
 }
 
 const STATUS_CLASS: Record<TokenStatus, string> = {
-  active: "bg-success/15 text-success",
+  active: "bg-success/15 text-success-fg",
   revoked: "bg-destructive/15 text-destructive",
   expired: "bg-muted text-muted-foreground",
 };
@@ -87,7 +87,7 @@ export function ShareLinkPanel({
   }
 
   return (
-    <div className="flex flex-col gap-4 rounded-lg border border-border bg-card p-4">
+    <div className="flex flex-col gap-4 rounded-lg border border-border bg-card shadow-e1 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-sm font-semibold text-foreground">Customer share links</h2>
         <div className="flex flex-wrap items-center gap-2">

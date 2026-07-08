@@ -23,11 +23,11 @@ const KIND_LABEL: Record<CommsKind, string> = {
 };
 
 const KIND_BADGE: Record<CommsKind, string> = {
-  milestone: "bg-primary/15 text-primary",
-  weekly_report: "bg-success/15 text-success",
+  milestone: "bg-brand-subtle text-foreground",
+  weekly_report: "bg-success/15 text-success-fg",
   manual: "bg-muted text-muted-foreground",
   schedule_change: "bg-destructive/15 text-destructive",
-  change_order: "bg-primary/15 text-primary",
+  change_order: "bg-brand-subtle text-foreground",
 };
 
 const CHANNEL_LABEL: Record<CommsChannel, string> = {
@@ -105,7 +105,7 @@ function ContactCard({
   }
 
   return (
-    <div className="rounded-lg border border-border bg-card p-4">
+    <div className="rounded-lg border border-border bg-card shadow-e1 p-4">
       <h3 className="text-sm font-semibold text-foreground">
         Customer contact &amp; preferences
       </h3>
@@ -176,7 +176,7 @@ function ContactCard({
         >
           Send update now
         </Button>
-        {notice ? <span className="text-sm text-success">{notice}</span> : null}
+        {notice ? <span className="text-sm text-success-fg">{notice}</span> : null}
         {error ? <span className="text-sm text-destructive">{error}</span> : null}
       </div>
     </div>
@@ -206,7 +206,7 @@ function ManualLogForm({ projectId }: { projectId: string }) {
   }
 
   return (
-    <div className="rounded-lg border border-border bg-card p-4">
+    <div className="rounded-lg border border-border bg-card shadow-e1 p-4">
       <h3 className="text-sm font-semibold text-foreground">
         Log a call or conversation
       </h3>
@@ -300,7 +300,7 @@ export function CommsWorkspace({
 
       <ManualLogForm projectId={projectId} />
 
-      <div className="rounded-lg border border-border bg-card p-4">
+      <div className="rounded-lg border border-border bg-card shadow-e1 p-4">
         <h3 className="text-sm font-semibold text-foreground">
           History ({comms.length})
         </h3>

@@ -53,7 +53,7 @@ export function UpdateNameForm({ initialName }: { initialName: string }) {
           className={
             status === "error"
               ? "text-sm text-destructive"
-              : "text-sm text-success"
+              : "text-sm text-success-fg"
           }
         >
           {message}

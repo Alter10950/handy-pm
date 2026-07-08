@@ -189,7 +189,7 @@ export function HandoffSurveyForm({
   return (
     <div className="flex flex-col gap-4">
       {aiDraftAvailable && canManage ? (
-        <div className="rounded-lg border border-border bg-card p-4">
+        <div className="rounded-lg border border-border bg-card shadow-e1 p-4">
           <h3 className="text-sm font-semibold text-foreground">
             Draft from rough notes
           </h3>
@@ -225,7 +225,7 @@ export function HandoffSurveyForm({
         </div>
       ) : null}
 
-      <div className="rounded-lg border border-border bg-card p-4">
+      <div className="rounded-lg border border-border bg-card shadow-e1 p-4">
         <h3 className="text-sm font-semibold text-foreground">Site visit</h3>
         <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
@@ -259,7 +259,7 @@ export function HandoffSurveyForm({
         </div>
       </div>
 
-      <div className="rounded-lg border border-border bg-card p-4">
+      <div className="rounded-lg border border-border bg-card shadow-e1 p-4">
         <h3 className="text-sm font-semibold text-foreground">Teardown</h3>
         <label className="mt-3 flex items-center gap-2 text-sm text-foreground">
           <input
@@ -289,7 +289,7 @@ export function HandoffSurveyForm({
         ) : null}
       </div>
 
-      <div className="rounded-lg border border-border bg-card p-4">
+      <div className="rounded-lg border border-border bg-card shadow-e1 p-4">
         <h3 className="text-sm font-semibold text-foreground">Site constraints</h3>
         <div className="mt-3 flex flex-col gap-3">
           <label className="flex items-center gap-2 text-sm text-foreground">
@@ -375,7 +375,7 @@ export function HandoffSurveyForm({
         </div>
       </div>
 
-      <div className="rounded-lg border border-border bg-card p-4">
+      <div className="rounded-lg border border-border bg-card shadow-e1 p-4">
         <h3 className="text-sm font-semibold text-foreground">Site photos</h3>
         <div className="mt-3 flex flex-wrap gap-3">
           {photoPaths.map((path) =>
@@ -434,13 +434,13 @@ export function HandoffSurveyForm({
           <Button type="button" disabled={disabled} onClick={handleSave}>
             {isPending ? "Saving…" : "Save survey"}
           </Button>
-          {saved ? <span className="text-sm text-success">Saved.</span> : null}
+          {saved ? <span className="text-sm text-success-fg">Saved.</span> : null}
         </div>
       ) : null}
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
-      <div className="rounded-lg border border-border bg-card p-4">
+      <div className="rounded-lg border border-border bg-card shadow-e1 p-4">
         <h3 className="text-sm font-semibold text-foreground">
           Dual sign-off
         </h3>

@@ -111,7 +111,7 @@ export function SchedulerWorkspace({
         ) : null}
       </div>
 
-      <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-card p-3">
+      <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-card shadow-e1 p-3">
         <label htmlFor="planned-days" className="text-sm text-foreground">
           Planned days
         </label>

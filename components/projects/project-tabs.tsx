@@ -63,7 +63,7 @@ export function ProjectTabs({
   ];
 
   return (
-    <nav className="flex gap-1 overflow-x-auto border-b border-border">
+    <nav className="flex gap-0.5 overflow-x-auto border-b border-border">
       {tabs.map((tab) => {
         const isActive =
           tab.href === base ? pathname === base : pathname.startsWith(tab.href);
@@ -71,12 +71,14 @@ export function ProjectTabs({
           <Link
             key={tab.href}
             href={tab.href}
+            aria-current={isActive ? "page" : undefined}
             className={cn(
-              "flex h-11 shrink-0 items-center border-b-2 px-4 text-sm font-medium transition-colors",
+              "flex h-10 shrink-0 items-center rounded-t-md border-b-2 px-3.5 text-sm font-medium transition-colors",
               isActive
-                ? "border-primary text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground"
+                ? "border-brand bg-brand-subtle/60 text-foreground"
+                : "border-transparent text-muted-foreground hover:bg-accent hover:text-foreground"
             )}
+            style={{ transitionDuration: "var(--duration-fast)" }}
           >
             {tab.label}
           </Link>

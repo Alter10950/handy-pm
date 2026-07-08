@@ -113,7 +113,7 @@ export function AssignCrewForm({
             onClick={() => setScope(option)}
             className={`rounded-md border px-2 py-1 ${
               scope === option
-                ? "border-primary bg-primary text-primary-foreground"
+                ? "border-brand bg-brand-subtle text-foreground"
                 : "border-border text-muted-foreground"
             }`}
           >

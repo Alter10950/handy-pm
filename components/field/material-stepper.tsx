@@ -45,7 +45,7 @@ export function MaterialStepper({
   }
 
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3">
+    <div className="flex flex-col gap-2 rounded-lg border border-border bg-card shadow-e1 p-3">
       <div className="flex items-center justify-between gap-2">
         <span className="font-medium text-foreground">{material.name}</span>
         <span className="text-sm text-muted-foreground">
@@ -53,7 +53,7 @@ export function MaterialStepper({
         </span>
       </div>
       {installedToday !== 0 ? (
-        <p className="text-xs font-medium text-primary">
+        <p className="text-xs font-medium text-info-fg">
           Today: {installedToday > 0 ? "+" : ""}
           {installedToday} {material.unit}
         </p>

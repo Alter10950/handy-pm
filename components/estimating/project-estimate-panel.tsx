@@ -14,8 +14,8 @@ import type { Tables } from "@/lib/supabase/database.types";
 import { cn } from "@/lib/utils";
 
 const CONFIDENCE_CLASS: Record<ComputedEstimate["confidence"], string> = {
-  high: "text-success",
-  medium: "text-warning",
+  high: "text-success-fg",
+  medium: "text-warning-fg",
   low: "text-destructive",
 };
 
@@ -50,7 +50,7 @@ function Stat({
   testId: string;
 }) {
   return (
-    <div className="rounded-lg border border-border bg-card p-3">
+    <div className="rounded-lg border border-border bg-card shadow-e1 p-3">
       <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
         {label}
       </p>
@@ -226,7 +226,7 @@ export function ProjectEstimatePanel({
         ) : null}
       </p>
 
-      <div className="rounded-lg border border-border bg-card p-4">
+      <div className="rounded-lg border border-border bg-card shadow-e1 p-4">
         <h3 className="mb-3 text-sm font-semibold text-foreground">What-if</h3>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-6">
           <div className="flex flex-col gap-1">
@@ -265,7 +265,7 @@ export function ProjectEstimatePanel({
                     className={cn(
                       "rounded-md border px-2.5 py-1 text-xs font-medium",
                       selectedCrewIds.includes(crew.id)
-                        ? "border-primary bg-primary/15 text-primary"
+                        ? "border-brand bg-brand-subtle text-foreground"
                         : "border-border bg-background text-muted-foreground hover:text-foreground"
                     )}
                   >
@@ -353,7 +353,7 @@ export function ProjectEstimatePanel({
         ) : null}
       </div>
 
-      <div className="rounded-lg border border-border bg-card p-4">
+      <div className="rounded-lg border border-border bg-card shadow-e1 p-4">
         <h3 className="mb-3 text-sm font-semibold text-foreground">
           Remaining hours by task
         </h3>
@@ -395,7 +395,7 @@ export function ProjectEstimatePanel({
         )}
       </div>
 
-      <div className="rounded-lg border border-border bg-card p-4">
+      <div className="rounded-lg border border-border bg-card shadow-e1 p-4">
         <h3 className="mb-3 text-sm font-semibold text-foreground">
           Estimate history
         </h3>

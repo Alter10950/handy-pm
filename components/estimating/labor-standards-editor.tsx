@@ -26,7 +26,7 @@ export function LaborStandardsEditor({
   }
 
   return (
-    <div className="rounded-lg border border-border bg-card p-4">
+    <div className="rounded-lg border border-border bg-card shadow-e1 p-4">
       <h2 className="mb-1 text-sm font-semibold text-foreground">
         Labor standards
       </h2>

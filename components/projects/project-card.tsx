@@ -1,6 +1,8 @@
+import { CalendarIcon, UserIcon } from "lucide-react";
 import Link from "next/link";
 
 import { ProjectStatusBadge } from "@/components/projects/project-status-badge";
+import { ProgressBar } from "@/components/ui/progress-meter";
 import type { Views } from "@/lib/supabase/database.types";
 
 function formatDeadline(deadline: string | null): string {
@@ -27,41 +29,37 @@ export function ProjectCard({
   return (
     <Link
       href={`/app/project/${project.project_id}`}
-      className="flex flex-col gap-3 rounded-lg border border-border bg-card p-5 transition-colors hover:border-primary/60"
+      className="group flex flex-col gap-4 rounded-xl border border-border bg-surface p-5 shadow-e1 transition-all hover:-translate-y-0.5 hover:border-border-strong hover:shadow-e2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+      style={{ transitionDuration: "var(--duration-base)" }}
     >
       <div className="flex items-start justify-between gap-3">
-        <h2 className="text-lg font-semibold text-foreground">
+        <h2 className="text-base font-semibold leading-snug text-foreground">
           {project.name}
         </h2>
         <ProjectStatusBadge status={project.status} />
       </div>
 
       <div className="flex items-center gap-3">
-        <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
-          <div
-            className="h-full rounded-full bg-primary transition-[width]"
-            style={{ width: `${pct}%` }}
-          />
-        </div>
-        <span className="text-sm font-medium tabular-nums text-muted-foreground">
-          {pct}%
-        </span>
+        <ProgressBar pct={pct} className="flex-1" />
+        <span className="num text-sm font-medium text-text-secondary">{pct}%</span>
       </div>
 
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-sm text-muted-foreground">
+      <div className="flex items-center justify-between gap-2 text-[13px]">
+        <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+          <CalendarIcon aria-hidden className="size-3.5" />
           {formatDeadline(project.deadline)}
-        </p>
+        </span>
         {pmLabel !== undefined ? (
-          <p
-            className={
-              pmLabel
-                ? "truncate text-sm text-muted-foreground"
-                : "truncate text-sm font-medium text-warning"
-            }
-          >
-            {pmLabel ? `PM: ${pmLabel}` : "No PM assigned"}
-          </p>
+          pmLabel ? (
+            <span className="inline-flex min-w-0 items-center gap-1.5 text-muted-foreground">
+              <UserIcon aria-hidden className="size-3.5 shrink-0" />
+              <span className="truncate">{pmLabel}</span>
+            </span>
+          ) : (
+            <span className="truncate font-medium text-warning-fg">
+              No PM assigned
+            </span>
+          )
         ) : null}
       </div>
     </Link>

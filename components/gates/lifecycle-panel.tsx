@@ -24,9 +24,9 @@ import { cn } from "@/lib/utils";
 // + colored-text + colored-border pattern already established for badges
 // elsewhere (row readiness dots, share-link status), not a solid fill.
 const STAGE_STATUS_CLASS: Record<string, string> = {
-  complete: "bg-success/15 text-success border-success/40",
-  overridden: "bg-primary/15 text-primary border-primary/40",
-  active: "bg-primary text-primary-foreground border-primary",
+  complete: "bg-success/15 text-success-fg border-success/40",
+  overridden: "bg-brand-subtle text-foreground border-brand/40",
+  active: "bg-brand-subtle text-foreground border-brand",
   locked: "bg-muted text-muted-foreground border-border",
 };
 
@@ -234,7 +234,7 @@ function GateChecklist({
   return (
     <div
       data-testid="gate-checklist"
-      className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4"
+      className="flex flex-col gap-3 rounded-lg border border-border bg-card shadow-e1 p-4"
     >
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-sm font-semibold text-foreground">
@@ -355,7 +355,7 @@ export function LifecyclePanel({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap gap-1.5 overflow-x-auto rounded-lg border border-border bg-card p-2">
+      <div className="flex flex-wrap gap-1.5 overflow-x-auto rounded-lg border border-border bg-card shadow-e1 p-2">
         {stages.map((stage) => (
           <button
             key={stage.id}

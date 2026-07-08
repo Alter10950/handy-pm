@@ -37,7 +37,7 @@ export default async function ProjectEstimatePage({
         // baseline silently absorbing growth.
         <div
           data-testid="estimate-baseline-card"
-          className="rounded-lg border border-border bg-card p-4"
+          className="rounded-lg border border-border bg-card shadow-e1 p-4"
         >
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="text-sm font-semibold text-foreground">
@@ -45,7 +45,7 @@ export default async function ProjectEstimatePage({
             </h3>
             <Link
               href={`/app/project/${id}/change-orders`}
-              className="text-xs font-medium text-primary hover:underline"
+              className="text-xs font-medium text-info-fg hover:underline"
             >
               {approvedCoTotals.count} approved change order
               {approvedCoTotals.count === 1 ? "" : "s"} →
@@ -64,7 +64,7 @@ export default async function ProjectEstimatePage({
                 {Math.round((original.laborUnits + approvedCoTotals.laborUnits) * 10) /
                   10}
                 {approvedCoTotals.laborUnits > 0 ? (
-                  <span className="ml-1 text-xs font-medium text-primary">
+                  <span className="ml-1 text-xs font-medium text-info-fg">
                     (+{Math.round(approvedCoTotals.laborUnits * 10) / 10})
                   </span>
                 ) : null}
@@ -81,7 +81,7 @@ export default async function ProjectEstimatePage({
               <p className="text-lg font-bold tabular-nums text-foreground">
                 {Math.round((original.days + approvedCoTotals.addedDays) * 10) / 10}
                 {approvedCoTotals.addedDays > 0 ? (
-                  <span className="ml-1 text-xs font-medium text-primary">
+                  <span className="ml-1 text-xs font-medium text-info-fg">
                     (+{Math.round(approvedCoTotals.addedDays * 10) / 10})
                   </span>
                 ) : null}

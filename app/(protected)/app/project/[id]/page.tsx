@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { LifecyclePanel } from "@/components/gates/lifecycle-panel";
 import { WhatsNextPanel } from "@/components/gates/whats-next-panel";
 import { PmAssignment } from "@/components/projects/pm-assignment";
+import { StatTile } from "@/components/ui/stat-tile";
 import { ensureProjectStages } from "@/lib/gates/actions";
 import { computeNextActions, getProjectLifecycle } from "@/lib/gates/queries";
 import {
@@ -24,19 +25,6 @@ function formatDate(value: string | null): string {
     day: "numeric",
     year: "numeric",
   });
-}
-
-function StatTile({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex flex-col gap-1 rounded-lg border border-border bg-card p-4">
-      <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        {label}
-      </span>
-      <span className="text-2xl font-bold tabular-nums text-foreground">
-        {value}
-      </span>
-    </div>
-  );
 }
 
 export default async function ProjectOverviewPage({
@@ -104,15 +92,15 @@ export default async function ProjectOverviewPage({
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
       <div className="flex flex-col gap-4 lg:col-span-2">
-        <div className="rounded-lg border border-border bg-card p-5">
+        <div className="rounded-xl border border-border bg-surface p-5 shadow-e1">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            <h2 className="type-overline text-muted-foreground">
               Project details
             </h2>
             {canDownloadCloseout ? (
               <Link
                 href={`/api/projects/${id}/closeout-pdf`}
-                className="text-xs font-medium text-primary hover:underline"
+                className="text-xs font-medium text-info-fg hover:underline"
               >
                 Download closeout PDF
               </Link>
@@ -157,16 +145,17 @@ export default async function ProjectOverviewPage({
           <StatTile label="Materials" value={String(materials.length)} />
           <StatTile
             label="Complete"
-            value={`${Math.round((progress?.pct ?? 0) * 100)}%`}
+            value={String(Math.round((progress?.pct ?? 0) * 100))}
+            suffix="%"
           />
         </div>
       </div>
 
-      <div className="rounded-lg border border-border bg-card p-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+      <div className="rounded-xl border border-border bg-surface p-4 shadow-e1">
+        <h2 className="type-overline text-muted-foreground">
           Drawing
         </h2>
-        <div className="mt-3 flex aspect-[4/3] items-center justify-center overflow-hidden rounded-md bg-muted">
+        <div className="mt-3 flex aspect-[4/3] items-center justify-center overflow-hidden rounded-lg bg-stage">
           {thumbnailUrl ? (
             <Image
               src={thumbnailUrl}

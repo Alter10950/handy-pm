@@ -2,8 +2,8 @@ import type { DashboardCrewPerformance } from "@/lib/dashboard/queries";
 import { cn } from "@/lib/utils";
 
 const TIER_CLASS: Record<DashboardCrewPerformance["tier"], string> = {
-  over: "bg-success/20 text-success",
-  normal: "bg-primary/20 text-primary",
+  over: "bg-success/20 text-success-fg",
+  normal: "bg-brand-subtle text-foreground",
   under: "bg-destructive/20 text-destructive",
   "no-data": "bg-muted text-muted-foreground",
 };

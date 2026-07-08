@@ -67,13 +67,13 @@ export default async function HandoffPage({
         </div>
         <Link
           href={`/api/projects/${id}/handoff-survey-pdf`}
-          className="text-xs font-medium text-primary hover:underline"
+          className="text-xs font-medium text-info-fg hover:underline"
         >
           Download handoff PDF
         </Link>
       </div>
 
-      <div className="rounded-lg border border-border bg-card p-4">
+      <div className="rounded-lg border border-border bg-card shadow-e1 p-4">
         <h3 className="text-sm font-semibold text-foreground">
           Walk the drawing
         </h3>

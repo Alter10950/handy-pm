@@ -26,7 +26,7 @@ export default function RootError({
 
   return (
     <div className="flex min-h-screen flex-1 items-center justify-center bg-background px-4 py-16">
-      <div className="w-full max-w-md rounded-lg border border-border bg-card p-6 text-center">
+      <div className="w-full max-w-md rounded-lg border border-border bg-card shadow-e1 p-6 text-center">
         <h1 className="text-lg font-bold text-foreground">
           Something went wrong
         </h1>

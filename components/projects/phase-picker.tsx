@@ -35,7 +35,7 @@ export function PhasePicker({
 
   if (creating) {
     return (
-      <div className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3">
+      <div className="flex flex-col gap-2 rounded-lg border border-border bg-card shadow-e1 p-3">
         <Input
           autoFocus
           placeholder="Phase name (e.g. Phase 2)"
@@ -80,7 +80,7 @@ export function PhasePicker({
   }
 
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3">
+    <div className="flex flex-col gap-2 rounded-lg border border-border bg-card shadow-e1 p-3">
       <p className="text-xs font-medium text-muted-foreground">
         Assign selection to a phase
       </p>

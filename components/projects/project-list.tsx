@@ -6,7 +6,9 @@ import { useState, useSyncExternalStore } from "react";
 
 import { ProjectCard } from "@/components/projects/project-card";
 import { ProjectStatusBadge } from "@/components/projects/project-status-badge";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
+import { ProgressBar } from "@/components/ui/progress-meter";
 import type { Views } from "@/lib/supabase/database.types";
 import { cn } from "@/lib/utils";
 
@@ -62,18 +64,18 @@ function ProjectTable({
   const router = useRouter();
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-border">
+    <div className="overflow-x-auto rounded-lg border border-border bg-surface shadow-e1">
       <table
         data-testid="projects-list-table"
         className={cn("w-full text-sm", muted ? "opacity-70" : "")}
       >
         <thead>
-          <tr className="border-b border-border bg-muted text-left text-xs uppercase tracking-wide text-muted-foreground">
-            <th className="px-3 py-2 font-medium">Project</th>
-            <th className="px-3 py-2 font-medium">Status</th>
-            <th className="min-w-32 px-3 py-2 font-medium">Complete</th>
-            <th className="px-3 py-2 font-medium">Target</th>
-            <th className="px-3 py-2 font-medium">PM</th>
+          <tr className="border-b border-border bg-surface-sunken text-left text-xs font-semibold text-muted-foreground">
+            <th className="px-3 py-2 font-semibold">Project</th>
+            <th className="px-3 py-2 font-semibold">Status</th>
+            <th className="min-w-32 px-3 py-2 font-semibold">Complete</th>
+            <th className="px-3 py-2 font-semibold">Target</th>
+            <th className="px-3 py-2 font-semibold">PM</th>
           </tr>
         </thead>
         <tbody>
@@ -86,7 +88,7 @@ function ProjectTable({
               <tr
                 key={project.project_id}
                 onClick={() => router.push(`/app/project/${project.project_id}`)}
-                className="cursor-pointer border-b border-border last:border-0 hover:bg-muted/50"
+                className="cursor-pointer border-b border-border-subtle transition-colors last:border-0 hover:bg-accent/50"
               >
                 <td className="px-3 py-2.5">
                   <Link
@@ -102,13 +104,8 @@ function ProjectTable({
                 </td>
                 <td className="px-3 py-2.5">
                   <div className="flex items-center gap-2">
-                    <div className="h-1.5 w-20 shrink-0 overflow-hidden rounded-full bg-muted">
-                      <div
-                        className="h-full rounded-full bg-primary"
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                    <span className="tabular-nums text-xs text-muted-foreground">
+                    <ProgressBar pct={pct} size="sm" className="w-20 shrink-0" />
+                    <span className="num text-xs text-muted-foreground">
                       {pct}%
                     </span>
                   </div>
@@ -120,7 +117,9 @@ function ProjectTable({
                   {pmLabel ? (
                     <span className="text-muted-foreground">{pmLabel}</span>
                   ) : (
-                    <span className="font-medium text-warning">No PM assigned</span>
+                    <span className="font-medium text-warning-fg">
+                      No PM assigned
+                    </span>
                   )}
                 </td>
               </tr>
@@ -227,10 +226,13 @@ export function ProjectList({
           ) : null}
         </div>
 
+        {/* Raised-chip active state on a sunken track (design system), not
+            a yellow slab. Hand-rolled rather than <Segmented> to keep the
+            E2E testids and icon-only buttons. */}
         <div
           role="group"
           aria-label="View mode"
-          className="flex overflow-hidden rounded-md border border-border"
+          className="flex items-center gap-0.5 rounded-lg bg-surface-sunken p-0.5"
         >
           <button
             type="button"
@@ -239,11 +241,12 @@ export function ProjectList({
             aria-pressed={view === "cards"}
             onClick={() => switchView("cards")}
             className={cn(
-              "flex h-8 w-9 items-center justify-center",
+              "flex h-7 w-9 items-center justify-center rounded-md transition-all",
               view === "cards"
-                ? "bg-primary text-primary-foreground"
-                : "bg-background text-muted-foreground hover:text-foreground"
+                ? "bg-surface text-foreground shadow-e1"
+                : "text-muted-foreground hover:text-foreground"
             )}
+            style={{ transitionDuration: "var(--duration-fast)" }}
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" aria-hidden>
               <rect x="0" y="0" width="6" height="6" rx="1" />
@@ -259,11 +262,12 @@ export function ProjectList({
             aria-pressed={view === "list"}
             onClick={() => switchView("list")}
             className={cn(
-              "flex h-8 w-9 items-center justify-center border-l border-border",
+              "flex h-7 w-9 items-center justify-center rounded-md transition-all",
               view === "list"
-                ? "bg-primary text-primary-foreground"
-                : "bg-background text-muted-foreground hover:text-foreground"
+                ? "bg-surface text-foreground shadow-e1"
+                : "text-muted-foreground hover:text-foreground"
             )}
+            style={{ transitionDuration: "var(--duration-fast)" }}
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" aria-hidden>
               <rect x="0" y="1" width="14" height="2.5" rx="1" />
@@ -285,30 +289,26 @@ export function ProjectList({
       </div>
 
       {projects.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-border bg-card p-10 text-center">
-          <p className="text-foreground">No projects yet.</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Create your first project to upload a layout drawing and start
-            marking rows.
-          </p>
-        </div>
+        <EmptyState
+          title="No projects yet"
+          description="Create your first project to upload a layout drawing and start marking rows."
+        />
       ) : matches.length === 0 ? (
-        <div
-          data-testid="no-matches"
-          className="rounded-lg border border-dashed border-border bg-card p-10 text-center"
-        >
-          <p className="text-foreground">
-            {query ? "No projects match." : "No projects assigned to you."}
-          </p>
-          {query ? (
-            <button
-              type="button"
-              onClick={() => setSearch("")}
-              className="mt-2 text-sm font-medium text-primary hover:underline"
-            >
-              Clear search
-            </button>
-          ) : null}
+        <div data-testid="no-matches">
+          <EmptyState
+            title={query ? "No projects match" : "No projects assigned to you"}
+            action={
+              query ? (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  className="text-sm font-medium text-info-fg hover:underline"
+                >
+                  Clear search
+                </button>
+              ) : undefined
+            }
+          />
         </div>
       ) : (
         <>

@@ -26,7 +26,7 @@ function PortalShell({ children }: { children: React.ReactNode }) {
     <main className="flex min-h-full flex-1 flex-col items-center bg-background px-4 py-16">
       <div className="w-full max-w-2xl">
         <p className="mb-8 text-xl font-bold tracking-tight text-foreground">
-          Handy<span className="text-primary">PM</span>
+          Handy<span className="text-text-secondary">PM</span>
         </p>
         {children}
       </div>
@@ -45,7 +45,7 @@ export default async function CustomerPortalPage({
   if (!resolved) {
     return (
       <PortalShell>
-        <div className="rounded-lg border border-border bg-card p-6 text-center">
+        <div className="rounded-lg border border-border bg-card shadow-e1 p-6 text-center">
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
             This link is no longer valid
           </h1>
@@ -63,12 +63,12 @@ export default async function CustomerPortalPage({
   return (
     <PortalShell>
       <div className="flex flex-col gap-4">
-        <div className="rounded-lg border border-border bg-card p-6">
+        <div className="rounded-lg border border-border bg-card shadow-e1 p-6">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h1 className="text-2xl font-bold tracking-tight text-foreground">
               {data.projectName}
             </h1>
-            <span className="rounded-full bg-primary/15 px-3 py-1 text-sm font-medium text-primary">
+            <span className="rounded-full bg-brand-subtle px-3 py-1 text-sm font-medium text-foreground">
               {STATUS_LABEL[data.status] ?? data.status}
             </span>
           </div>
@@ -107,7 +107,7 @@ export default async function CustomerPortalPage({
         </div>
 
         {data.photos.length > 0 ? (
-          <div className="rounded-lg border border-border bg-card p-6">
+          <div className="rounded-lg border border-border bg-card shadow-e1 p-6">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
               Photos
             </h2>

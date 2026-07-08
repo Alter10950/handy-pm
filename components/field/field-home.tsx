@@ -21,7 +21,7 @@ function ProjectLink({
       className={
         highlighted
           ? "flex items-center justify-between gap-2 rounded-lg border border-primary bg-primary/10 p-4 active:bg-primary/20"
-          : "flex flex-col gap-2 rounded-lg border border-border bg-card p-4 active:bg-accent"
+          : "flex flex-col gap-2 rounded-lg border border-border bg-card shadow-e1 p-4 active:bg-accent"
       }
     >
       <div className="flex-1">

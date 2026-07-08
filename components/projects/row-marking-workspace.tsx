@@ -718,7 +718,7 @@ export function RowMarkingWorkspace({
               className={cn(
                 "shrink-0 rounded-md border px-3 py-1.5 text-sm font-medium",
                 index === activePageIndex
-                  ? "border-primary bg-primary text-primary-foreground"
+                  ? "border-brand bg-brand-subtle text-foreground"
                   : "border-border bg-card text-muted-foreground hover:text-foreground"
               )}
             >
@@ -762,7 +762,7 @@ export function RowMarkingWorkspace({
         />
       ) : null}
 
-      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-2">
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card shadow-e1 p-2">
         <Button
           type="button"
           size="sm"
@@ -898,7 +898,7 @@ export function RowMarkingWorkspace({
       {activeCommand === "rename" && isSingleSelection ? (
         <form
           onSubmit={handleRenameSave}
-          className="flex items-end gap-2 rounded-lg border border-border bg-card p-3"
+          className="flex items-end gap-2 rounded-lg border border-border bg-card shadow-e1 p-3"
         >
           <div className="flex flex-1 flex-col gap-1">
             <label

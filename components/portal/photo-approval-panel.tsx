@@ -24,7 +24,7 @@ function PhotoCard({
   const isApproved = photo.approvedPhotoId !== null;
 
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-border bg-card p-2">
+    <div className="flex flex-col gap-2 rounded-lg border border-border bg-card shadow-e1 p-2">
       <div className="relative aspect-[4/3] overflow-hidden rounded-md bg-muted">
         <Image
           src={photo.url}
@@ -34,7 +34,7 @@ function PhotoCard({
           className="object-cover"
         />
         {isApproved ? (
-          <span className="absolute right-1 top-1 rounded-full bg-card px-2 py-0.5 text-xs font-medium text-success ring-1 ring-success/40">
+          <span className="absolute right-1 top-1 rounded-full bg-card px-2 py-0.5 text-xs font-medium text-success-fg ring-1 ring-success/40">
             Visible to customer
           </span>
         ) : null}
@@ -113,7 +113,7 @@ export function PhotoApprovalPanel({
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
+    <div className="flex flex-col gap-3 rounded-lg border border-border bg-card shadow-e1 p-4">
       <h2 className="text-sm font-semibold text-foreground">
         Photos ({candidates.length})
       </h2>

@@ -125,7 +125,7 @@ export function MaterialsWorkspace({
         </div>
       ) : null}
 
-      <div className="rounded-lg border border-border bg-card p-3">
+      <div className="rounded-lg border border-border bg-card shadow-e1 p-3">
         {pages.length > 1 ? (
           <div className="mb-2 flex gap-2 overflow-x-auto">
             {pages.map((page, index) => (
@@ -136,7 +136,7 @@ export function MaterialsWorkspace({
                 className={cn(
                   "shrink-0 rounded-md border px-3 py-1.5 text-sm font-medium",
                   index === activePageIndex
-                    ? "border-primary bg-primary text-primary-foreground"
+                    ? "border-brand bg-brand-subtle text-foreground"
                     : "border-border bg-card text-muted-foreground hover:text-foreground"
                 )}
               >
@@ -171,7 +171,7 @@ export function MaterialsWorkspace({
       </div>
 
       {phaseAssignedByMaterial ? (
-        <div className="rounded-lg border border-border bg-card p-3">
+        <div className="rounded-lg border border-border bg-card shadow-e1 p-3">
           <p className="mb-2 text-sm font-medium text-foreground">
             Assigned to this phase
           </p>

@@ -35,7 +35,7 @@ function formatDay(dateStr: string): string {
 // tell projects apart on the calendar without a dedicated "project
 // color" column.
 const CHIP_COLORS = [
-  "bg-primary/20 text-primary border-primary/40",
+  "bg-brand-subtle text-foreground border-brand/40",
   "bg-blue-500/20 text-blue-400 border-blue-500/40",
   "bg-purple-500/20 text-purple-400 border-purple-500/40",
   "bg-emerald-500/20 text-emerald-400 border-emerald-500/40",

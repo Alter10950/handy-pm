@@ -150,7 +150,7 @@ export default async function ProjectMaterialsPage({
                   href={slip.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="break-all text-sm text-primary hover:underline"
+                  className="break-all text-sm text-info-fg hover:underline"
                 >
                   {slip.name}
                 </a>

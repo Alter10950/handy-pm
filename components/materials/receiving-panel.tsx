@@ -207,7 +207,7 @@ export function ReceivingPanel({
           <span
             className={cn(
               "font-semibold",
-              readiness.isReady ? "text-success" : "text-foreground"
+              readiness.isReady ? "text-success-fg" : "text-foreground"
             )}
           >
             {readiness.isReady
@@ -238,7 +238,7 @@ export function ReceivingPanel({
         </Link>
       </div>
 
-      <div className="rounded-lg border border-border bg-card p-4">
+      <div className="rounded-lg border border-border bg-card shadow-e1 p-4">
         <h2 className="mb-3 text-sm font-semibold text-foreground">
           Reorder list ({reorderList.length})
         </h2>
@@ -258,7 +258,7 @@ export function ReceivingPanel({
         )}
       </div>
 
-      <div className="rounded-lg border border-border bg-card p-4">
+      <div className="rounded-lg border border-border bg-card shadow-e1 p-4">
         <h2 className="mb-3 text-sm font-semibold text-foreground">
           Material status
         </h2>

@@ -55,7 +55,7 @@ export function LoginForm() {
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           placeholder="you@handyequip.com"
-          className="h-12 rounded-md border border-border bg-card px-4 text-base text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
+          className="h-11 rounded-lg border border-border bg-surface px-3.5 text-base text-foreground shadow-e1 transition-colors placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40"
         />
       </div>
 
@@ -75,17 +75,17 @@ export function LoginForm() {
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           placeholder="••••••••"
-          className="h-12 rounded-md border border-border bg-card px-4 text-base text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
+          className="h-11 rounded-lg border border-border bg-surface px-3.5 text-base text-foreground shadow-e1 transition-colors placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40"
         />
       </div>
 
       <Button
         type="submit"
-        size="lg"
-        disabled={status === "loading"}
-        className="h-12 text-base"
+        size="field"
+        loading={status === "loading"}
+        className="mt-1 w-full"
       >
-        {status === "loading" ? "Signing in..." : "Sign in"}
+        {status === "loading" ? "Signing in…" : "Sign in"}
       </Button>
 
       {message ? (

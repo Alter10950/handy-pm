@@ -180,14 +180,14 @@ export function FieldWorkspace({
             <button
               type="button"
               onClick={() => setView("scope")}
-              className="text-sm font-medium text-primary"
+              className="text-sm font-medium text-info-fg"
             >
               Scope
             </button>
             <button
               type="button"
               onClick={() => setView("day")}
-              className="text-sm font-medium text-primary"
+              className="text-sm font-medium text-info-fg"
             >
               Day
             </button>
@@ -196,7 +196,7 @@ export function FieldWorkspace({
           <button
             type="button"
             onClick={() => setView("rows")}
-            className="shrink-0 text-sm font-medium text-primary"
+            className="shrink-0 text-sm font-medium text-info-fg"
           >
             Rows
           </button>
@@ -204,7 +204,7 @@ export function FieldWorkspace({
       </div>
 
       {pendingCount > 0 ? (
-        <div className="bg-primary/20 px-3 py-1.5 text-center text-xs font-medium text-primary">
+        <div className="bg-brand-subtle px-3 py-1.5 text-center text-xs font-medium text-foreground">
           {pendingCount} update{pendingCount === 1 ? "" : "s"} pending sync…
         </div>
       ) : null}
@@ -241,7 +241,7 @@ export function FieldWorkspace({
                   setSelectedRowId(row.row_id);
                   setView("row");
                 }}
-                className="flex items-center gap-3 rounded-lg border border-border bg-card p-3 text-left active:bg-accent"
+                className="flex items-center gap-3 rounded-lg border border-border bg-card shadow-e1 p-3 text-left active:bg-accent"
               >
                 <span
                   className="size-3 shrink-0 rounded-full"

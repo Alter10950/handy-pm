@@ -11,7 +11,7 @@ function formatDueDate(value: string): string {
 
 export function WhatsNextPanel({ actions }: { actions: NextAction[] }) {
   return (
-    <div data-testid="whats-next-panel" className="rounded-lg border border-border bg-card p-4">
+    <div data-testid="whats-next-panel" className="rounded-lg border border-border bg-card shadow-e1 p-4">
       <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
         What&apos;s next
       </h2>

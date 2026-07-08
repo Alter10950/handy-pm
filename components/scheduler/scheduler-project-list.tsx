@@ -21,7 +21,7 @@ export function SchedulerProjectList({
         <Link
           key={project.project_id}
           href={`/scheduler/${project.project_id}`}
-          className="flex items-center justify-between gap-2 rounded-lg border border-border bg-card p-3 hover:bg-accent"
+          className="flex items-center justify-between gap-2 rounded-lg border border-border bg-card shadow-e1 p-3 hover:bg-accent"
         >
           <span className="font-medium text-foreground">{project.name}</span>
           <span className="text-sm text-muted-foreground">

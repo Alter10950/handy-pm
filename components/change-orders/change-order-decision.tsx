@@ -56,7 +56,7 @@ export function ChangeOrderDecision({ token }: { token: string }) {
         data-testid="co-decision-done"
         className="rounded-lg border border-success/50 bg-success/10 p-6 text-center"
       >
-        <p className="text-lg font-semibold text-success">Approved — thank you!</p>
+        <p className="text-lg font-semibold text-success-fg">Approved — thank you!</p>
         <p className="mt-1 text-sm text-foreground">
           The team has been notified and will proceed with the change.
         </p>
@@ -67,7 +67,7 @@ export function ChangeOrderDecision({ token }: { token: string }) {
     return (
       <div
         data-testid="co-decision-done"
-        className="rounded-lg border border-border bg-card p-6 text-center"
+        className="rounded-lg border border-border bg-card shadow-e1 p-6 text-center"
       >
         <p className="text-lg font-semibold text-foreground">Declined.</p>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -78,7 +78,7 @@ export function ChangeOrderDecision({ token }: { token: string }) {
   }
 
   return (
-    <div className="rounded-lg border border-border bg-card p-6">
+    <div className="rounded-lg border border-border bg-card shadow-e1 p-6">
       <p className="text-sm font-semibold text-foreground">Your decision</p>
       {!showDecline ? (
         <div className="mt-3 flex flex-col gap-3">

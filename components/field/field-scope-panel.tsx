@@ -71,7 +71,7 @@ function FieldScopeItemCard({
   return (
     <div
       data-testid={`scope-item-${item.scope_item_id}`}
-      className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3"
+      className="flex flex-col gap-2 rounded-lg border border-border bg-card shadow-e1 p-3"
     >
       <div className="flex items-start justify-between gap-2">
         <div>

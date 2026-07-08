@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { NewProjectDialog } from "@/components/projects/new-project-dialog";
 import { ProjectList } from "@/components/projects/project-list";
+import { PageHeader } from "@/components/ui/page-header";
 import { listProjectsWithProgress } from "@/lib/projects/queries";
 import { createClient } from "@/lib/supabase/server";
 import { listPmCandidates, listTeamMembers } from "@/lib/team/queries";
@@ -29,12 +30,17 @@ export default async function ProjectsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">
-          Projects
-        </h1>
-        <NewProjectDialog pmCandidates={pmCandidates} currentUserId={user.id} />
-      </div>
+      <PageHeader
+        overline="Handy Equip"
+        title="Projects"
+        description="Every active install, its progress, and who's running it."
+        actions={
+          <NewProjectDialog
+            pmCandidates={pmCandidates}
+            currentUserId={user.id}
+          />
+        }
+      />
 
       <ProjectList
         projects={projects}

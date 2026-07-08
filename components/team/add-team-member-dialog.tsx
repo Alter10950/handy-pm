@@ -94,7 +94,7 @@ export function AddTeamMemberDialog() {
               <button
                 type="button"
                 onClick={() => setPassword(generateTempPassword())}
-                className="text-xs font-medium text-primary hover:underline"
+                className="text-xs font-medium text-info-fg hover:underline"
               >
                 Generate new
               </button>

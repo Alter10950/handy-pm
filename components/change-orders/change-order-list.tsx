@@ -52,7 +52,7 @@ function NewChangeOrderForm({ projectId }: { projectId: string }) {
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
+    <div className="flex flex-col gap-3 rounded-lg border border-border bg-card shadow-e1 p-4">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <label htmlFor="co-title" className="text-xs text-muted-foreground">
@@ -137,7 +137,7 @@ export function ChangeOrderList({
             <li key={co.id}>
               <Link
                 href={`/app/project/${projectId}/change-orders/${co.id}`}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-card p-3 hover:border-primary/50"
+                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-card shadow-e1 p-3 hover:border-primary/50"
               >
                 <div className="flex items-center gap-3">
                   <span className="font-mono text-sm font-semibold text-foreground">

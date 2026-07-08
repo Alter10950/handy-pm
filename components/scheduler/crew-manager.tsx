@@ -82,7 +82,7 @@ function CrewCard({
 
   if (editing) {
     return (
-      <div className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3">
+      <div className="flex flex-col gap-2 rounded-lg border border-border bg-card shadow-e1 p-3">
         <Input value={name} onChange={(event) => setName(event.target.value)} />
         <div className="flex gap-2">
           <Input
@@ -124,7 +124,7 @@ function CrewCard({
   }
 
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3">
+    <div className="flex flex-col gap-2 rounded-lg border border-border bg-card shadow-e1 p-3">
       <div className="flex items-center justify-between gap-2">
         <div>
           <span className="font-medium text-foreground">{crew.name}</span>

@@ -52,7 +52,7 @@ export default async function VerificationWorksheetPage({
         </div>
         <Link
           href={`/app/project/${id}/receiving`}
-          className="text-xs font-medium text-primary hover:underline"
+          className="text-xs font-medium text-info-fg hover:underline"
         >
           ← Back to Receiving
         </Link>
@@ -70,7 +70,7 @@ export default async function VerificationWorksheetPage({
           <span
             className={
               readiness.isReady
-                ? "font-semibold text-success"
+                ? "font-semibold text-success-fg"
                 : "font-semibold text-foreground"
             }
           >

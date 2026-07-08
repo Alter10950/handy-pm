@@ -102,7 +102,7 @@ export function OrgSettingsForm({
                 className={cn(
                   "h-9 min-w-11 rounded-md border px-2 text-sm font-medium transition-colors",
                   active
-                    ? "border-primary bg-primary text-primary-foreground"
+                    ? "border-brand bg-brand-subtle text-foreground"
                     : "border-border bg-card text-muted-foreground hover:text-foreground"
                 )}
               >
@@ -123,7 +123,7 @@ export function OrgSettingsForm({
           className={
             status === "error"
               ? "text-sm text-destructive"
-              : "text-sm text-success"
+              : "text-sm text-success-fg"
           }
         >
           {message}

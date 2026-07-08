@@ -194,7 +194,7 @@ function TemplateStageCard({
   return (
     <div
       data-testid={`template-stage-${stage.stage_key}`}
-      className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4"
+      className="flex flex-col gap-3 rounded-lg border border-border bg-card shadow-e1 p-4"
     >
       <h3 className="text-sm font-semibold text-foreground">
         {STAGE_LABEL[stage.stage_key as GateStageKey]}

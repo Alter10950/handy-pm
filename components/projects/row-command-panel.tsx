@@ -30,7 +30,7 @@ export function RowCommandPanel({
   onClearSelection: () => void;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-2">
+    <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card shadow-e1 p-2">
       <span className="px-1 text-sm font-medium text-foreground">
         {selectedCount} row{selectedCount === 1 ? "" : "s"} selected
       </span>

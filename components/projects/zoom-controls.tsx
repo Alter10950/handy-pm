@@ -14,7 +14,7 @@ export function ZoomControls({
   onFit: () => void;
 }) {
   return (
-    <div className="pointer-events-auto absolute bottom-3 right-3 z-20 flex items-center gap-1 rounded-lg border border-border bg-card/95 p-1 shadow-lg backdrop-blur">
+    <div className="pointer-events-auto absolute bottom-3 right-3 z-20 flex items-center gap-1 rounded-lg border border-border bg-card shadow-e1/95 p-1 shadow-lg backdrop-blur">
       <Button
         type="button"
         size="icon-sm"

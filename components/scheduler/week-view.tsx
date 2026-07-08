@@ -113,11 +113,11 @@ export function WeekView({
           let status: { label: string; className: string } | null = null;
           if (isScheduled && target > 0) {
             if (actual >= target * 1.1) {
-              status = { label: "Exceeded", className: "bg-success/20 text-success" };
+              status = { label: "Exceeded", className: "bg-success/20 text-success-fg" };
             } else if (actual >= target) {
-              status = { label: "Hit", className: "bg-success/20 text-success" };
+              status = { label: "Hit", className: "bg-success/20 text-success-fg" };
             } else if (actual >= target * 0.7) {
-              status = { label: "Close", className: "bg-primary/20 text-primary" };
+              status = { label: "Close", className: "bg-brand-subtle text-foreground" };
             } else {
               status = { label: "Miss", className: "bg-destructive/20 text-destructive" };
             }
@@ -137,7 +137,7 @@ export function WeekView({
                 <span className="font-medium text-foreground">
                   {formatLabel(date)}
                   {date === today ? (
-                    <span className="ml-1.5 text-xs text-primary">Today</span>
+                    <span className="ml-1.5 rounded-full bg-brand-subtle px-1.5 text-xs font-medium text-foreground">Today</span>
                   ) : null}
                 </span>
                 {!isScheduled ? (

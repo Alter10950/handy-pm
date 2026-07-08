@@ -9,7 +9,7 @@ export function ReconciliationCard({
   overallPct: number;
 }) {
   return (
-    <div className="rounded-lg border border-border bg-card p-5">
+    <div className="rounded-lg border border-border bg-card shadow-e1 p-5">
       <div className="flex items-center justify-between gap-3">
         <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
           Reconciliation
@@ -52,7 +52,7 @@ export function ReconciliationCard({
                     <td
                       className={cn(
                         "px-3 py-2 text-right tabular-nums",
-                        mismatched ? "text-warning" : "text-foreground"
+                        mismatched ? "text-warning-fg" : "text-foreground"
                       )}
                     >
                       {row.assigned}
@@ -67,7 +67,7 @@ export function ReconciliationCard({
                     <td
                       className={cn(
                         "py-2 pl-3 text-right tabular-nums",
-                        needsOrder ? "text-destructive" : "text-success"
+                        needsOrder ? "text-destructive" : "text-success-fg"
                       )}
                     >
                       {row.to_order}

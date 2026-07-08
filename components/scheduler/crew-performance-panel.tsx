@@ -59,7 +59,7 @@ export function CrewPerformancePanel({
   return (
     <div
       data-testid="crew-performance-panel"
-      className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3"
+      className="flex flex-col gap-2 rounded-lg border border-border bg-card shadow-e1 p-3"
     >
       <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
         Crew performance
@@ -80,9 +80,9 @@ export function CrewPerformancePanel({
                   className={cn(
                     "rounded-full px-2 py-0.5 text-xs font-medium",
                     spi >= 1
-                      ? "bg-success/20 text-success"
+                      ? "bg-success/20 text-success-fg"
                       : spi >= 0.8
-                        ? "bg-primary/20 text-primary"
+                        ? "bg-brand-subtle text-foreground"
                         : "bg-destructive/20 text-destructive"
                   )}
                 >

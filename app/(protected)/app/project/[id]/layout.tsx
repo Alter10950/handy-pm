@@ -1,8 +1,11 @@
+import { ChevronLeftIcon } from "lucide-react";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { ConvertEstimateButton } from "@/components/estimating/convert-estimate-button";
 import { ProjectStatusBadge } from "@/components/projects/project-status-badge";
 import { ProjectTabs } from "@/components/projects/project-tabs";
+import { PageHeader } from "@/components/ui/page-header";
 import { getProject } from "@/lib/projects/queries";
 import { createClient } from "@/lib/supabase/server";
 
@@ -31,16 +34,23 @@ export default async function ProjectLayout({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">
-          {project.name}
-        </h1>
-        <div className="flex items-center gap-3">
-          <ProjectStatusBadge status={project.status} />
-          {project.status === "estimate" ? (
-            <ConvertEstimateButton projectId={project.id} />
-          ) : null}
-        </div>
+      <div className="flex flex-col gap-1">
+        <Link
+          href="/app"
+          className="inline-flex w-fit items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ChevronLeftIcon aria-hidden className="size-3.5" />
+          Projects
+        </Link>
+        <PageHeader
+          title={project.name}
+          status={<ProjectStatusBadge status={project.status} />}
+          actions={
+            project.status === "estimate" ? (
+              <ConvertEstimateButton projectId={project.id} />
+            ) : undefined
+          }
+        />
       </div>
 
       <ProjectTabs

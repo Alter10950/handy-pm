@@ -172,7 +172,7 @@ export function DayLogPanel({
         </button>
         <h2 className="font-semibold text-foreground">Review today &amp; close</h2>
 
-        <div className="rounded-lg border border-border bg-card p-3">
+        <div className="rounded-lg border border-border bg-card shadow-e1 p-3">
           <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
             Times
           </h3>
@@ -192,7 +192,7 @@ export function DayLogPanel({
           </div>
         </div>
 
-        <div className="rounded-lg border border-border bg-card p-3">
+        <div className="rounded-lg border border-border bg-card shadow-e1 p-3">
           <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
             Installed today
           </h3>
@@ -210,7 +210,7 @@ export function DayLogPanel({
                   </span>
                   <span
                     className={
-                      item.netQty > 0 ? "text-success" : "text-destructive"
+                      item.netQty > 0 ? "text-success-fg" : "text-destructive"
                     }
                   >
                     {item.netQty > 0 ? "+" : ""}
@@ -222,7 +222,7 @@ export function DayLogPanel({
           )}
         </div>
 
-        <div className="rounded-lg border border-border bg-card p-3">
+        <div className="rounded-lg border border-border bg-card shadow-e1 p-3">
           <h3 className="mb-1 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
             Blockers
           </h3>
@@ -234,7 +234,7 @@ export function DayLogPanel({
         </div>
 
         {note ? (
-          <div className="rounded-lg border border-border bg-card p-3">
+          <div className="rounded-lg border border-border bg-card shadow-e1 p-3">
             <h3 className="mb-1 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
               Note
             </h3>
@@ -243,7 +243,7 @@ export function DayLogPanel({
         ) : null}
 
         {photoPaths.length > 0 ? (
-          <div className="rounded-lg border border-border bg-card p-3">
+          <div className="rounded-lg border border-border bg-card shadow-e1 p-3">
             <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
               Photos
             </h3>
@@ -294,7 +294,7 @@ export function DayLogPanel({
             <div
               key={field}
               data-testid={`day-log-row-${field}`}
-              className="flex items-center justify-between gap-2 rounded-lg border border-border bg-card p-3"
+              className="flex items-center justify-between gap-2 rounded-lg border border-border bg-card shadow-e1 p-3"
             >
               <span className="text-foreground">{label}</span>
               {formatted ? (
@@ -328,7 +328,7 @@ export function DayLogPanel({
       </div>
 
       {todaySummary.length > 0 ? (
-        <div className="rounded-lg border border-border bg-card p-3">
+        <div className="rounded-lg border border-border bg-card shadow-e1 p-3">
           <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
             Installed today
           </h3>
@@ -343,7 +343,7 @@ export function DayLogPanel({
                 </span>
                 <span
                   className={
-                    item.netQty > 0 ? "text-success" : "text-destructive"
+                    item.netQty > 0 ? "text-success-fg" : "text-destructive"
                   }
                 >
                   {item.netQty > 0 ? "+" : ""}
@@ -430,7 +430,7 @@ export function DayLogPanel({
         <div className="flex flex-col gap-2 rounded-lg border border-primary bg-primary/10 p-3">
           <p className="text-sm text-foreground">&ldquo;{voiceDraft.cleanedNote}&rdquo;</p>
           {voiceDraft.isBlocker ? (
-            <p className="text-xs text-primary">
+            <p className="text-xs text-info-fg">
               This sounds like it might be a blocker
               {voiceDraft.blockerCode ? ` (${voiceDraft.blockerCode})` : ""}.
             </p>
@@ -462,7 +462,7 @@ export function DayLogPanel({
       ) : null}
 
       {closed ? (
-        <p className="rounded-lg border border-border bg-card p-3 text-sm text-muted-foreground">
+        <p className="rounded-lg border border-border bg-card shadow-e1 p-3 text-sm text-muted-foreground">
           Day closed — departed at {formatTime(dayLog?.departed_at ?? null)}.
         </p>
       ) : (

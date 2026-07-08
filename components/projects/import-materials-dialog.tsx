@@ -295,7 +295,7 @@ export function ImportMaterialsDialog({
             onClick={() => handleModeChange("materials")}
             className={`flex-1 rounded px-3 py-1.5 text-sm font-medium ${
               mode === "materials"
-                ? "bg-primary text-primary-foreground"
+                ? "bg-surface text-foreground shadow-e1"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
@@ -307,7 +307,7 @@ export function ImportMaterialsDialog({
             onClick={() => handleModeChange("assignments")}
             className={`flex-1 rounded px-3 py-1.5 text-sm font-medium ${
               mode === "assignments"
-                ? "bg-primary text-primary-foreground"
+                ? "bg-surface text-foreground shadow-e1"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
@@ -471,7 +471,7 @@ export function ImportMaterialsDialog({
                         {row.error ? (
                           <span className="text-destructive">{row.error}</span>
                         ) : (
-                          <span className="text-success">OK</span>
+                          <span className="text-success-fg">OK</span>
                         )}
                       </td>
                     </tr>

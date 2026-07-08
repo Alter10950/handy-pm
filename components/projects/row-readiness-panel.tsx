@@ -6,10 +6,10 @@ import { Button } from "@/components/ui/button";
 import type { RowReadinessInputs } from "@/lib/rows/actions";
 
 const READINESS_TIER_CLASS: Record<string, string> = {
-  ready: "bg-success/15 text-success",
-  partial: "bg-primary/15 text-primary",
+  ready: "bg-success/15 text-success-fg",
+  partial: "bg-brand-subtle text-foreground",
   blocked: "bg-destructive/15 text-destructive",
-  complete: "bg-success/15 text-success",
+  complete: "bg-success/15 text-success-fg",
 };
 
 export function RowReadinessPanel({
@@ -42,7 +42,7 @@ export function RowReadinessPanel({
   const [drawingApproved, setDrawingApproved] = useState(drawingApprovedProp);
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-3">
+    <div className="flex flex-col gap-3 rounded-lg border border-border bg-card shadow-e1 p-3">
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-sm font-semibold text-foreground">Readiness</h3>
         <span

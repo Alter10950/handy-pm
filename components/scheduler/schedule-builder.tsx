@@ -110,7 +110,7 @@ export function ScheduleBuilder({
 
   if (!open) {
     return (
-      <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-3">
+      <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card shadow-e1 p-3">
         <span className="text-sm text-foreground">
           {schedule.length === 0
             ? "No schedule set yet"
@@ -124,7 +124,7 @@ export function ScheduleBuilder({
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-3">
+    <div className="flex flex-col gap-3 rounded-lg border border-border bg-card shadow-e1 p-3">
       <div className="flex flex-wrap items-end gap-3">
         <div className="flex flex-col gap-1">
           <label htmlFor="schedule-start" className="text-xs text-muted-foreground">

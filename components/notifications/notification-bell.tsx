@@ -103,7 +103,7 @@ export function NotificationBell({
       {open ? (
         <div
           data-testid="notification-dropdown"
-          className="absolute right-0 top-11 z-20 w-80 max-w-[90vw] rounded-lg border border-border bg-card shadow-lg"
+          className="absolute right-0 top-11 z-20 w-80 max-w-[90vw] rounded-lg border border-border bg-card shadow-e1 shadow-lg"
         >
           <div className="flex items-center justify-between border-b border-border px-3 py-2">
             <span className="text-sm font-semibold text-foreground">
@@ -113,7 +113,7 @@ export function NotificationBell({
               <button
                 type="button"
                 onClick={handleMarkAllRead}
-                className="text-xs font-medium text-primary hover:underline"
+                className="text-xs font-medium text-info-fg hover:underline"
               >
                 Mark all read
               </button>

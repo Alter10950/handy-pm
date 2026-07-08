@@ -54,8 +54,8 @@ function suggestedLaborUnits(
 // theme (see app/globals.css) — translucent-bg + colored-text + colored
 // border, same established pattern as every other status badge.
 const STATUS_CLASS: Record<string, string> = {
-  done: "bg-success/15 text-success border-success/40",
-  partial: "bg-primary/15 text-primary border-primary/40",
+  done: "bg-success/15 text-success-fg border-success/40",
+  partial: "bg-brand-subtle text-foreground border-brand/40",
   not_started: "bg-muted text-muted-foreground border-border",
 };
 
@@ -240,7 +240,7 @@ function ScopeItemForm({
             <button
               type="button"
               onClick={() => setInput((v) => ({ ...v, laborUnits: suggested }))}
-              className="text-left text-xs text-primary hover:underline"
+              className="text-left text-xs text-info-fg hover:underline"
             >
               Suggested: {suggested} hrs
             </button>
@@ -521,7 +521,7 @@ export function ScopeWorkspace({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="rounded-lg border border-border bg-card p-4">
+      <div className="rounded-lg border border-border bg-card shadow-e1 p-4">
         {items.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             No scope items yet — add teardown, level changes, relocation, or

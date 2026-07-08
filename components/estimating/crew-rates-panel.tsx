@@ -41,7 +41,7 @@ export function CrewRatesPanel({
   }
 
   return (
-    <div className="rounded-lg border border-border bg-card p-4">
+    <div className="rounded-lg border border-border bg-card shadow-e1 p-4">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className="text-sm font-semibold text-foreground">Crew rates</h2>
@@ -84,7 +84,7 @@ export function CrewRatesPanel({
                           className={
                             rate.samples >= MIN_SAMPLES_FOR_CREW_RATE
                               ? "font-medium text-foreground"
-                              : "font-medium text-warning"
+                              : "font-medium text-warning-fg"
                           }
                         >
                           {rate.units_per_hour?.toFixed(2) ?? "—"}×

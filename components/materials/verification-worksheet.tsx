@@ -135,7 +135,7 @@ function WorksheetLine({
       </div>
 
       {fullyVerified && openFlagQty === 0 ? (
-        <p className="mt-3 text-sm font-medium text-success">
+        <p className="mt-3 text-sm font-medium text-success-fg">
           Fully received and verified.
         </p>
       ) : canManage ? (

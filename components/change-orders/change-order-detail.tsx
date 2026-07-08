@@ -99,7 +99,7 @@ function AddLineForm({
             className={cn(
               "rounded-md border px-2 py-1",
               kind === option
-                ? "border-primary bg-primary text-primary-foreground"
+                ? "border-brand bg-brand-subtle text-foreground"
                 : "border-border text-muted-foreground"
             )}
           >
@@ -274,7 +274,7 @@ export function ChangeOrderDetail({
         </div>
       </div>
 
-      <div className="rounded-lg border border-border bg-card p-4">
+      <div className="rounded-lg border border-border bg-card shadow-e1 p-4">
         <h3 className="text-sm font-semibold text-foreground">Details</h3>
         <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
@@ -327,7 +327,7 @@ export function ChangeOrderDetail({
         </div>
       </div>
 
-      <div className="rounded-lg border border-border bg-card p-4">
+      <div className="rounded-lg border border-border bg-card shadow-e1 p-4">
         <h3 className="text-sm font-semibold text-foreground">
           What this change adds
         </h3>
@@ -348,7 +348,7 @@ export function ChangeOrderDetail({
                     className={cn(
                       "rounded-full px-2 py-0.5 text-xs font-medium",
                       item.kind === "scope"
-                        ? "bg-primary/15 text-primary"
+                        ? "bg-brand-subtle text-foreground"
                         : "bg-muted text-muted-foreground"
                     )}
                   >
@@ -391,7 +391,7 @@ export function ChangeOrderDetail({
         ) : null}
       </div>
 
-      <div className="rounded-lg border border-border bg-card p-4">
+      <div className="rounded-lg border border-border bg-card shadow-e1 p-4">
         <h3 className="text-sm font-semibold text-foreground">
           Impact (auto-suggested from the lines — edit before sending)
         </h3>
@@ -444,11 +444,11 @@ export function ChangeOrderDetail({
         </div>
       </div>
 
-      <div className="rounded-lg border border-border bg-card p-4">
+      <div className="rounded-lg border border-border bg-card shadow-e1 p-4">
         <h3 className="text-sm font-semibold text-foreground">Customer approval</h3>
 
         {co.status === "approved" ? (
-          <p className="mt-2 text-sm text-success" data-testid="co-approved-line">
+          <p className="mt-2 text-sm text-success-fg" data-testid="co-approved-line">
             Approved {co.customer_approved_via ? `(${co.customer_approved_via})` : ""}
             {co.customer_approver_name ? ` by ${co.customer_approver_name}` : ""} on{" "}
             {formatDateTime(co.customer_approved_at)}. Its scope and materials
@@ -463,7 +463,7 @@ export function ChangeOrderDetail({
         ) : (
           <div className="mt-3 flex flex-col gap-4">
             {co.status === "pending_customer" ? (
-              <p className="text-sm text-primary">
+              <p className="text-sm text-info-fg">
                 Sent to {co.sent_to} on {formatDateTime(co.sent_at)} — waiting
                 on the customer. You can still record their approval manually
                 below (e.g. they called instead).
@@ -601,7 +601,7 @@ export function ChangeOrderDetail({
         )}
       </div>
 
-      {notice ? <p className="text-sm text-success">{notice}</p> : null}
+      {notice ? <p className="text-sm text-success-fg">{notice}</p> : null}
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
     </div>
   );

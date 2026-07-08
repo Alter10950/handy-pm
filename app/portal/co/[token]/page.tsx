@@ -15,7 +15,7 @@ function PortalShell({ children }: { children: React.ReactNode }) {
     <main className="flex min-h-full flex-1 flex-col items-center bg-background px-4 py-16">
       <div className="w-full max-w-2xl">
         <p className="mb-8 text-xl font-bold tracking-tight text-foreground">
-          Handy<span className="text-primary">PM</span>
+          Handy<span className="text-text-secondary">PM</span>
         </p>
         {children}
       </div>
@@ -38,7 +38,7 @@ export default async function ChangeOrderApprovalPage({
   if (!co) {
     return (
       <PortalShell>
-        <div className="rounded-lg border border-border bg-card p-6 text-center">
+        <div className="rounded-lg border border-border bg-card shadow-e1 p-6 text-center">
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
             This link is no longer valid
           </h1>
@@ -54,7 +54,7 @@ export default async function ChangeOrderApprovalPage({
   return (
     <PortalShell>
       <div className="flex flex-col gap-4">
-        <div className="rounded-lg border border-border bg-card p-6">
+        <div className="rounded-lg border border-border bg-card shadow-e1 p-6">
           <p className="text-sm text-muted-foreground">
             {co.orgName} — {co.projectName}
           </p>
@@ -122,7 +122,7 @@ export default async function ChangeOrderApprovalPage({
         {co.status === "pending_customer" ? (
           <ChangeOrderDecision token={token} />
         ) : (
-          <div className="rounded-lg border border-border bg-card p-6 text-center">
+          <div className="rounded-lg border border-border bg-card shadow-e1 p-6 text-center">
             <p className="text-lg font-semibold text-foreground">
               This change order is {CO_STATUS_LABEL[co.status].toLowerCase()}.
             </p>

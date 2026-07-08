@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 function pctClass(pct: number | null): string {
   if (pct === null) return "text-muted-foreground";
   if (pct > 10) return "text-destructive";
-  if (pct < -10) return "text-success";
+  if (pct < -10) return "text-success-fg";
   return "text-foreground";
 }
 
@@ -29,7 +29,7 @@ export function EstimateAccuracy({
   divergences: LaborStandardDivergence[];
 }) {
   return (
-    <div data-testid="estimate-accuracy" className="rounded-lg border border-border bg-card p-4">
+    <div data-testid="estimate-accuracy" className="rounded-lg border border-border bg-card shadow-e1 p-4">
       <h2 className="text-lg font-semibold text-foreground">Estimate accuracy</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         Autopsied projects, estimated vs actual — positive means it ran

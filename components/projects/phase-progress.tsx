@@ -53,7 +53,7 @@ export function PhaseProgress({
       </div>
 
       {phaseId ? (
-        <div className="rounded-lg border border-border bg-card p-5">
+        <div className="rounded-lg border border-border bg-card shadow-e1 p-5">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-muted-foreground">
               {phases.find((p) => p.id === phaseId)?.name} complete
@@ -70,9 +70,9 @@ export function PhaseProgress({
           </div>
           <div className="mt-3 flex gap-4 text-sm text-muted-foreground">
             <span>{stats.rowCount} rows</span>
-            <span className="text-success">{stats.rowsComplete} complete</span>
+            <span className="text-success-fg">{stats.rowsComplete} complete</span>
             {stats.rowsMissingMaterials > 0 ? (
-              <span className="text-warning">
+              <span className="text-warning-fg">
                 {stats.rowsMissingMaterials} missing materials
               </span>
             ) : null}

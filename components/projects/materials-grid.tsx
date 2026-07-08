@@ -324,7 +324,7 @@ export function MaterialsGrid({
                       left < 0
                         ? "text-destructive"
                         : left === 0
-                          ? "text-success"
+                          ? "text-success-fg"
                           : "text-foreground"
                     )}
                   >
@@ -334,7 +334,7 @@ export function MaterialsGrid({
                     data-testid={`material-to-order-${material.id}`}
                     className={cn(
                       "border-b border-border p-1.5 text-right tabular-nums",
-                      toOrder > 0 ? "text-destructive" : "text-success"
+                      toOrder > 0 ? "text-destructive" : "text-success-fg"
                     )}
                   >
                     {toOrder}
@@ -483,7 +483,7 @@ export function MaterialsGrid({
       </div>
 
       {selectedIds.size > 0 ? (
-        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-2">
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card shadow-e1 p-2">
           <span className="px-1 text-sm font-medium text-foreground">
             {selectedIds.size} selected
           </span>

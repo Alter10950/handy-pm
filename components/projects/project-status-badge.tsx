@@ -1,4 +1,4 @@
-import { cn } from "@/lib/utils";
+import { StatusPill, type PillTone } from "@/components/ui/status-pill";
 import type { ProjectStatus } from "@/lib/supabase/database.types";
 
 const STATUS_LABEL: Record<ProjectStatus, string> = {
@@ -8,22 +8,17 @@ const STATUS_LABEL: Record<ProjectStatus, string> = {
   complete: "Complete",
 };
 
-const STATUS_CLASS: Record<ProjectStatus, string> = {
-  estimate: "bg-purple-500/15 text-purple-400",
-  active: "bg-primary/15 text-primary",
-  on_hold: "bg-warning/15 text-warning",
-  complete: "bg-success/15 text-success",
+const STATUS_TONE: Record<ProjectStatus, PillTone> = {
+  estimate: "info",
+  active: "brand",
+  on_hold: "warning",
+  complete: "success",
 };
 
 export function ProjectStatusBadge({ status }: { status: ProjectStatus }) {
   return (
-    <span
-      className={cn(
-        "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold",
-        STATUS_CLASS[status]
-      )}
-    >
+    <StatusPill tone={STATUS_TONE[status]} dot={status === "active"}>
       {STATUS_LABEL[status]}
-    </span>
+    </StatusPill>
   );
 }

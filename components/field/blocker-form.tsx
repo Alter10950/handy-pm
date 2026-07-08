@@ -95,7 +95,7 @@ export function BlockerForm({
                 onClick={() => setCode(value)}
                 className={`rounded-md border px-3 py-2 text-left text-sm ${
                   code === value
-                    ? "border-primary bg-primary text-primary-foreground"
+                    ? "border-brand bg-brand-subtle text-foreground"
                     : "border-border bg-background text-foreground"
                 }`}
               >
