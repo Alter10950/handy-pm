@@ -251,15 +251,24 @@ also named `app` inside it is valid and maps to the URL `/app`. See
   with a short scope-free subject line. Small, logically grouped commits.
   Never leave the repo in a broken state (every commit should pass the
   quality gates below).
-- **Handy Equip theme tokens** — the whole app is a single fixed dark theme
-  (no light-mode toggle). Colors live as CSS variables in `app/globals.css`
-  and are consumed through Tailwind's semantic classes (`bg-background`,
-  `text-foreground`, `bg-primary`, `text-primary-foreground`, `border-border`,
-  etc.) — never hardcode hex values in components.
-  - Primary (Handy Equip yellow): `#f2c00e`, with dark text `#1a1a1a` on
-    yellow buttons/surfaces.
-  - Background: `#141414`. Panels/cards: `#1e1e1e`. Borders: `#3a3a3a`.
-    Body text: `#f4f3ef`.
+- **Handy Equip theme tokens** — LIGHT is the default and primary theme
+  (Phase 10, ADR-048); dark is a secondary opt-in via `html.dark`
+  (`<ThemeToggle/>`, persisted at `localStorage["handy-pm:theme"]`, applied
+  pre-paint by the root layout's inline script). The customer Portal and
+  print surfaces are ALWAYS light (`.force-light`, `app/portal/layout.tsx`).
+  Colors live as CSS variables in `app/globals.css` and are consumed through
+  Tailwind's semantic classes (`bg-background`, `bg-surface`,
+  `text-foreground`, `bg-primary`, `border-border`, `shadow-e2`, etc.) —
+  never hardcode hex values in components. See `docs/DESIGN-SYSTEM.md` for
+  the full contract.
+  - Brand (Handy Equip yellow): `#f2c00e` on `--primary`/`--brand`, with ink
+    text `#171717` on yellow — never white. Yellow is a SEASONING: one
+    primary action per screen, brand mark, focus rings, progress fills.
+  - Light surfaces: canvas `#F7F7F5`, cards `#FFFFFF`, sunken `#F0F0EE`,
+    borders `#E2E2DF` hairlines, ink `#1A1A18`. Depth = soft shadows
+    (`shadow-e1..e4`) + hairline borders, not color.
+  - `--accent` remains the NEUTRAL hover wash (shadcn semantics), not brand
+    yellow (ADR-048).
 - **Supabase clients** — never construct a client at module scope. Browser
   client (`lib/supabase/client.ts`) is only called inside event
   handlers/effects; server client (`lib/supabase/server.ts`) is only called

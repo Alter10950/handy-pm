@@ -20,16 +20,21 @@ export const metadata: Metadata = {
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "black-translucent",
+    statusBarStyle: "default",
     title: "Handy PM",
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#141414",
+  themeColor: "#f7f7f5",
   width: "device-width",
   initialScale: 1,
 };
+
+// Applies the persisted theme BEFORE first paint — no light↔dark flash.
+// Light is the default; `dark` is the opt-in class (Phase 10). Kept as a
+// tiny inline script (not a component) because it must run pre-hydration.
+const THEME_INIT = `try{if(localStorage.getItem("handy-pm:theme")==="dark")document.documentElement.classList.add("dark")}catch(e){}`;
 
 export default function RootLayout({
   children,
@@ -39,8 +44,12 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT }} />
+      </head>
       <body className="min-h-full flex flex-col">
         {children}
         <ServiceWorkerRegister />

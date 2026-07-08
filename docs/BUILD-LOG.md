@@ -4,6 +4,47 @@ Engineering journal. Newest entries at top.
 
 ---
 
+## 2026-07-08 — Phase 10: design-system foundation (light-first)
+
+**What:** the token foundation for the Phases 10–16 redesign batch. Full
+reasoning in ADR-048 and the new `docs/DESIGN-SYSTEM.md`; summary here.
+
+**Build:** `app/globals.css` rewritten as the single token layer — LIGHT
+is now the default theme (`:root`: #F7F7F5 canvas, white cards, #F0F0EE
+sunken wells, hairline borders #E2E2DF, ink #1A1A18), dark is the
+secondary opt-in (`.dark`, warm charcoal, same token names) behind a new
+`<ThemeToggle/>` persisted in localStorage and applied pre-paint by an
+inline script in the root layout. `.force-light` re-applies light on a
+subtree — a new `app/portal/layout.tsx` keeps everything customer-facing
+light forever. Because every screen already consumes semantic classes,
+re-pointing the tokens flipped the whole app in one move — verified by
+screenshot (canvas/cards/ink correct, Bingo Warehouse renders) and by the
+full E2E suite. New in the theme layer: brand tokens
+(`--brand/-hover/-pressed/-subtle`), semantic `-subtle`/`-fg` variants
+with warning hue-shifted to orange so it can't read as brand yellow, an
+8-hue data-viz palette, elevation shadows `shadow-e1..e4`, motion tokens,
+a global keyboard-only focus ring, `prefers-reduced-motion` collapse, a
+modular type scale as `type-*` utilities on Geist, `.num` tabular
+numerics, and density variables (`--grid-pad-*`) the Phase 11 DataGrid
+consumes. `--accent` deliberately STAYS the neutral hover wash —
+redefining it to yellow (as a literal reading of the spec would) turns
+every hover state yellow, the exact disease this batch kills (ADR-048).
+New `/styleguide` (office-gated): live palette with computed WCAG
+contrast ratios that re-resolve when the theme flips, type scale,
+spacing/radius/elevation/motion samples, and a primitives section that
+grows with Phase 11. CLAUDE.md's theme section updated to match.
+
+**NEEDS ME:** `Layout-Marker-OVERLAY.html` and `VISION-and-ROADMAP.md`
+are not in the repo (the batch brief says to read them). The brief itself
+carries their operative content (prototype behaviors + vision list), so
+the batch proceeds; paste them if there's more detail I should honor.
+
+**Verified:** lint/typecheck/build green; light-theme screenshots of
+login/projects/styleguide reviewed; full E2E suite run post-flip — see
+PROGRESS for the count.
+
+---
+
 ## 2026-07-07 — Projects page upgrade: search, cards/list toggle, A–Z, completed section
 
 **What:** office Projects page quality-of-life pass (UI only, no schema

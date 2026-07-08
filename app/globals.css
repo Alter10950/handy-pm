@@ -4,6 +4,22 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * ── Handy PM design tokens (Phase 10, see docs/DESIGN-SYSTEM.md) ──
+ *
+ * LIGHT is the default and primary theme; dark is a secondary opt-in
+ * (html.dark, persisted in localStorage, applied pre-paint by the inline
+ * script in app/layout.tsx). `.force-light` re-applies the light set on a
+ * subtree regardless of the html class — the customer Portal and print
+ * output are always light.
+ *
+ * Naming note (ADR-048): the spec's "--accent = brand yellow" collides
+ * with shadcn's `accent` (the neutral hover wash every component already
+ * consumes), so brand yellow lives on --primary/--brand and `accent`
+ * STAYS the neutral interaction wash. Yellow is a seasoning: one primary
+ * action per screen, the brand mark, focus rings, progress fills.
+ */
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -18,20 +34,42 @@
   --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
   --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-chart-6: var(--chart-6);
+  --color-chart-7: var(--chart-7);
+  --color-chart-8: var(--chart-8);
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
+  --color-border-subtle: var(--border-subtle);
+  --color-border-strong: var(--border-strong);
   --color-destructive: var(--destructive);
+  --color-destructive-subtle: var(--destructive-subtle);
+  --color-destructive-fg: var(--destructive-fg);
   --color-success: var(--success);
+  --color-success-subtle: var(--success-subtle);
+  --color-success-fg: var(--success-fg);
   --color-warning: var(--warning);
+  --color-warning-subtle: var(--warning-subtle);
+  --color-warning-fg: var(--warning-fg);
+  --color-info: var(--info);
+  --color-info-subtle: var(--info-subtle);
+  --color-info-fg: var(--info-fg);
   --color-stage: var(--stage);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-pressed: var(--brand-pressed);
+  --color-brand-subtle: var(--brand-subtle);
+  --color-surface: var(--surface);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-surface-raised: var(--surface-raised);
+  --color-text-secondary: var(--text-secondary);
   --color-muted-foreground: var(--muted-foreground);
   --color-muted: var(--muted);
   --color-secondary-foreground: var(--secondary-foreground);
@@ -42,93 +80,179 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --shadow-e1: var(--elevation-1);
+  --shadow-e2: var(--elevation-2);
+  --shadow-e3: var(--elevation-3);
+  --shadow-e4: var(--elevation-4);
 }
 
-/*
- * Handy PM is a single fixed dark theme (charcoal + Handy Equip yellow) —
- * there is no light-mode toggle, so :root and .dark carry identical values.
- * The .dark block is kept in sync so shadcn components using `dark:` variants
- * render correctly if a class="dark" is ever applied.
- */
-:root {
-  --background: #141414;
-  --foreground: #f4f3ef;
-  --card: #1e1e1e;
-  --card-foreground: #f4f3ef;
-  --popover: #1e1e1e;
-  --popover-foreground: #f4f3ef;
+/* ── LIGHT (default) — also re-applied by .force-light for portal/print ── */
+:root,
+.force-light {
+  color-scheme: light;
+
+  /* Surfaces */
+  --background: #f7f7f5; /* soft off-white canvas — raised cards read against it */
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --surface-sunken: #f0f0ee;
+  --foreground: #1a1a18; /* near-black warm ink */
+  --text-secondary: #5a5a55;
+  --card: #ffffff;
+  --card-foreground: #1a1a18;
+  --popover: #ffffff;
+  --popover-foreground: #1a1a18;
+
+  /* Brand — yellow is a seasoning, not the meal */
   --primary: #f2c00e;
-  --primary-foreground: #1a1a1a;
-  --secondary: #262626;
-  --secondary-foreground: #f4f3ef;
-  --muted: #232323;
-  --muted-foreground: #a8a6a0;
-  --accent: #2a2a2a;
-  --accent-foreground: #f4f3ef;
-  --destructive: oklch(0.704 0.191 22.216);
-  --success: #22c55e;
-  --warning: #f59e0b;
-  --stage: #0b1119;
-  --border: #3a3a3a;
-  --input: #3a3a3a;
+  --primary-foreground: #171717; /* dark ink on yellow, never white */
+  --brand: #f2c00e;
+  --brand-hover: #e4b408;
+  --brand-pressed: #cba007;
+  --brand-subtle: #faf3d7; /* low-alpha yellow wash: selected rows, active tints */
+
+  /* Neutral interaction layers (shadcn semantics) */
+  --secondary: #f0f0ee;
+  --secondary-foreground: #1a1a18;
+  --muted: #f0f0ee;
+  --muted-foreground: #8a8a83;
+  --accent: #f0f0ee; /* neutral hover wash — NOT brand yellow (ADR-048) */
+  --accent-foreground: #1a1a18;
+
+  /* Semantic — warning is hue-shifted orange so it never collides with brand yellow */
+  --destructive: #dc2626;
+  --destructive-subtle: #fdecec;
+  --destructive-fg: #b42323;
+  --success: #16a34a;
+  --success-subtle: #e8f6ee;
+  --success-fg: #14783a;
+  --warning: #d97706;
+  --warning-subtle: #fcf0df;
+  --warning-fg: #9a5b04;
+  --info: #2563eb;
+  --info-subtle: #e9f0fd;
+  --info-fg: #1d4fc4;
+
+  /* Lines & focus */
+  --border-subtle: #ececea;
+  --border: #e2e2df;
+  --border-strong: #cfcfcb;
+  --input: #e2e2df;
   --ring: #f2c00e;
-  --chart-1: #f2c00e;
-  --chart-2: #a8a6a0;
-  --chart-3: #f4f3ef;
-  --chart-4: #6b6a66;
-  --chart-5: #3a3a3a;
+
+  /* Drawing stage: neutral light gray so the white drawing + colored rows pop */
+  --stage: #e9e9e6;
+
+  /* Data-viz: categorical hues tuned for white */
+  --chart-1: #4c7df0;
+  --chart-2: #16a34a;
+  --chart-3: #ea8a00;
+  --chart-4: #9333ea;
+  --chart-5: #0d9488;
+  --chart-6: #db2777;
+  --chart-7: #64748b;
+  --chart-8: #b45309;
+
   --radius: 0.625rem;
-  --sidebar: #1e1e1e;
-  --sidebar-foreground: #f4f3ef;
+
+  /* Elevation — soft, low-spread shadows are the depth source on light */
+  --elevation-1: 0 1px 2px rgba(26, 26, 24, 0.05);
+  --elevation-2: 0 1px 2px rgba(26, 26, 24, 0.04), 0 2px 8px rgba(26, 26, 24, 0.06);
+  --elevation-3: 0 2px 4px rgba(26, 26, 24, 0.05), 0 8px 24px rgba(26, 26, 24, 0.1);
+  --elevation-4: 0 4px 8px rgba(26, 26, 24, 0.06), 0 16px 48px rgba(26, 26, 24, 0.16);
+
+  /* Motion */
+  --duration-fast: 120ms;
+  --duration-base: 180ms;
+  --duration-slow: 220ms;
+  --easing-standard: cubic-bezier(0.2, 0, 0, 1);
+  --easing-emphasized: cubic-bezier(0.3, 0, 0, 1.1);
+
+  --sidebar: #ffffff;
+  --sidebar-foreground: #1a1a18;
   --sidebar-primary: #f2c00e;
-  --sidebar-primary-foreground: #1a1a1a;
-  --sidebar-accent: #262626;
-  --sidebar-accent-foreground: #f4f3ef;
-  --sidebar-border: #3a3a3a;
+  --sidebar-primary-foreground: #171717;
+  --sidebar-accent: #f0f0ee;
+  --sidebar-accent-foreground: #1a1a18;
+  --sidebar-border: #e2e2df;
   --sidebar-ring: #f2c00e;
 }
 
+/* ── DARK (secondary, opt-in via html.dark) — warm charcoal, same names ── */
 .dark {
-  --background: #141414;
+  color-scheme: dark;
+
+  --background: #161614;
+  --surface: #1e1e1c;
+  --surface-raised: #232321;
+  --surface-sunken: #1a1a18;
   --foreground: #f4f3ef;
-  --card: #1e1e1e;
+  --text-secondary: #b9b7b0;
+  --card: #1e1e1c;
   --card-foreground: #f4f3ef;
-  --popover: #1e1e1e;
+  --popover: #232321;
   --popover-foreground: #f4f3ef;
+
   --primary: #f2c00e;
-  --primary-foreground: #1a1a1a;
-  --secondary: #262626;
+  --primary-foreground: #171717;
+  --brand: #f2c00e;
+  --brand-hover: #f6cd3d;
+  --brand-pressed: #dcae0b;
+  --brand-subtle: #2e2a17;
+
+  --secondary: #262624;
   --secondary-foreground: #f4f3ef;
-  --muted: #232323;
+  --muted: #232321;
   --muted-foreground: #a8a6a0;
-  --accent: #2a2a2a;
+  --accent: #2a2a28;
   --accent-foreground: #f4f3ef;
-  --destructive: oklch(0.704 0.191 22.216);
+
+  --destructive: #ef4444;
+  --destructive-subtle: #3a1d1d;
+  --destructive-fg: #f28b8b;
   --success: #22c55e;
+  --success-subtle: #16301f;
+  --success-fg: #6fdd96;
   --warning: #f59e0b;
-  --stage: #0b1119;
-  --border: #3a3a3a;
-  --input: #3a3a3a;
+  --warning-subtle: #38290f;
+  --warning-fg: #f8c065;
+  --info: #3b82f6;
+  --info-subtle: #16233c;
+  --info-fg: #8ab4f8;
+
+  --border-subtle: #262624;
+  --border: #32322f;
+  --border-strong: #45453f;
+  --input: #3a3a36;
   --ring: #f2c00e;
-  --chart-1: #f2c00e;
-  --chart-2: #a8a6a0;
-  --chart-3: #f4f3ef;
-  --chart-4: #6b6a66;
-  --chart-5: #3a3a3a;
-  --sidebar: #1e1e1e;
+
+  --stage: #0b1119;
+
+  --chart-1: #7c9ef5;
+  --chart-2: #4ade80;
+  --chart-3: #fbA53b;
+  --chart-4: #c084fc;
+  --chart-5: #2dd4bf;
+  --chart-6: #f472b6;
+  --chart-7: #94a3b8;
+  --chart-8: #d9863a;
+
+  --elevation-1: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --elevation-2: 0 1px 2px rgba(0, 0, 0, 0.3), 0 2px 8px rgba(0, 0, 0, 0.35);
+  --elevation-3: 0 2px 4px rgba(0, 0, 0, 0.35), 0 8px 24px rgba(0, 0, 0, 0.45);
+  --elevation-4: 0 4px 8px rgba(0, 0, 0, 0.4), 0 16px 48px rgba(0, 0, 0, 0.55);
+
+  --sidebar: #1e1e1c;
   --sidebar-foreground: #f4f3ef;
   --sidebar-primary: #f2c00e;
-  --sidebar-primary-foreground: #1a1a1a;
-  --sidebar-accent: #262626;
+  --sidebar-primary-foreground: #171717;
+  --sidebar-accent: #262624;
   --sidebar-accent-foreground: #f4f3ef;
-  --sidebar-border: #3a3a3a;
+  --sidebar-border: #32322f;
   --sidebar-ring: #f2c00e;
 }
 
@@ -141,5 +265,129 @@
   }
   html {
     @apply font-sans;
+  }
+
+  /* Shared keyboard focus ring — 2px brand outline with offset, only on
+     keyboard focus (focus-visible), everywhere. */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  ::selection {
+    background: var(--brand-subtle);
+    color: var(--foreground);
+  }
+
+  /* Motion is quick and physical, never decorative — and optional. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  /* ── Modular type scale (10.3) — size/line-height/tracking/weight pairs.
+     Titles get tighter tracking; overlines are spaced uppercase labels. ── */
+  .type-display-lg {
+    font-size: 2rem;
+    line-height: 2.375rem;
+    letter-spacing: -0.022em;
+    font-weight: 700;
+  }
+  .type-display {
+    font-size: 1.75rem;
+    line-height: 2.125rem;
+    letter-spacing: -0.02em;
+    font-weight: 700;
+  }
+  .type-h1 {
+    font-size: 1.5rem;
+    line-height: 1.875rem;
+    letter-spacing: -0.017em;
+    font-weight: 650;
+  }
+  .type-h2 {
+    font-size: 1.25rem;
+    line-height: 1.625rem;
+    letter-spacing: -0.014em;
+    font-weight: 600;
+  }
+  .type-h3 {
+    font-size: 1.0625rem;
+    line-height: 1.5rem;
+    letter-spacing: -0.011em;
+    font-weight: 600;
+  }
+  .type-title {
+    font-size: 0.9375rem;
+    line-height: 1.375rem;
+    letter-spacing: -0.006em;
+    font-weight: 600;
+  }
+  .type-body-lg {
+    font-size: 1rem;
+    line-height: 1.5625rem;
+    font-weight: 400;
+  }
+  .type-body {
+    font-size: 0.875rem;
+    line-height: 1.375rem;
+    font-weight: 400;
+  }
+  .type-body-sm {
+    font-size: 0.8125rem;
+    line-height: 1.25rem;
+    font-weight: 400;
+  }
+  .type-caption {
+    font-size: 0.75rem;
+    line-height: 1.0625rem;
+    font-weight: 400;
+  }
+  .type-overline {
+    font-size: 0.6875rem;
+    line-height: 1rem;
+    letter-spacing: 0.08em;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  /* Numeric style: tables/stats/money right-align with tabular figures. */
+  .num {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Elevation utilities (also available as shadow-e1..e4). */
+  .elevation-1 {
+    box-shadow: var(--elevation-1);
+  }
+  .elevation-2 {
+    box-shadow: var(--elevation-2);
+  }
+  .elevation-3 {
+    box-shadow: var(--elevation-3);
+  }
+  .elevation-4 {
+    box-shadow: var(--elevation-4);
+  }
+
+  /* Density modes (10.6): comfortable default; compact for power grids.
+     Grids read --grid-pad-y instead of hard-coding cell padding. */
+  :root,
+  [data-density="comfortable"] {
+    --grid-pad-y: 0.625rem;
+    --grid-pad-x: 0.75rem;
+  }
+  [data-density="compact"] {
+    --grid-pad-y: 0.3125rem;
+    --grid-pad-x: 0.625rem;
   }
 }

@@ -5,6 +5,84 @@ Consequences.
 
 ---
 
+## ADR-048: Phase 10 — light-first design system foundation
+
+**Decision date:** 2026-07-08
+
+**Context:** the owner's verdict on the live UI: "looks set up stupid,
+like AI only has two or three features" — a default-shadcn dark scaffold
+with yellow flooding nav pills, buttons, and bars. The Phases 10–16 batch
+replaces the presentation layer. Phase 10 lays the token foundation
+everything else consumes.
+
+**Choice — light becomes the DEFAULT theme; dark becomes the opt-in.**
+This inverts CLAUDE.md's original "single fixed dark theme" rule by
+explicit product direction. Implementation is a token-value swap, not a
+component rewrite: every screen already consumes semantic classes
+(`bg-background`, `text-foreground`, `border-border`, …), so re-pointing
+`:root` at the light values flips the whole app at once, and the `.dark`
+class carries the warm-charcoal set behind a `<ThemeToggle/>` persisted at
+`localStorage["handy-pm:theme"]` and applied pre-paint by an inline
+script in the root layout (no flash). `.force-light` re-applies the light
+set on a subtree — `app/portal/layout.tsx` wraps everything
+customer-facing so the Portal (and print) are always light. Verified
+visually post-flip: canvas #F7F7F5, white cards, hairline borders, ink
+text; Bingo Warehouse loads intact.
+
+**Choice — `--accent` stays the neutral hover wash; brand yellow lives on
+`--primary`/`--brand`.** The batch spec names `--accent` for brand
+yellow, but shadcn's `accent` token is the neutral interaction wash every
+existing component consumes (`hover:bg-accent`, `aria-expanded:bg-accent`)
+— redefining it to yellow would turn every hover state yellow, the exact
+"yellow everywhere" disease this system kills. So: `--brand`,
+`--brand-hover`, `--brand-pressed`, `--brand-subtle` carry the spec's
+accent roles; `--accent` remains neutral; documented prominently in
+DESIGN-SYSTEM.md.
+
+**Choice — warning is hue-shifted orange (#D97706).** On a light UI,
+amber and brand yellow collide; semantic warning must never read as
+brand. Success #16A34A, danger #DC2626, info #2563EB, each with `-subtle`
+backgrounds and `-fg` text variants tuned for white.
+
+**Choice — depth via elevation tokens, not color.** Four soft, low-spread
+shadows (`--elevation-1..4`, exposed as `shadow-e1..e4`) plus three border
+weights; the off-white canvas under pure-white cards does the rest.
+Spacing on a 4px base, radius 6/10/14/20/pill, motion 120/180/220ms with
+standard/emphasized easings, a global keyboard-only focus ring (2px
+yellow, offset), and `prefers-reduced-motion` collapsing all animation
+globally.
+
+**Choice — type scale as utility classes** (`type-display-lg` …
+`type-overline`): size/line-height/tracking/weight pairs on Geist
+(retained — it's on the spec's approved list and already self-hosted via
+next/font), with `.num`/tabular figures as the numeric style for all
+tables/stats. The scale lives in globals.css so the styleguide and every
+Phase 11/12 component share one definition.
+
+**Choice — /styleguide as the living source of truth**, office-gated:
+renders the full palette with LIVE WCAG contrast ratios (computed from
+the resolved CSS variables, re-reading on theme flips via a
+MutationObserver-backed `useSyncExternalStore`), the type scale, spacing/
+radius/elevation/motion samples, and a primitives section that grows with
+Phase 11. A hydration gate returns empty tokens until mounted so server
+and hydration markup agree.
+
+**Consequences:** `app/globals.css` rewritten as the single token layer
+(light `:root`/`.force-light`, dark `.dark`, Tailwind `@theme` mappings
+including new `surface/border-subtle/brand/semantic-subtle/fg/chart-1..8/
+shadow-e*` utilities); root layout gains the pre-paint theme script,
+light `themeColor`, and default status-bar style; new
+`components/theme-toggle.tsx`, `app/portal/layout.tsx`,
+`app/(protected)/styleguide/` + `components/styleguide/styleguide-view.tsx`;
+new `docs/DESIGN-SYSTEM.md`. Old shadcn radius multipliers replaced by
+fixed 6/10/14/20. CLAUDE.md's theme section to be updated with the batch
+(light-first) so the operating manual matches reality. Screens keep their
+existing markup this phase — the yellow-slab nav/toggles remain until
+Phases 11–12 restyle them; the full E2E suite verifies the flip broke no
+functionality.
+
+---
+
 ## ADR-047: Batch 4, Sub-phase J — polish, QA, backfill, deploy
 
 **Decision date:** 2026-07-07

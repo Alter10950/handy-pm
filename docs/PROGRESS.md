@@ -1,5 +1,37 @@
 # Progress
 
+**CONFIRMED BATCH — Phases 10–16 (the "$1M product" batch, started
+2026-07-08).** Everything before this batch (the original Phases 1–5 and
+Batches 2–4, all ✅ done below) stays live and untouched at the data/route
+level; this batch replaces the presentation layer, fixes the labor/estimate
+domain model, and adds operational depth.
+
+- **10 — Design system foundation**: light-first tokens (bright premium
+  light UI as the default; dark becomes a secondary toggle), type scale,
+  spacing/radius/elevation/motion tokens, `/styleguide`, docs/DESIGN-SYSTEM.md.
+- **11 — Component library rebuild**: token-driven primitives (buttons,
+  inputs, tabs, page header, stat tiles, badges, progress, DataGrid,
+  sheets/dialogs/toasts, empty/error/skeleton states, AppShell + field
+  bottom tab bar, canvas chrome).
+- **12 — Screen-by-screen redesign**: every screen reassembled on the new
+  system (Login, shell/nav, Projects, Overview, Layout, Materials,
+  Receiving, Progress, Portal, Estimate/Estimating, Scheduler, Dashboard,
+  Field, Team, Settings) with real empty/loading/error states and a mobile
+  pass. No route or data regressions; Bingo Warehouse must load at every step.
+- **13 — Per-SKU material & labor model + estimate engine rewrite**: fix
+  the inches-as-feet / per-linear-ft / lumped-rate bugs with a structured
+  SKU catalog, three-tier layered standards, a pure unit-typed engine with
+  guardrails and unit tests, and a lossless backfill migration.
+- **14 — Product depth I**: receiving/staging pipeline + reorder urgency +
+  next-day readiness, per-row QC gates, punch list, before/after photos,
+  closeout package.
+- **15 — Product depth II**: scheduler depth (crew row assignment + tinting,
+  look-ahead), daily targets vs actual + SPI, per-SKU productivity flywheel
+  feeding the engine, notifications/reports.
+- **16 — Cross-cutting polish**: roles/permissions (crew sees no cost),
+  audit log, ⌘K command palette + global search, states/a11y/perf passes,
+  PWA/offline hardening, end-to-end smoke QA.
+
 **Current status:** Phases 1–5 of this batch are all built AND now
 **verified live** via an automated Playwright E2E suite
 (`npm run test:e2e`) running against the real Supabase project — no more
