@@ -72,8 +72,10 @@ export function BlockerForm({
     }
   }
 
+  // z-50: overlays sit above ALL nav chrome (AppShell bars are z-30),
+  // matching the Dialog/Sheet convention.
   return (
-    <div className="fixed inset-0 z-20 flex flex-col justify-end bg-black/60">
+    <div className="fixed inset-0 z-50 flex flex-col justify-end bg-black/60">
       <div className="flex max-h-[85vh] flex-col gap-3 overflow-y-auto rounded-t-xl border-t border-border bg-card p-4">
         <div className="flex items-center justify-between">
           <h2 className="font-semibold text-foreground">

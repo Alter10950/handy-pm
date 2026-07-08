@@ -6,13 +6,20 @@ Batches 2–4, all ✅ done below) stays live and untouched at the data/route
 level; this batch replaces the presentation layer, fixes the labor/estimate
 domain model, and adds operational depth.
 
-- **10 — Design system foundation**: light-first tokens (bright premium
-  light UI as the default; dark becomes a secondary toggle), type scale,
-  spacing/radius/elevation/motion tokens, `/styleguide`, docs/DESIGN-SYSTEM.md.
-- **11 — Component library rebuild**: token-driven primitives (buttons,
-  inputs, tabs, page header, stat tiles, badges, progress, DataGrid,
-  sheets/dialogs/toasts, empty/error/skeleton states, AppShell + field
-  bottom tab bar, canvas chrome).
+- ✅ **10 — Design system foundation** (2026-07-08): light-first tokens
+  (bright premium light UI as the default; dark is the opt-in toggle),
+  type scale, spacing/radius/elevation/motion tokens, `/styleguide`,
+  docs/DESIGN-SYSTEM.md, always-light portal wrapper. ADR-048.
+- ✅ **11 — Component library rebuild** (2026-07-08): token-driven
+  primitives — refined Button (loading, brand ramps, 44px field sizes),
+  tooltip/popover/dropdown/sheet/tabs/select/checkbox/switch/card/
+  breadcrumb/spinner/sonner/combobox via registry, NumberStepper,
+  FileDropzone, ConfirmDialog, DataGrid, StatTile, StatusPill, Segmented,
+  Progress, PageHeader, Empty/Error/Skeleton states, Toolbar — plus the
+  new **AppShell** (desktop sidebar + mobile bottom tab bar; SiteHeader
+  deleted) and the full `/styleguide` gallery. Engine core + SKU parser
+  + 14 unit tests landed early for Phase 13 (`npm run test:unit`).
+  ADR-049, ADR-050.
 - **12 — Screen-by-screen redesign**: every screen reassembled on the new
   system (Login, shell/nav, Projects, Overview, Layout, Materials,
   Receiving, Progress, Portal, Estimate/Estimating, Scheduler, Dashboard,

@@ -125,3 +125,28 @@ separators; unit suffixes as muted text.
 - Tables: sticky header, hairline row separators (no zebra), right-aligned
   tabular numerics, `--grid-pad-*` density.
 - Touch targets ≥44px on field/mobile surfaces.
+
+## Component inventory (Phase 11)
+
+All in `components/ui/` unless noted; every one demoed live on
+`/styleguide`.
+
+| Component | Source | Notes |
+| --- | --- | --- |
+| `Button` | registry, refined | brand hover/pressed ramps; `loading`; `destructive-solid`; `field`/`icon-field` = 44px |
+| `Input`, `Textarea`, `Label` | registry | native `type="date"` is the date picker (OS sheet on phones) |
+| `Combobox*`, `InputGroup*` | registry | searchable select on Base UI Combobox |
+| `Select*`, `Checkbox`, `Switch` | registry | |
+| `NumberStepper` | hand-built | Base UI number-field; −/+ hold-to-repeat; `size="field"` |
+| `Tabs*`, `Breadcrumb*`, `Card*` | registry | |
+| `Dialog*`, `Sheet*`, `Popover*`, `Tooltip*`, `DropdownMenu*` | registry | |
+| `ConfirmDialog` | hand-built | destructive preset; async `onConfirm` pending state |
+| `Toaster` (sonner) | registry, refined | reads our `html.dark`, not next-themes; mounted in root layout |
+| `FileDropzone` | hand-built | drag/drop over a real `<input type=file>` (camera sheet on mobile) |
+| `DataGrid` | hand-built | sticky header + first col, sort, column groups, show/hide, density |
+| `PageHeader`/`SectionHeader`, `StatTile`, `Sparkline` | hand-built | |
+| `ProgressBar`/`ProgressRing`, `StatusPill`, `Segmented`/`SegmentedMulti` | hand-built | |
+| `EmptyState`/`ErrorState`/`Skeleton*` | hand-built | |
+| `Toolbar*` | hand-built | canvas chrome (Layout stage) |
+| `AppShell` | `components/app-shell.tsx` | desktop sidebar; mobile top bar + bottom tabs + More sheet |
+| `ThemeToggle` | `components/theme-toggle.tsx` | persists `handy-pm:theme` |

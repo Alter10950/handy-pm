@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 
+import { ComponentGallery } from "@/components/styleguide/component-gallery";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -359,7 +360,11 @@ export function StyleguideView() {
         </div>
       </Section>
 
-      <Section title="Primitives (grows with Phase 11)">
+      <Section title="Component gallery (Phase 11)">
+        <ComponentGallery />
+      </Section>
+
+      <Section title="Base primitives">
         <div className="flex flex-col gap-5 rounded-lg border border-border bg-surface p-5 shadow-e2">
           <div>
             <p className="type-overline mb-2 text-muted-foreground">Buttons</p>

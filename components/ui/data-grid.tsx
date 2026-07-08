@@ -146,11 +146,11 @@ export function DataGrid<Row>({
                 {columnMenuOpen ? (
                   <>
                     <div
-                      className="fixed inset-0 z-10"
+                      className="fixed inset-0 z-40"
                       aria-hidden
                       onClick={() => setColumnMenuOpen(false)}
                     />
-                    <div className="absolute right-0 z-20 mt-1 flex w-48 flex-col gap-0.5 rounded-lg border border-border bg-popover p-1.5 shadow-e3">
+                    <div className="absolute right-0 z-50 mt-1 flex w-48 flex-col gap-0.5 rounded-lg border border-border bg-popover p-1.5 shadow-e3">
                       {columns
                         .filter((c) => !c.alwaysVisible)
                         .map((c) => (

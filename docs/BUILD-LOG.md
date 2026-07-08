@@ -4,6 +4,56 @@ Engineering journal. Newest entries at top.
 
 ---
 
+## 2026-07-08 — Phase 11: component library + AppShell (and Phase 13 core landed early)
+
+**What:** the shared component layer every Phase 12 screen will compose,
+plus the app frame itself. Sourcing strategy and the SiteHeader→AppShell
+swap are ADR-050; the early-landed estimate-engine core is ADR-049.
+
+**Build:**
+
+- Generated from the base-nova registry: tooltip, popover, dropdown-menu,
+  sheet, tabs, select, checkbox, switch, card, breadcrumb, spinner,
+  sonner, combobox, input-group. Sonner's Toaster rewritten to read our
+  `html.dark` theme via `useSyncExternalStore` (removed the `next-themes`
+  dependency the generator assumed); mounted globally in the root layout
+  (`position="top-center"`).
+- Refined `Button`: brand hover/pressed ramps instead of opacity washes,
+  `destructive-solid` for ConfirmDialog, `link` recolored to `--info`,
+  first-class `loading` prop (spinner + disable + aria-busy), and
+  44px `field`/`icon-field` sizes for crew surfaces.
+- Hand-built: `NumberStepper` (Base UI number-field: hold-to-repeat,
+  keyboard, clamping), `FileDropzone` (drag/drop over a real file input so
+  phones open the camera sheet), `ConfirmDialog` (destructive preset,
+  async-aware pending state) — joining last session's `DataGrid`,
+  `StatTile`, `StatusPill`, `Segmented`, `ProgressBar/Ring`, `PageHeader`,
+  `EmptyState` family, `Toolbar`, `Sparkline`.
+- **AppShell** (`components/app-shell.tsx`) replaces `SiteHeader`
+  (deleted): desktop = fixed 240px sidebar with grouped role-gated nav
+  (active item = raised neutral chip + 2px brand accent bar), user block,
+  theme toggle; mobile = sticky top bar + bottom tab bar (four primary
+  tabs + "More" sheet with the full nav, ≥44px targets, safe-area
+  padding). Protected layout now renders `<AppShell>` around children.
+- `/styleguide` gained a full live component gallery (every variant,
+  loading, disabled, empty/error/skeleton states, a DataGrid demo with
+  column groups + density toggle) — verified by screenshot in light and
+  dark, desktop and mobile.
+- Unit tests: `tests/unit/engine.test.ts` + `parse.test.ts` (14 tests) —
+  the 144"-beam regression, precedence, guardrails, a Bingo-scale sanity
+  range, and the inches-vs-feet parser semantics. `npm run test:unit`;
+  `allowImportingTsExtensions` enabled for Node 24 type stripping.
+
+**Verify:** lint, typecheck, build all green; unit suite 14/14; full E2E
+suite re-run against the new shell (43 passed / 3 known voice-note skips
+— see prior entry). Screenshots: sidebar + raised-chip active state,
+mobile bottom tabs, gallery light + dark.
+
+**Decisions:** ADR-049, ADR-050. **Commits:** design-system foundation,
+primitives batch, engine core + tests, shadcn batch + Button/Toaster,
+AppShell swap.
+
+---
+
 ## 2026-07-08 — Phase 10: design-system foundation (light-first)
 
 **What:** the token foundation for the Phases 10–16 redesign batch. Full

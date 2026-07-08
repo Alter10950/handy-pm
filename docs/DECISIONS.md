@@ -5,6 +5,73 @@ Consequences.
 
 ---
 
+## ADR-050: Phase 11 — component library strategy (generate, then refine)
+
+**Decision date:** 2026-07-08
+
+**Context:** Phase 11 rebuilds the shared component layer. Two sourcing
+options: hand-write everything, or generate from the shadcn base-nova
+registry (the project's existing component pipeline) and refine.
+
+**Choice — generate what the registry has, hand-build what it doesn't,
+and allow surgical refinement of generated files.** Generated via CLI:
+tooltip, popover, dropdown-menu, sheet, tabs, select, checkbox, switch,
+card, breadcrumb, spinner, sonner, combobox, input-group. Hand-built on
+Base UI primitives: `NumberStepper` (number-field), `FileDropzone`,
+`ConfirmDialog`, plus the pure-Tailwind primitives (`DataGrid`,
+`StatTile`, `StatusPill`, `Segmented`, `ProgressBar/Ring`, `PageHeader`,
+`EmptyState` family, `Toolbar`, `Sparkline`). CLAUDE.md's "don't
+hand-edit `components/ui`" rule is relaxed to "generated files may be
+refined when the design system requires it, and the refinement is
+documented": Button gains brand hover/pressed ramps (opacity ramps washed
+yellow out on white), a `loading` prop, `destructive-solid`, and 44px
+`field`/`icon-field` sizes; Sonner's Toaster reads our `html.dark` class
+via `useSyncExternalStore` instead of `next-themes` (dependency removed).
+Date entry stays native `<input type="date">` — mobile browsers give
+crews the OS picker, which beats any JS calendar on a jobsite phone.
+
+**Choice — AppShell replaces SiteHeader.** Desktop gets a fixed 240px
+sidebar (grouped, role-gated nav; active = raised neutral chip + 2px
+brand bar — never a yellow slab); mobile gets a top bar + a bottom tab
+bar (first four nav items + "More" sheet, ≥44px targets, safe-area
+padding for the PWA). `components/site-header.tsx` deleted. E2E nav
+assertions hold: role-gating logic is identical, and Playwright's
+visibility assertions ignore the `lg:hidden` duplicate nav.
+
+**Consequences:** every screen redesign (Phase 12) composes these
+primitives instead of bespoke markup; `/styleguide` renders the full
+gallery so drift is visible immediately; `npm run test:unit` covers the
+estimate engine/parser without a test-framework dependency.
+
+---
+
+## ADR-049: Phase 13 core — pure unit-typed estimate engine
+
+**Decision date:** 2026-07-08
+
+**Context:** the live estimate lumped every SKU under one per-task rate
+and fed raw inches into a per-foot rate (144" stepbeam → 7.20 h). Full
+scope read 25,268 h / "forecast finish Jul 5 2036."
+
+**Choice:** `lib/estimating/engine.ts` is pure and dependency-free — no
+Supabase, no parsing, no Date. Dimensions are typed inches;
+`inchesToFeet()` is the module's only conversion. Beam labor is
+per-PIECE with length/weight as bounded modifiers. Standards resolve
+learned (crew×SKU, ≥3 samples) → per-SKU → category default×modifiers,
+each line carrying source + confidence. Guardrails
+(`standardWarnings`, `MAX_SANE_CREW_DAYS`) make implausible outputs
+loud. Free-text parsing lives only in `lib/skus/parse.ts` and runs at
+backfill/import time; bare numbers are inches, feet only via explicit
+`'`/`ft` marks. 14 `node:test` unit tests (incl. the 144"-beam
+regression and a Bingo-scale sanity range) run via `npm run test:unit`
+(`allowImportingTsExtensions` added for Node's native type stripping).
+
+**Consequences:** the inches-as-feet class of bug is unrepresentable at
+calc time; Phase 13's migrations only need to load typed rows and call
+`computeProjectLines`/`computeCrewDays`.
+
+---
+
 ## ADR-048: Phase 10 — light-first design system foundation
 
 **Decision date:** 2026-07-08
