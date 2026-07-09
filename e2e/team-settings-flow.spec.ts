@@ -213,9 +213,15 @@ test("role guard: crew user is redirected away from office/scheduler pages", asy
   }
 
   const nav = page.locator("nav");
-  await expect(nav.getByRole("link", { name: "Scheduler" })).not.toBeVisible();
-  await expect(nav.getByRole("link", { name: "Team" })).not.toBeVisible();
-  await expect(nav.getByRole("link", { name: "Settings" })).not.toBeVisible();
+  await expect(
+    nav.getByRole("link", { name: "Scheduler", exact: true })
+  ).not.toBeVisible();
+  await expect(
+    nav.getByRole("link", { name: "Team", exact: true })
+  ).not.toBeVisible();
+  await expect(
+    nav.getByRole("link", { name: "Settings", exact: true })
+  ).not.toBeVisible();
 
   await context.close();
 });

@@ -149,12 +149,20 @@ test("PM of record: defaults to creator, shows everywhere, reassignment logs an 
     secondProjectId = /\/app\/project\/([^/]+)$/.exec(page.url())![1];
 
     await page.goto("/app");
-    await expect(page.getByText(PROJECT_NAME)).toBeVisible();
-    await expect(page.getByText(SECOND_PROJECT_NAME)).toBeVisible();
+    await expect(
+      page.locator("#main-content").getByText(PROJECT_NAME)
+    ).toBeVisible();
+    await expect(
+      page.locator("#main-content").getByText(SECOND_PROJECT_NAME)
+    ).toBeVisible();
 
     await page.getByLabel("My projects only").check();
-    await expect(page.getByText(SECOND_PROJECT_NAME)).toBeVisible();
-    await expect(page.getByText(PROJECT_NAME)).not.toBeVisible();
+    await expect(
+      page.locator("#main-content").getByText(SECOND_PROJECT_NAME)
+    ).toBeVisible();
+    await expect(
+      page.locator("#main-content").getByText(PROJECT_NAME)
+    ).not.toBeVisible();
   });
 
   await test.step("dashboard's project list shows the PM column", async () => {

@@ -121,7 +121,7 @@ test("full lifecycle: creation → every gate → closeout, with one override, o
       .single();
     crewId = crew!.id;
 
-    await page.getByRole("link", { name: "Comms" }).click();
+    await page.getByRole("link", { name: "Comms", exact: true }).click();
     await page.locator("#contact-name").fill("Lifecycle Customer");
     await page.locator("#contact-email").fill("delivered@resend.dev");
     await page.getByRole("button", { name: "Save", exact: true }).click();

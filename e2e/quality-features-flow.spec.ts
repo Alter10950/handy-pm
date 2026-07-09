@@ -75,6 +75,13 @@ test("quality features: pin to sidebar, health badge, CSV export, shortcuts shee
   await test.step("CSV export downloads a file with the project", async () => {
     await page.goto("/app");
     await page.getByTestId("projects-search").fill(String(STAMP));
+    // Wait for the filtered result to render before exporting — the button
+    // serializes the CURRENT matches, so exporting mid-filter would emit a
+    // header-only file.
+    await expect(page.getByTestId("filter-count-projects")).toHaveText(
+      /1 projects/
+    );
+    await expect(page.locator("#main-content").getByText(NAME)).toBeVisible();
     const [download] = await Promise.all([
       page.waitForEvent("download"),
       page.getByTestId("projects-export-csv").click(),

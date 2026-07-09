@@ -21,14 +21,15 @@ reference standard and builds the highest-impact UX features.
   avatars, live conflict ghost, capacity hard stop + double-book confirm,
   print weekly schedule, notify-customer via comms. `writeProjectBar`
   primitive + pure board math w/ unit tests + full E2E. ADR-055.
-- ⬜ **D3 — Screen-by-screen elevation** (Overview health hero, Materials
-  totals row, Receiving chips, Estimating stat header, Dashboard donut +
-  exception cards, Field/Team/Settings/Portal polish, empty-state glyphs)
-- ⬜ **F2 — Global quality features** (pins/recents, bulk bar + CSV/XLSX
-  exports, undo toast, column chooser/density, health badges, shortcut
-  sheet)
-- ⬜ **QA** — mobile pass, contrast re-check, remaining E2E, deploy +
-  verify live
+- ✅ **D3 — Screen-by-screen elevation** (2026-07-09, f3943ed): Overview
+  health hero (ring + gate stepper), Estimating stat header + confidence
+  chip, Receiving table w/ progress cells + flag chips, Materials totals
+  row, Dashboard donut + icon exception cards, empty-state glyphs.
+- ✅ **F2 — Global quality features** (2026-07-09, e8e4c6a): sidebar
+  pins/recents, CSV export on every grid, undo toast (delayed commit),
+  column chooser + density prefs, project health badges, shortcuts sheet.
+  ADR-056.
+- ✅ **QA** (2026-07-09): full E2E suite green (46 passed, 4 skipped); the F2 recents-in-sidebar surfaced app-wide locator collisions, fixed suite-wide (exact tab/nav links + main-scoped project-name assertions). Deployed to prod.
 
 **PREVIOUS BATCH — Phases 10–16 (the "$1M product" batch, started
 2026-07-08).** Everything before this batch (the original Phases 1–5 and

@@ -73,7 +73,7 @@ test("handoff survey: structured intake, teardown auto-creates scope item, dual 
     await page.waitForURL(/\/app\/project\/[^/]+$/);
     projectId = /\/app\/project\/([^/]+)$/.exec(page.url())![1];
 
-    await page.getByRole("link", { name: "Handoff" }).click();
+    await page.getByRole("link", { name: "Handoff", exact: true }).click();
     await expect(page.getByText("No drawing on file yet.")).toBeVisible();
   });
 
@@ -320,7 +320,7 @@ test("handoff AI draft: not offered when ANTHROPIC_API_KEY is unconfigured", asy
   await page.waitForURL(/\/app\/project\/[^/]+$/);
   aiProjectId = /\/app\/project\/([^/]+)$/.exec(page.url())![1];
 
-  await page.getByRole("link", { name: "Handoff" }).click();
+  await page.getByRole("link", { name: "Handoff", exact: true }).click();
   await expect(page.getByText("Draft from rough notes")).not.toBeVisible();
 });
 
@@ -342,7 +342,7 @@ test("handoff AI draft: drafts fields from rough notes for review, never auto-sa
   await page.waitForURL(/\/app\/project\/[^/]+$/);
   aiProjectId = /\/app\/project\/([^/]+)$/.exec(page.url())![1];
 
-  await page.getByRole("link", { name: "Handoff" }).click();
+  await page.getByRole("link", { name: "Handoff", exact: true }).click();
   await page
     .getByTestId("handoff-rough-notes")
     .fill(

@@ -27,7 +27,9 @@ test("scope of work: add a project-level item, labor suggested, log partial then
     projectId = /\/app\/project\/([^/]+)$/.exec(page.url())![1];
 
     await page.getByRole("link", { name: "Scope", exact: true }).click();
-    await expect(page.getByText("Scope of work")).toBeVisible();
+    await expect(
+      page.locator("#main-content").getByText("Scope of work")
+    ).toBeVisible();
   });
 
   await test.step("add a project-level teardown item — labor suggestion appears", async () => {

@@ -52,7 +52,7 @@ test("import/bulk: CSV materials + row-assignment import, bulk select/condition/
     await page.waitForURL(/\/app\/project\/[^/]+$/);
     projectId = /\/app\/project\/([^/]+)$/.exec(page.url())![1];
 
-    await page.getByRole("link", { name: "Layout" }).click();
+    await page.getByRole("link", { name: "Layout", exact: true }).click();
     // Not a bare input[type="file"] locator — the Overview page's own
     // lifecycle checklist has a hidden photo-attach file input that can
     // still be in the DOM mid-navigation, making that ambiguous/racy.
@@ -68,7 +68,7 @@ test("import/bulk: CSV materials + row-assignment import, bulk select/condition/
   });
 
   await test.step("import a materials CSV — headers auto-map, preview all OK", async () => {
-    await page.getByRole("link", { name: "Materials" }).click();
+    await page.getByRole("link", { name: "Materials", exact: true }).click();
     await page.getByRole("button", { name: "⬆ Import from file" }).click();
     await page.getByTestId("import-file-input").setInputFiles({
       name: "materials.csv",
@@ -187,7 +187,7 @@ test("import/bulk: CSV materials + row-assignment import, bulk select/condition/
   });
 
   await test.step("duplicate range: select 2 rows, duplicate as a block", async () => {
-    await page.getByRole("link", { name: "Layout" }).click();
+    await page.getByRole("link", { name: "Layout", exact: true }).click();
     // Unlike the first draw (naturally preceded by an "uploaded." wait),
     // this navigation has no async checkpoint of its own — wait for the
     // existing row to render so the image has fully loaded and zoom/fit

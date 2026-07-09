@@ -66,6 +66,7 @@ test("crew calendar: drag to assign, double-booking warning, remove", async ({
     const today = new Date().toISOString().slice(0, 10);
 
     await page
+      .locator("#main-content")
       .getByText(PROJECT_A_NAME, { exact: true })
       .dragTo(page.getByTestId(`calendar-cell-${crewId}-${today}`));
 
@@ -98,6 +99,7 @@ test("crew calendar: drag to assign, double-booking warning, remove", async ({
     const [dialog] = await Promise.all([
       page.waitForEvent("dialog"),
       page
+        .locator("#main-content")
         .getByText(PROJECT_B_NAME, { exact: true })
         .dragTo(page.getByTestId(`calendar-cell-${crewId}-${today}`)),
     ]);

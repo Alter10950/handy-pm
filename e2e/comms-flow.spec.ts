@@ -51,7 +51,7 @@ test("comms: contact+prefs, auto milestones (schedule/install/50%/phase/punch/cl
     await page.waitForURL(/\/app\/project\/[^/]+$/);
     projectId = /\/app\/project\/([^/]+)$/.exec(page.url())![1];
 
-    await page.getByRole("link", { name: "Comms" }).click();
+    await page.getByRole("link", { name: "Comms", exact: true }).click();
     await page.locator("#contact-name").fill("Dana Customer");
     await page.locator("#contact-email").fill(CUSTOMER_EMAIL);
     await page.getByRole("button", { name: "Save", exact: true }).click();

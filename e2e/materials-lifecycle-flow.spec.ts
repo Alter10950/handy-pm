@@ -27,7 +27,7 @@ test("materials lifecycle: receiving check-in, reorder list, richer identity fie
     await page.waitForURL(/\/app\/project\/[^/]+$/);
     projectId = /\/app\/project\/([^/]+)$/.exec(page.url())![1];
 
-    await page.getByRole("link", { name: "Layout" }).click();
+    await page.getByRole("link", { name: "Layout", exact: true }).click();
     // Not a bare input[type="file"] locator — the Overview page's own
     // lifecycle checklist has a hidden photo-attach file input that can
     // still be in the DOM mid-navigation, making that ambiguous/racy.
@@ -52,7 +52,7 @@ test("materials lifecycle: receiving check-in, reorder list, richer identity fie
     await page.mouse.up();
     await expect(page.getByText("Row 1", { exact: true })).toBeVisible();
 
-    await page.getByRole("link", { name: "Materials" }).click();
+    await page.getByRole("link", { name: "Materials", exact: true }).click();
     await page
       .getByRole("button", { name: /Paste from packing slip/i })
       .click();
@@ -98,7 +98,7 @@ test("materials lifecycle: receiving check-in, reorder list, richer identity fie
   });
 
   await test.step("receiving: log a shortfall, then a partial receipt, reorder list reflects it", async () => {
-    await page.getByRole("link", { name: "Receiving" }).click();
+    await page.getByRole("link", { name: "Receiving", exact: true }).click();
     // total_needed=100, received=0 (paste sets received=total_needed
     // normally, but this line was never re-received) — actually paste
     // sets received=100 too, so start by checking the reorder list is
@@ -163,7 +163,7 @@ test("materials lifecycle: receiving check-in, reorder list, richer identity fie
   });
 
   await test.step("row readiness: toggle inputs, drawing shows a readiness dot, defaults to blocked", async () => {
-    await page.getByRole("link", { name: "Layout" }).click();
+    await page.getByRole("link", { name: "Layout", exact: true }).click();
     await page.getByTestId("row-box-Row 1").click();
     await page.getByRole("button", { name: "Readiness" }).click();
 

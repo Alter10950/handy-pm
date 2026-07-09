@@ -24,7 +24,7 @@ test("phases: color on the drawing, legend show/hide, filter Materials and Progr
     await page.waitForURL(/\/app\/project\/[^/]+$/);
     projectId = /\/app\/project\/([^/]+)$/.exec(page.url())![1];
 
-    await page.getByRole("link", { name: "Layout" }).click();
+    await page.getByRole("link", { name: "Layout", exact: true }).click();
     // Not a bare input[type="file"] locator — the Overview page's own
     // lifecycle checklist has a hidden photo-attach file input that can
     // still be in the DOM mid-navigation, making that ambiguous/racy.
@@ -53,7 +53,7 @@ test("phases: color on the drawing, legend show/hide, filter Materials and Progr
     await page.mouse.up();
     await expect(page.getByText("Row 1", { exact: true })).toBeVisible();
 
-    await page.getByRole("link", { name: "Materials" }).click();
+    await page.getByRole("link", { name: "Materials", exact: true }).click();
     await page
       .getByRole("button", { name: /Paste from packing slip/i })
       .click();
@@ -62,7 +62,7 @@ test("phases: color on the drawing, legend show/hide, filter Materials and Progr
     await expect(page.locator("table").first().locator("tbody tr")).toHaveCount(
       1
     );
-    await page.getByRole("link", { name: "Layout" }).click();
+    await page.getByRole("link", { name: "Layout", exact: true }).click();
   });
 
   await test.step("assign Row 1 to a new phase and confirm it colors on the drawing", async () => {
@@ -97,7 +97,7 @@ test("phases: color on the drawing, legend show/hide, filter Materials and Progr
   });
 
   await test.step("filter Materials by phase", async () => {
-    await page.getByRole("link", { name: "Materials" }).click();
+    await page.getByRole("link", { name: "Materials", exact: true }).click();
     await page.locator("#phase-filter").selectOption({ label: "Rough-in" });
     // Only Row 1 (in the phase) should render on the reference drawing now.
     await expect(page.getByText("Row 1", { exact: true })).toBeVisible();
@@ -105,7 +105,7 @@ test("phases: color on the drawing, legend show/hide, filter Materials and Progr
   });
 
   await test.step("filter Progress by phase", async () => {
-    await page.getByRole("link", { name: "Progress" }).click();
+    await page.getByRole("link", { name: "Progress", exact: true }).click();
     // Wait for the Progress tab itself to render before touching its phase
     // filter — the Materials tab has its own, identically-labeled "Filter
     // by phase" select, and a click that outruns the client-side

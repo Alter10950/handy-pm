@@ -26,7 +26,7 @@ test("change orders: draft with lines, manual approval merges scope+materials an
     await page.waitForURL(/\/app\/project\/[^/]+$/);
     projectId = /\/app\/project\/([^/]+)$/.exec(page.url())![1];
 
-    await page.getByRole("link", { name: "Materials" }).click();
+    await page.getByRole("link", { name: "Materials", exact: true }).click();
     await page
       .getByRole("button", { name: /Paste from packing slip/i })
       .click();

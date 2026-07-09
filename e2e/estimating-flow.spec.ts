@@ -26,9 +26,15 @@ test("estimating: draft an estimate, classify materials, save a forecast, conver
 
     // A draft estimate has no Layout/Progress tabs — only Overview,
     // Materials, Estimate.
-    await expect(page.getByRole("link", { name: "Layout" })).toHaveCount(0);
-    await expect(page.getByRole("link", { name: "Progress" })).toHaveCount(0);
-    await expect(page.getByRole("link", { name: "Estimate" })).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Layout", exact: true })
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("link", { name: "Progress", exact: true })
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("link", { name: "Estimate", exact: true })
+    ).toBeVisible();
 
     await page
       .getByRole("button", { name: /Paste from packing slip/i })
@@ -83,7 +89,7 @@ test("estimating: draft an estimate, classify materials, save a forecast, conver
   });
 
   await test.step("the Estimate tab shows a real forecast and saves a history entry", async () => {
-    await page.getByRole("link", { name: "Estimate" }).click();
+    await page.getByRole("link", { name: "Estimate", exact: true }).click();
     await expect(page.getByText("Full scope")).toBeVisible();
     await expect(page.getByText("Remaining to finish")).toBeVisible();
     await expect(page.getByText(/Confidence:/)).toBeVisible();
@@ -136,15 +142,23 @@ test("estimating: draft an estimate, classify materials, save a forecast, conver
     await expect(
       page.getByText("Active", { exact: true }).first()
     ).toBeVisible();
-    await expect(page.getByRole("link", { name: "Layout" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Progress" })).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Layout", exact: true })
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Progress", exact: true })
+    ).toBeVisible();
 
     // No longer listed as a draft estimate...
     await page.goto("/app/estimate");
-    await expect(page.getByText(ESTIMATE_NAME)).not.toBeVisible();
+    await expect(
+      page.locator("#main-content").getByText(ESTIMATE_NAME)
+    ).not.toBeVisible();
     // ...but now shows on the main Projects list.
     await page.goto("/app");
-    await expect(page.getByText(ESTIMATE_NAME)).toBeVisible();
+    await expect(
+      page.locator("#main-content").getByText(ESTIMATE_NAME)
+    ).toBeVisible();
   });
 });
 

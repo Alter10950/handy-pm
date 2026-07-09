@@ -5,6 +5,35 @@ Consequences.
 
 ---
 
+## ADR-056: Design pass v3 F2 — client-persisted quality features, CSV-not-XLSX export
+
+**Decisions.** (1) Pins/recents, grid column+density prefs, and saved
+filter views all persist in localStorage per user per screen, not in the
+database — they're personal view state, instant, and need no schema or
+RLS. (2) Grid export ships CSV only (UTF-8 with a BOM so Excel splits
+columns and renders Unicode). XLSX was cut: the only maintained SheetJS
+distribution carries an open ReDoS advisory, and the requirement ("every
+grid gets export") is met by CSV that Excel opens natively. (3) Undo on
+destructive actions is a DELAYED COMMIT, not a soft-delete column: the
+row hides in the client immediately, a 5s toast offers Undo, and the
+server delete only fires after the window — Undo just clears the timer,
+so a cancelled delete never touched the database.
+
+**Project health badge.** One green/amber/red rollup
+(lib/dashboard/health.ts): red = SPI 'risk' tier; amber = SPI 'watch',
+any open material shortage, or any overridden gate; green otherwise. The
+reasons list is the tooltip, so the badge is always explainable. Computed
+once per Projects-page render and tolerant of crew-scoped sessions (falls
+back to no badge rather than erroring).
+
+**E2E note (recents in the sidebar).** The recently-viewed/pinned project
+links put project NAMES into the always-present sidebar, which is
+rendered OUTSIDE `<main id="main-content">`. Two rules keep specs stable:
+address short tab/nav links with `{ name, exact: true }` (a project named
+"Estimate" no longer matches the Estimate tab), and scope project-name
+assertions with `page.locator("#main-content").getBy...` so the sidebar
+copy never double-matches.
+
 ## ADR-055: Design pass v3 F1 — schedule board on the existing per-day assignment model
 
 **Decision.** The drag-drop schedule board introduces NO new schema. A

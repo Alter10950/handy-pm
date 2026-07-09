@@ -62,7 +62,7 @@ test("customer portal: generate a link, approve a photo, public page shows only 
   });
 
   await test.step("generate a share link from the Portal tab", async () => {
-    await page.getByRole("link", { name: "Portal" }).click();
+    await page.getByRole("link", { name: "Portal", exact: true }).click();
     await page.getByRole("button", { name: "+ Generate link" }).click();
     // Scoped to the token's own row, not a bare getByText("active") — the
     // project header's own status pill also renders "Active" (properly

@@ -27,7 +27,7 @@ test("dashboard: shows shortages/blockers/crew data, resolves a blocker, sends a
     await page.waitForURL(/\/app\/project\/[^/]+$/);
     projectId = /\/app\/project\/([^/]+)$/.exec(page.url())![1];
 
-    await page.getByRole("link", { name: "Layout" }).click();
+    await page.getByRole("link", { name: "Layout", exact: true }).click();
     // Not a bare input[type="file"] locator — the Overview page's own
     // lifecycle checklist has a hidden photo-attach file input that can
     // still be in the DOM mid-navigation, making that ambiguous/racy.
@@ -62,10 +62,13 @@ test("dashboard: shows shortages/blockers/crew data, resolves a blocker, sends a
   await test.step("dashboard shows the shortage and the open blocker", async () => {
     await page.goto("/app/dashboard");
     // The project name legitimately appears twice (the active-projects
-    // table's own link, and again inside the blocker item) — scoped to
-    // the table link specifically, not a page-wide text match.
+    // table's own link, and again inside the blocker item) — plus the
+    // sidebar's recent-projects link (design pass v3 F2). Scope to main.
     await expect(
-      page.getByRole("link", { name: PROJECT_NAME, exact: true })
+      page
+        .locator("#main-content")
+        .getByRole("link", { name: PROJECT_NAME, exact: true })
+        .first()
     ).toBeVisible();
     await expect(page.getByText("Test Widget")).toBeVisible();
     await expect(page.getByText("80 to order")).toBeVisible();

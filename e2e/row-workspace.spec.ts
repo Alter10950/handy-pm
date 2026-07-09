@@ -30,7 +30,7 @@ test("direct-manipulation canvas: zoom accuracy, select/copy/move/resize/rename/
     expect(match).not.toBeNull();
     projectId = match![1];
 
-    await page.getByRole("link", { name: "Layout" }).click();
+    await page.getByRole("link", { name: "Layout", exact: true }).click();
     // Not a bare input[type="file"] locator — the Overview page's own
     // lifecycle checklist has a hidden photo-attach file input that can
     // still be in the DOM mid-navigation, making that ambiguous/racy.
@@ -148,7 +148,7 @@ test("direct-manipulation canvas: zoom accuracy, select/copy/move/resize/rename/
   });
 
   await test.step("add materials", async () => {
-    await page.getByRole("link", { name: "Materials" }).click();
+    await page.getByRole("link", { name: "Materials", exact: true }).click();
     await page
       .getByRole("button", { name: /Paste from packing slip/i })
       .click();
@@ -157,7 +157,7 @@ test("direct-manipulation canvas: zoom accuracy, select/copy/move/resize/rename/
     await expect(page.locator("table").first().locator("tbody tr")).toHaveCount(
       2
     );
-    await page.getByRole("link", { name: "Layout" }).click();
+    await page.getByRole("link", { name: "Layout", exact: true }).click();
   });
 
   await test.step("click-select, shift-click to multi-select, set materials via command panel", async () => {

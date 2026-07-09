@@ -38,7 +38,7 @@ test("field: pick project, select crew, log materials, report a blocker, offline
     await page.waitForURL(/\/app\/project\/[^/]+$/);
     projectId = /\/app\/project\/([^/]+)$/.exec(page.url())![1];
 
-    await page.getByRole("link", { name: "Layout" }).click();
+    await page.getByRole("link", { name: "Layout", exact: true }).click();
     // Not a bare input[type="file"] locator — the Overview page's own
     // lifecycle checklist has a hidden photo-attach file input that can
     // still be in the DOM mid-navigation, making that ambiguous/racy.
@@ -72,7 +72,7 @@ test("field: pick project, select crew, log materials, report a blocker, offline
     await page.mouse.up();
     await expect(page.getByText("Row 1", { exact: true })).toBeVisible();
 
-    await page.getByRole("link", { name: "Materials" }).click();
+    await page.getByRole("link", { name: "Materials", exact: true }).click();
     await page
       .getByRole("button", { name: /Paste from packing slip/i })
       .click();
@@ -82,7 +82,7 @@ test("field: pick project, select crew, log materials, report a blocker, offline
       1
     );
 
-    await page.getByRole("link", { name: "Layout" }).click();
+    await page.getByRole("link", { name: "Layout", exact: true }).click();
     await page.getByTestId("row-box-Row 1").click();
     await page.getByRole("button", { name: "Set materials" }).click();
     await page.locator('[id^="bulk-qty-"]').first().fill("50");
@@ -115,8 +115,10 @@ test("field: pick project, select crew, log materials, report a blocker, offline
 
   await test.step("project appears in the Field project list", async () => {
     await page.goto("/field");
-    await expect(page.getByText(PROJECT_NAME)).toBeVisible();
-    await page.getByText(PROJECT_NAME).click();
+    await expect(
+      page.locator("#main-content").getByText(PROJECT_NAME)
+    ).toBeVisible();
+    await page.locator("#main-content").getByText(PROJECT_NAME).click();
     await page.waitForURL(new RegExp(`/field/${projectId}$`));
   });
 
@@ -311,7 +313,9 @@ test("field: my assignments today are highlighted on the project list", async ({
       await page.goto("/field");
       await page.locator("#home-crew-select").selectOption({ label: crewName });
       await expect(page.getByText("My assignments today")).toBeVisible();
-      await expect(page.getByText(projectName)).toBeVisible();
+      await expect(
+        page.locator("#main-content").getByText(projectName)
+      ).toBeVisible();
     });
   } finally {
     if (localProjectId) await deleteProjectCompletely(localProjectId);

@@ -37,7 +37,7 @@ test("create project, mark rows, assign materials, verify reconciliation", async
   });
 
   await test.step("upload drawing", async () => {
-    await page.getByRole("link", { name: "Layout" }).click();
+    await page.getByRole("link", { name: "Layout", exact: true }).click();
     // Not a bare input[type="file"] locator — the Overview page's own
     // lifecycle checklist has a hidden photo-attach file input that can
     // still be in the DOM mid-navigation, making that ambiguous/racy.
@@ -80,7 +80,7 @@ test("create project, mark rows, assign materials, verify reconciliation", async
   });
 
   await test.step("paste material list", async () => {
-    await page.getByRole("link", { name: "Materials" }).click();
+    await page.getByRole("link", { name: "Materials", exact: true }).click();
     await page
       .getByRole("button", { name: /Paste from packing slip/i })
       .click();
@@ -176,7 +176,7 @@ test("create project, mark rows, assign materials, verify reconciliation", async
   });
 
   await test.step("verify progress tab", async () => {
-    await page.getByRole("link", { name: "Progress" }).click();
+    await page.getByRole("link", { name: "Progress", exact: true }).click();
     await expect(page.getByText("3", { exact: true }).first()).toBeVisible(); // row count
     // Scoped to the overall-complete stat's own testid — a bare
     // getByText("0%") is ambiguous against both this page's own per-row

@@ -49,7 +49,7 @@ async function createProjectOnMaterialsTab(page: Page): Promise<string> {
   await page.getByRole("button", { name: "Create project" }).click();
   await page.waitForURL(/\/app\/project\/[^/]+$/);
   const id = /\/app\/project\/([^/]+)$/.exec(page.url())![1];
-  await page.getByRole("link", { name: "Materials" }).click();
+  await page.getByRole("link", { name: "Materials", exact: true }).click();
   return id;
 }
 

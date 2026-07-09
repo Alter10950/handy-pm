@@ -4,6 +4,56 @@ Engineering journal. Newest entries at top.
 
 ---
 
+## 2026-07-09 — Design pass v3 D3 + F2: screen elevation & global quality features
+
+**D3 — screen-by-screen elevation (f3943ed).** Overview leads with a
+ProjectHealthHero: donut completion ring + status/deadline/rows/materials
+facts + the eight-gate stepper (complete/active/overridden/locked dots),
+replacing three bare stat tiles. Estimating got a proper stat header on
+the .type-stat display face and moved confidence from a line of red text
+to a tone-mapped StatusPill chip (history rows too). Receiving went from
+a stack of per-SKU cards to a clean table — progress cell (bar +
+received/needed), verified/staged counts, to-order, and danger chips for
+open flags; the check-in form + history live in a full-width sub-row so
+nothing hides behind a disclosure. Materials grid gained a sticky inline
+totals row that follows the active filter. Dashboard: a portfolio-complete
+donut tile plus exception cards with icons and left-accent tones that only
+light up when the card holds exceptions; risk-table column spacing fixed.
+Empty states picked up glyphs where they were missing. Portal audited —
+already customer-grade from Phase 12.
+
+**F2 — global quality features (e8e4c6a).** (1) Pin/favorite + recently-
+viewed projects in the sidebar, localStorage-backed (lib/projects/pinned.ts,
+same useSyncExternalStore pattern as the filters) so it costs no fetch;
+star toggle in the project header, RecentProjectTracker records visits.
+(2) CSV export on every grid — Projects, Materials, Receiving, Team,
+Dashboard — via a shared downloadCsv (UTF-8 + BOM so Excel opens it
+cleanly). (3) Undo toast on destructive material deletes: a 5-second
+delayed commit where the rows hide instantly and Undo cancels the timer
+before any server call runs. (4) Column chooser + density toggle on the
+projects table, persisted per user (lib/filters/grid-prefs.ts). (5) A
+project health badge (SPI + open shortages + overridden gates → green/
+amber/red with an explainable tooltip; lib/dashboard/health.ts) on every
+project card and table row. (6) Keyboard-shortcuts sheet on "?", with
+g-then-key jumps between areas.
+
+**Why XLSX was dropped.** The only maintained SheetJS build carries an
+open ReDoS advisory; BOM'd CSV opens natively in Excel with correct
+encoding and column splits, so "every grid gets export" is satisfied
+without pulling in a vulnerable dependency. Recorded in ADR-056.
+
+**E2E.** New quality-features-flow (pin→sidebar→reload→unpin, health
+badge, CSV download asserted by content, ? sheet) and schedule-board /
+D3 specs all green; import-bulk rewritten for the undo flow (delete →
+Undo restores, second delete commits after the window); two ambiguous
+locators tightened where D3's new columns/badges added a second match.
+
+**Verify:** lint/typecheck/build green; 29 unit tests green; board,
+quality-features, import-bulk, projects-page, team-settings, estimating,
+material-gate, dashboard, lifecycle specs green.
+
+---
+
 ## 2026-07-09 — Design pass v3: D1 chrome/type, D2 filters everywhere, F1 schedule board
 
 **D1 — chrome & type (54d01d1).** Permanent deep-ink LEFT sidebar

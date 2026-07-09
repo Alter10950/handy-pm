@@ -37,7 +37,7 @@ test("scheduler: create crew, build schedule, generate targets, assign crew to a
     await page.waitForURL(/\/app\/project\/[^/]+$/);
     projectId = /\/app\/project\/([^/]+)$/.exec(page.url())![1];
 
-    await page.getByRole("link", { name: "Layout" }).click();
+    await page.getByRole("link", { name: "Layout", exact: true }).click();
     // Not a bare input[type="file"] locator — the Overview page's own
     // lifecycle checklist has a hidden photo-attach file input that can
     // still be in the DOM mid-navigation, making that ambiguous/racy.
@@ -66,7 +66,7 @@ test("scheduler: create crew, build schedule, generate targets, assign crew to a
     await page.mouse.up();
     await expect(page.getByText("Row 1", { exact: true })).toBeVisible();
 
-    await page.getByRole("link", { name: "Materials" }).click();
+    await page.getByRole("link", { name: "Materials", exact: true }).click();
     await page
       .getByRole("button", { name: /Paste from packing slip/i })
       .click();
@@ -76,7 +76,7 @@ test("scheduler: create crew, build schedule, generate targets, assign crew to a
       1
     );
 
-    await page.getByRole("link", { name: "Layout" }).click();
+    await page.getByRole("link", { name: "Layout", exact: true }).click();
     await page.getByTestId("row-box-Row 1").click({ modifiers: ["Shift"] });
     await page.getByTestId("row-box-Row 2").click({ modifiers: ["Shift"] });
     await page.getByRole("button", { name: "Set materials" }).click();
@@ -121,7 +121,7 @@ test("scheduler: create crew, build schedule, generate targets, assign crew to a
   });
 
   await test.step("open the project in the scheduler", async () => {
-    await page.getByText(PROJECT_NAME).click();
+    await page.locator("#main-content").getByText(PROJECT_NAME).click();
     await page.waitForURL(new RegExp(`/scheduler/${projectId}$`));
   });
 
