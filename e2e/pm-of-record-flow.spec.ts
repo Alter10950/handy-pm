@@ -4,7 +4,7 @@ import {
   deleteAuthUserByEmail,
   deleteProjectCompletely,
 } from "./helpers/cleanup";
-import { createAdminClient } from "./helpers/supabase-admin";
+import { createAdminClient, getSeededOwner } from "./helpers/supabase-admin";
 
 const PROJECT_NAME = `[E2E] PM record ${Date.now()}`;
 const SECOND_PROJECT_NAME = `[E2E] PM record other ${Date.now()}`;
@@ -26,12 +26,9 @@ test("PM of record: defaults to creator, shows everywhere, reassignment logs an 
 }) => {
   const admin = createAdminClient();
 
-  const { data: owner } = await admin
-    .from("profiles")
-    .select("id, org_id")
-    .eq("role", "owner")
-    .limit(1)
-    .single();
+  // Resolve the specific seeded owner (the session we authenticate as) —
+  // stale owner-role profiles from prior runs make a bare limit(1) flaky.
+  const owner = await getSeededOwner();
 
   await test.step("create a PM candidate to reassign to", async () => {
     const { data: created, error } = await admin.auth.admin.createUser({

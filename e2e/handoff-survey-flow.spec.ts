@@ -4,7 +4,7 @@ import {
   deleteAuthUserByEmail,
   deleteProjectCompletely,
 } from "./helpers/cleanup";
-import { createAdminClient } from "./helpers/supabase-admin";
+import { createAdminClient, getSeededOwner } from "./helpers/supabase-admin";
 
 const PROJECT_NAME = `[E2E] Handoff survey ${Date.now()}`;
 const PM_EMAIL = `e2e+handoff-pm-${Date.now()}@handyequip.test`;
@@ -43,12 +43,9 @@ test("handoff survey: structured intake, teardown auto-creates scope item, dual 
   browser,
 }) => {
   const admin = createAdminClient();
-  const { data: owner } = await admin
-    .from("profiles")
-    .select("id, org_id")
-    .eq("role", "owner")
-    .limit(1)
-    .single();
+  // Resolve the specific seeded owner (the session we authenticate as) —
+  // stale owner-role profiles from prior runs make a bare limit(1) flaky.
+  const owner = await getSeededOwner();
 
   await test.step("create a pm-role user for the PM half of dual sign-off", async () => {
     const { data: created, error } = await admin.auth.admin.createUser({
