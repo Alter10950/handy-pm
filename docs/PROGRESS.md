@@ -1,5 +1,19 @@
 # Progress
 
+**CURRENT — Batch 5 / Step 3 (AI capture + intelligence + integrations),
+started 2026-07-09.** Foundation landing behind guarded reads (migration
+is NEEDS-ME on the live DB).
+
+- ✅ **Sub-phase 0** (fbe3baf): schema — extraction_runs, inbound_messages,
+  integrations(+links), anomaly_flags, materials.scan_code,
+  organizations.anomaly_settings. Migration authored; push is NEEDS-ME.
+- ✅ **Sub-phase A** (a838d38): packing-slip extraction hardened —
+  confidence, non-material flagging, dedupe warning, extraction_runs
+  logging, source preview, live E2E green. ADR-057.
+- ⬜ B (drawing row auto-detect), C (QR/voice/SMS), D (scorecards/
+  anomalies), E (NL assistant), F (QuickBooks), G (Zoho), H (QA/deploy).
+
+
 **CURRENT BATCH — Design pass v3 + feature slice (started 2026-07-09;
 = HANDY-PM-QUEUE Step 2).** Elevates the Phase 10–16 light system to the
 reference standard and builds the highest-impact UX features.

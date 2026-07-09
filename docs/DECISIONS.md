@@ -5,6 +5,30 @@ Consequences.
 
 ---
 
+## ADR-057: Batch 5 — AI capture is assist-with-confirm, logged to extraction_runs
+
+**Decision.** Every AI capture (packing-slip extraction, drawing row
+detection, row-assignment proposal) writes its raw output to
+extraction_runs and NEVER lands in materials/rows/installs without a human
+review-and-confirm step. The run is created 'extracted', flipped to
+'applied' when the human commits or 'rejected' when they dismiss —
+so the paper trail distinguishes "AI proposed and a person accepted" from
+"AI proposed and a person declined". Confidence (per-line + overall) is
+surfaced in the review UI; low-confidence lines are highlighted and
+never auto-included.
+
+**Guarded + best-effort logging.** extraction_runs writes are
+fire-and-forget (same posture as the audit log): a logging failure —
+including the table not existing until the Batch-5 migration is applied —
+must never break the capture flow. The material write is the source of
+truth; the run log is the reviewable record around it.
+
+**Server/client boundary.** The log module is server-only (request-scoped
+Supabase client). Client review dialogs resolve runs through a 'use
+server' action (lib/extraction/actions.ts), not by importing the log
+module — importing it into a client component pulls next/headers into the
+browser bundle and breaks the build.
+
 ## ADR-056: Design pass v3 F2 — client-persisted quality features, CSV-not-XLSX export
 
 **Decisions.** (1) Pins/recents, grid column+density prefs, and saved

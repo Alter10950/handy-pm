@@ -4,6 +4,33 @@ Engineering journal. Newest entries at top.
 
 ---
 
+## 2026-07-09 — Batch 5 (Step 3) begins: Sub-phase 0 schema + Sub-phase A extraction
+
+**Sub-phase 0 — schema (fbe3baf).** New migration
+`20260709120000_batch5_ai_capture_integrations`: extraction_runs (every
+AI capture logged/reviewable/re-runnable), inbound_messages (SMS/WhatsApp
+as drafts), integrations + integration_links (per-org QBO/Zoho,
+server-only tokens, owner RLS), anomaly_flags (rules-based,
+acknowledgeable, deduped), materials.scan_code,
+organizations.anomaly_settings. Fully idempotent. Discovered the three
+Phases 10–16 migrations are now LIVE in prod (Alter applied their SQL by
+hand) but untracked in supabase_migrations; `db push` stays
+auto-mode-blocked so types are hand-extended and features ship behind
+guarded reads. ADR-057.
+
+**Sub-phase A — packing-slip extraction hardened (a838d38).** The
+extract API returns per-line confidence + is_material; non-material lines
+(freight/fees) are flagged-and-excluded rather than dropped, same-code+
+size lines flagged as possible dupes (never auto-merged). Every run logs
+to extraction_runs (guarded), marked applied on commit / rejected on
+dismiss. Review dialog gained: include checkbox, confidence chips,
+low-confidence highlight, 'Accept ≥85%', dedupe warning, side-by-side
+source preview. Fixed a server/client boundary (run resolution via a
+'use server' action). Live E2E (real Anthropic call) green. Real-file
+acceptance on Alter's actual slips is the remaining NEEDS-YOU.
+
+---
+
 ## 2026-07-09 — Design pass v3 D3 + F2: screen elevation & global quality features
 
 **D3 — screen-by-screen elevation (f3943ed).** Overview leads with a
