@@ -13,6 +13,7 @@ import { redirect } from "next/navigation";
 
 import { cn } from "@/lib/utils";
 
+import { AnomalyStrip } from "@/components/dashboard/anomaly-strip";
 import { BlockerEscalationList } from "@/components/dashboard/blocker-escalation-list";
 import { CapacityOverrideList } from "@/components/dashboard/capacity-override-list";
 import { CrewPerformanceSummary } from "@/components/dashboard/crew-performance-summary";
@@ -35,6 +36,7 @@ import {
   listOrgWideNextActions,
   listOverriddenStages,
 } from "@/lib/gates/queries";
+import { listOpenAnomalies } from "@/lib/anomalies/queries";
 import { listCapacityOverrides } from "@/lib/scheduler/capacity";
 import { createClient } from "@/lib/supabase/server";
 
@@ -131,6 +133,7 @@ export default async function DashboardPage() {
     listOverriddenStages(),
     listCapacityOverrides(),
   ]);
+  const anomalyResult = await listOpenAnomalies();
 
   const openBlockers = blockers.length;
   const shortCount = shortages.length;
@@ -179,6 +182,11 @@ export default async function DashboardPage() {
           tone={shortCount > 0 ? "warning" : "default"}
         />
       </div>
+
+      <AnomalyStrip
+        anomalies={anomalyResult.anomalies}
+        available={anomalyResult.available}
+      />
 
       <Section title={`Active projects (${projects.length})`}>
         <ProjectRiskList projects={projects} />

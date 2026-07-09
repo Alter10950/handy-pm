@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import type { DashboardCrewPerformance } from "@/lib/dashboard/queries";
 import { cn } from "@/lib/utils";
 
@@ -31,7 +33,12 @@ export function CrewPerformanceSummary({
           key={crew.crewId}
           className="flex items-center justify-between gap-2 text-sm"
         >
-          <span className="text-foreground">{crew.crewName}</span>
+          <Link
+            href={`/scheduler/crew/${crew.crewId}`}
+            className="font-medium text-foreground hover:underline"
+          >
+            {crew.crewName}
+          </Link>
           <span className="flex items-center gap-2">
             {crew.blendedRate !== null ? (
               <span className="text-xs text-muted-foreground">

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { recomputeAnomaliesBestEffort } from "@/lib/anomalies/actions";
 import { tryMilestone } from "@/lib/comms/milestones";
 import { touchProjectActivity } from "@/lib/projects/actions";
 import { createClient } from "@/lib/supabase/server";
@@ -204,6 +205,9 @@ export async function closeDay(
     departedAt: new Date().toISOString(),
   });
   await touchProjectActivity(projectId);
+  // Batch 5 Sub-phase D: refresh anomalies at close-of-day (best-effort —
+  // skips silently for a crew session that can't run the office recompute).
+  await recomputeAnomaliesBestEffort();
 }
 
 // End-of-day documentation photos — distinct from blockers.photo_path
