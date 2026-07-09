@@ -4,6 +4,34 @@ Engineering journal. Newest entries at top.
 
 ---
 
+## 2026-07-09 — Batch 5 Sub-phase D: crew scorecards + anomaly detection
+
+**Anomaly engine (1c53fba).** Pure rules in lib/anomalies/detect.ts — SPI
+slipping, low output vs norm (blocked days + tiny samples excused),
+projected material shortfall within a lead-day window, idle scheduled
+crew-day. Each carries a stable dedupe_key + configurable thresholds; 6
+unit tests. recomputeAnomalies gathers inputs, upserts anomaly_flags, and
+clears open flags that no longer hold (acknowledged stay as history);
+guarded → clean no-op pre-migration. Dashboard exception strip (per-kind
+icons, severity chips, acknowledge, manual "Check now"); close-of-day
+fires a best-effort recompute. Nightly auto-recompute across all orgs
+needs a service-role refactor of the RLS-scoped dashboard queries — the
+manual + close-of-day triggers cover it for now (NEEDS-ME follow-up).
+
+**Crew scorecard.** /scheduler/crew/[crewId] (office-only): units, avg per
+active day, targets-hit % (blocked days excluded), guarded QC pass rate,
+output-trend sparkline, blockers by cause. Coaching, not surveillance —
+small samples flagged, blocked days never counted as a miss. Linked from
+the dashboard crew list.
+
+**Note discovered this session:** the Batch-5 migration tables are LIVE in
+prod (Alter hand-applied) but PostgREST's schema cache was mid-reload
+(flickering PGRST205) — the guarded reads degrade cleanly through it; the
+anomaly E2E branches on the strip's own availability so it's robust to the
+transient.
+
+---
+
 ## 2026-07-09 — Batch 5 Sub-phase B: drawing row auto-detect + assignment proposal
 
 **B(1) Detect rows (cf2a83a).** `/api/drawings/detect-rows` sends the

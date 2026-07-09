@@ -12,8 +12,10 @@ is NEEDS-ME on the live DB).
   logging, source preview, live E2E green. ADR-057.
 - ✅ **Sub-phase B** (cf2a83a): drawing row auto-detect (vision ghost
   boxes) + row-assignment proposal (even-split, unit-tested, live E2E).
-- ⬜ C (QR/voice/SMS), D (scorecards/anomalies), E (NL assistant),
-  F (QuickBooks), G (Zoho), H (QA/deploy).
+- ✅ **Sub-phase D** (1c53fba): crew scorecards + rules-based anomaly
+  detection (6 unit tests, dashboard strip, close-of-day trigger).
+- ⬜ C (QR/voice/SMS), E (NL assistant), F (QuickBooks), G (Zoho),
+  H (QA/deploy).
 
 
 **CURRENT BATCH — Design pass v3 + feature slice (started 2026-07-09;
