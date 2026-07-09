@@ -12,6 +12,12 @@ import {
 } from "@/lib/comms/actions";
 import type { ProjectCommRow } from "@/lib/comms/queries";
 import type { CommsChannel, CommsKind } from "@/lib/supabase/database.types";
+import { FilterBar } from "@/components/ui/filter-bar";
+import {
+  matchesFacet,
+  matchesSearch,
+  useFilterState,
+} from "@/lib/filters/use-filter-state";
 import { cn } from "@/lib/utils";
 
 const KIND_LABEL: Record<CommsKind, string> = {
@@ -292,6 +298,16 @@ export function CommsWorkspace({
   comms: ProjectCommRow[];
   resendConfigured: boolean;
 }) {
+  const filter = useFilterState("comms");
+  const visibleComms = comms.filter(
+    (comm) =>
+      matchesSearch(
+        filter.state.search,
+        comm.subject,
+        comm.body_snapshot,
+        comm.recipient
+      ) && matchesFacet(filter.state.facets.kind, comm.kind)
+  );
   return (
     <div className="flex flex-col gap-4">
       <div>
@@ -325,53 +341,90 @@ export function CommsWorkspace({
             Nothing sent or logged yet.
           </p>
         ) : (
-          <ul data-testid="comms-history" className="mt-3 flex flex-col gap-2">
-            {comms.map((comm) => (
-              <li
-                key={comm.id}
-                className="flex flex-col gap-1 rounded-md border border-border p-2.5"
-              >
-                <div className="flex flex-wrap items-center gap-2 text-xs">
-                  <span
-                    className={cn(
-                      "rounded-full px-2 py-0.5 font-medium",
-                      KIND_BADGE[comm.kind]
-                    )}
-                  >
-                    {KIND_LABEL[comm.kind]}
-                  </span>
-                  <span className="text-muted-foreground">
-                    {CHANNEL_LABEL[comm.channel]}
-                    {comm.recipient ? ` · ${comm.recipient}` : ""}
-                    {" · "}
-                    {formatSentAt(comm.sent_at)}
-                  </span>
-                </div>
-                <p className="text-sm text-foreground">{comm.subject}</p>
-                {comm.body_snapshot ? (
-                  <details>
-                    <summary className="cursor-pointer text-xs text-muted-foreground">
-                      What was sent
-                    </summary>
-                    {comm.channel === "email" ? (
-                      <div
-                        className="mt-1.5 max-h-64 overflow-auto rounded-md border border-border bg-background p-2 text-xs [&_*]:!text-foreground"
-                        // The logged body_snapshot is HTML this app itself
-                        // composed and sent (never user-authored markup) —
-                        // rendering it is showing the office exactly what
-                        // the customer received.
-                        dangerouslySetInnerHTML={{ __html: comm.body_snapshot }}
-                      />
-                    ) : (
-                      <p className="mt-1.5 whitespace-pre-wrap text-xs text-muted-foreground">
-                        {comm.body_snapshot}
-                      </p>
-                    )}
-                  </details>
-                ) : null}
-              </li>
-            ))}
-          </ul>
+          <>
+            <div className="mt-3">
+              <FilterBar
+                screenLabel="comms"
+                state={filter.state}
+                facets={[
+                  {
+                    key: "kind",
+                    label: "Type",
+                    options: [
+                      { value: "milestone", label: "Milestone" },
+                      { value: "weekly_report", label: "Weekly report" },
+                      { value: "manual", label: "Logged" },
+                      { value: "schedule_change", label: "Schedule change" },
+                      { value: "change_order", label: "Change order" },
+                    ],
+                  },
+                ]}
+                resultCount={visibleComms.length}
+                resultNoun="entries"
+                views={filter.views}
+                activeCount={filter.activeCount}
+                onSearch={filter.setSearch}
+                onToggleFacet={filter.toggleFacet}
+                onClearFacet={filter.clearFacet}
+                onClearAll={filter.clearAll}
+                onApplyView={filter.applyView}
+                onSaveView={filter.saveView}
+                onDeleteView={filter.deleteView}
+              />
+            </div>
+            <ul
+              data-testid="comms-history"
+              className="mt-3 flex flex-col gap-2"
+            >
+              {visibleComms.map((comm) => (
+                <li
+                  key={comm.id}
+                  className="flex flex-col gap-1 rounded-md border border-border p-2.5"
+                >
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    <span
+                      className={cn(
+                        "rounded-full px-2 py-0.5 font-medium",
+                        KIND_BADGE[comm.kind]
+                      )}
+                    >
+                      {KIND_LABEL[comm.kind]}
+                    </span>
+                    <span className="text-muted-foreground">
+                      {CHANNEL_LABEL[comm.channel]}
+                      {comm.recipient ? ` · ${comm.recipient}` : ""}
+                      {" · "}
+                      {formatSentAt(comm.sent_at)}
+                    </span>
+                  </div>
+                  <p className="text-sm text-foreground">{comm.subject}</p>
+                  {comm.body_snapshot ? (
+                    <details>
+                      <summary className="cursor-pointer text-xs text-muted-foreground">
+                        What was sent
+                      </summary>
+                      {comm.channel === "email" ? (
+                        <div
+                          className="mt-1.5 max-h-64 overflow-auto rounded-md border border-border bg-background p-2 text-xs [&_*]:!text-foreground"
+                          // The logged body_snapshot is HTML this app itself
+                          // composed and sent (never user-authored markup) —
+                          // rendering it is showing the office exactly what
+                          // the customer received.
+                          dangerouslySetInnerHTML={{
+                            __html: comm.body_snapshot,
+                          }}
+                        />
+                      ) : (
+                        <p className="mt-1.5 whitespace-pre-wrap text-xs text-muted-foreground">
+                          {comm.body_snapshot}
+                        </p>
+                      )}
+                    </details>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </>
         )}
       </div>
     </div>

@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 
 import { AddTeamMemberDialog } from "@/components/team/add-team-member-dialog";
 import { PageHeader } from "@/components/ui/page-header";
-import { TeamMemberRow } from "@/components/team/team-member-row";
+import { TeamList } from "@/components/team/team-list";
 import { listCrews } from "@/lib/crews/queries";
 import { createClient } from "@/lib/supabase/server";
 import { listTeamMembers } from "@/lib/team/queries";
@@ -45,16 +45,7 @@ export default async function TeamPage() {
         actions={<AddTeamMemberDialog />}
       />
 
-      <div className="flex flex-col gap-3">
-        {members.map((member) => (
-          <TeamMemberRow
-            key={member.id}
-            member={member}
-            crews={crews}
-            isSelf={member.id === user.id}
-          />
-        ))}
-      </div>
+      <TeamList members={members} crews={crews} currentUserId={user.id} />
     </div>
   );
 }

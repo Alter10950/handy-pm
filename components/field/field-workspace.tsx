@@ -1,5 +1,7 @@
 "use client";
 
+import { matchesSearch, useFilterState } from "@/lib/filters/use-filter-state";
+
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
@@ -47,6 +49,9 @@ export function FieldWorkspace({
   scopeItems: ScopeItemProgressRow[];
   clearedForInstall: boolean;
 }) {
+  const rowFilter = useFilterState("field-rows");
+  const rowSearch = rowFilter.state.search;
+  const setRowSearchValue = rowFilter.setSearch;
   const [crewId, setCrewId] = useCrewSelection(myCrewId);
   const { logDelta, pendingCount } = useInstallLogger(project.id, crewId);
   const [view, setView] = useState<View>("rows");
@@ -229,46 +234,56 @@ export function FieldWorkspace({
 
       {view === "rows" ? (
         <div className="flex flex-col gap-2 p-3">
-          {rows.map((row) => {
-            const phase = row.phase_id ? phasesById.get(row.phase_id) : null;
-            const pctInt = Math.round(row.pct * 100);
-            return (
-              <button
-                key={row.row_id}
-                type="button"
-                onClick={() => {
-                  setSelectedRowId(row.row_id);
-                  setView("row");
-                }}
-                className="flex items-center gap-3 rounded-lg border border-border bg-card shadow-e1 p-3 text-left active:bg-accent"
-              >
-                <span
-                  className="size-3 shrink-0 rounded-full"
-                  style={{ backgroundColor: phase?.color ?? "#3a3a3a" }}
-                />
-                <div className="flex-1">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-medium text-foreground">
-                      {row.label}
-                    </span>
-                    <span className="text-sm text-muted-foreground">
-                      {row.has_materials ? `${pctInt}%` : "No materials"}
-                    </span>
+          <input
+            type="search"
+            aria-label="Find a row"
+            placeholder="Find a row…"
+            value={rowSearch}
+            onChange={(event) => setRowSearchValue(event.target.value)}
+            className="h-11 rounded-lg border border-border bg-surface px-3 text-base text-foreground placeholder:text-muted-foreground"
+          />
+          {rows
+            .filter((row) => matchesSearch(rowSearch, row.label))
+            .map((row) => {
+              const phase = row.phase_id ? phasesById.get(row.phase_id) : null;
+              const pctInt = Math.round(row.pct * 100);
+              return (
+                <button
+                  key={row.row_id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedRowId(row.row_id);
+                    setView("row");
+                  }}
+                  className="flex items-center gap-3 rounded-lg border border-border bg-card shadow-e1 p-3 text-left active:bg-accent"
+                >
+                  <span
+                    className="size-3 shrink-0 rounded-full"
+                    style={{ backgroundColor: phase?.color ?? "#3a3a3a" }}
+                  />
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium text-foreground">
+                        {row.label}
+                      </span>
+                      <span className="text-sm text-muted-foreground">
+                        {row.has_materials ? `${pctInt}%` : "No materials"}
+                      </span>
+                    </div>
+                    <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-background">
+                      <div
+                        className={
+                          row.is_complete
+                            ? "h-full bg-success"
+                            : "h-full bg-primary"
+                        }
+                        style={{ width: `${pctInt}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-background">
-                    <div
-                      className={
-                        row.is_complete
-                          ? "h-full bg-success"
-                          : "h-full bg-primary"
-                      }
-                      style={{ width: `${pctInt}%` }}
-                    />
-                  </div>
-                </div>
-              </button>
-            );
-          })}
+                </button>
+              );
+            })}
           <Button
             type="button"
             variant="outline"

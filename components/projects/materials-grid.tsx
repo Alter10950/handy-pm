@@ -15,6 +15,12 @@ import {
   updateMaterial,
 } from "@/lib/projects/actions";
 import { upsertRowMaterialQty } from "@/lib/rows/actions";
+import { FilterBar } from "@/components/ui/filter-bar";
+import {
+  matchesFacet,
+  matchesSearch,
+  useFilterState,
+} from "@/lib/filters/use-filter-state";
 import { cn } from "@/lib/utils";
 import type {
   MaterialCondition,
@@ -50,6 +56,13 @@ export function MaterialsGrid({
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const filter = useFilterState("materials");
+  const visibleMaterials = materials.filter(
+    (material) =>
+      matchesSearch(filter.state.search, material.name, material.size) &&
+      matchesFacet(filter.state.facets.category, material.task_key) &&
+      matchesFacet(filter.state.facets.condition, material.condition)
+  );
   const router = useRouter();
 
   const headerRefs = useRef<Map<string, HTMLTableCellElement>>(new Map());
@@ -114,8 +127,38 @@ export function MaterialsGrid({
     run(() => bulkSetMaterialCondition(projectId, ids, condition));
   }
 
+  const categoryOptions = [...new Set(materials.map((m) => m.task_key))]
+    .sort()
+    .map((key) => ({ value: key, label: key.replace("_", " ") }));
+
   return (
     <div className="flex flex-col gap-3">
+      <FilterBar
+        screenLabel="materials"
+        state={filter.state}
+        facets={[
+          { key: "category", label: "Category", options: categoryOptions },
+          {
+            key: "condition",
+            label: "Condition",
+            options: [
+              { value: "new", label: "New" },
+              { value: "used", label: "Used" },
+            ],
+          },
+        ]}
+        resultCount={visibleMaterials.length}
+        resultNoun="materials"
+        views={filter.views}
+        activeCount={filter.activeCount}
+        onSearch={filter.setSearch}
+        onToggleFacet={filter.toggleFacet}
+        onClearFacet={filter.clearFacet}
+        onClearAll={filter.clearAll}
+        onApplyView={filter.applyView}
+        onSaveView={filter.saveView}
+        onDeleteView={filter.deleteView}
+      />
       {rows.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border bg-card p-4 text-sm text-muted-foreground">
           No rows yet — add materials below now; assigning quantities to
@@ -191,7 +234,7 @@ export function MaterialsGrid({
             </tr>
           </thead>
           <tbody>
-            {materials.map((material) => {
+            {visibleMaterials.map((material) => {
               const recon = reconciliationByMaterial.get(material.id);
               const left = recon?.left_qty ?? material.total_needed;
               const toOrder =

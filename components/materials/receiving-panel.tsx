@@ -19,6 +19,8 @@ import type {
   Tables,
   Views,
 } from "@/lib/supabase/database.types";
+import { FilterBar } from "@/components/ui/filter-bar";
+import { matchesSearch, useFilterState } from "@/lib/filters/use-filter-state";
 import { cn } from "@/lib/utils";
 
 function formatReceiptTimestamp(isoString: string): string {
@@ -203,6 +205,10 @@ export function ReceivingPanel({
   readiness: MaterialsReadiness;
 }) {
   const router = useRouter();
+  const filter = useFilterState("receiving");
+  const visibleMaterials = materials.filter((material) =>
+    matchesSearch(filter.state.search, material.name, material.size)
+  );
   const reconByMaterial = new Map(
     reconciliation.map((r) => [r.material_id, r])
   );
@@ -220,6 +226,22 @@ export function ReceivingPanel({
 
   return (
     <div className="flex flex-col gap-6">
+      <FilterBar
+        screenLabel="receiving"
+        state={filter.state}
+        facets={[]}
+        resultCount={visibleMaterials.length}
+        resultNoun="materials"
+        views={filter.views}
+        activeCount={filter.activeCount}
+        onSearch={filter.setSearch}
+        onToggleFacet={filter.toggleFacet}
+        onClearFacet={filter.clearFacet}
+        onClearAll={filter.clearAll}
+        onApplyView={filter.applyView}
+        onSaveView={filter.saveView}
+        onDeleteView={filter.deleteView}
+      />
       <div
         data-testid="materials-gate-card"
         className={cn(
@@ -298,7 +320,7 @@ export function ReceivingPanel({
           <p className="text-sm text-muted-foreground">No materials yet.</p>
         ) : (
           <div className="flex flex-col gap-4">
-            {materials.map((material) => {
+            {visibleMaterials.map((material) => {
               const recon = reconByMaterial.get(material.id);
               const totals = totalsByMaterial.get(material.id) ?? {};
               const openFlags = (receiptHistory[material.id] ?? []).filter(

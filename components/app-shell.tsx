@@ -128,7 +128,11 @@ function BrandMark({ onDark = false }: { onDark?: boolean }) {
         )}
       >
         Handy
-        <span className={onDark ? "text-[var(--sidebar-text)]" : "text-text-secondary"}>
+        <span
+          className={
+            onDark ? "text-[var(--sidebar-text)]" : "text-text-secondary"
+          }
+        >
           PM
         </span>
       </span>
@@ -348,7 +352,9 @@ export function AppShell({
             className="flex h-9 max-w-md flex-1 items-center gap-2.5 rounded-lg border border-border bg-surface px-3 text-sm text-muted-foreground shadow-e1 transition-colors hover:border-border-strong hover:text-foreground"
           >
             <SearchIcon aria-hidden className="size-4" />
-            <span className="flex-1 text-left">Search projects, people, anything…</span>
+            <span className="flex-1 text-left">
+              Search projects, people, anything…
+            </span>
             <kbd className="rounded border border-border bg-surface-sunken px-1.5 font-mono text-[10px] text-muted-foreground">
               ⌘K
             </kbd>

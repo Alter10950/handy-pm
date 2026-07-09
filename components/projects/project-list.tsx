@@ -7,7 +7,12 @@ import { useState, useSyncExternalStore } from "react";
 import { ProjectCard } from "@/components/projects/project-card";
 import { ProjectStatusBadge } from "@/components/projects/project-status-badge";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Input } from "@/components/ui/input";
+import { FilterBar } from "@/components/ui/filter-bar";
+import {
+  matchesFacet,
+  matchesSearch,
+  useFilterState,
+} from "@/lib/filters/use-filter-state";
 import { ProgressBar } from "@/components/ui/progress-meter";
 import type { Views } from "@/lib/supabase/database.types";
 import { cn } from "@/lib/utils";
@@ -178,7 +183,8 @@ export function ProjectList({
   currentUserId: string;
 }) {
   const [myProjectsOnly, setMyProjectsOnly] = useState(false);
-  const [search, setSearch] = useState("");
+  const filter = useFilterState("projects");
+  const search = filter.state.search;
   const [completedOpen, setCompletedOpen] = useState(false);
   const view = useSyncExternalStore(
     subscribeToView,
@@ -195,9 +201,12 @@ export function ProjectList({
   const scoped = myProjectsOnly
     ? projects.filter((project) => project.pm_user_id === currentUserId)
     : projects;
-  const matches = query
-    ? scoped.filter((project) => project.name.toLowerCase().includes(query))
-    : scoped;
+  const matches = scoped.filter(
+    (project) =>
+      matchesSearch(search, project.name) &&
+      matchesFacet(filter.state.facets.status, project.status) &&
+      matchesFacet(filter.state.facets.pm, project.pm_user_id ?? "unassigned")
+  );
 
   const activeProjects = matches
     .filter((project) => project.status !== "complete")
@@ -215,32 +224,48 @@ export function ProjectList({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative min-w-56 flex-1 sm:max-w-xs">
-          <Input
-            type="search"
-            data-testid="projects-search"
-            aria-label="Search projects"
-            placeholder="Search projects…"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            className="pr-8 [&::-webkit-search-cancel-button]:hidden"
-          />
-          {search ? (
-            <button
-              type="button"
-              aria-label="Clear search"
-              onClick={() => setSearch("")}
-              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full px-1 text-muted-foreground hover:text-foreground"
-            >
-              ×
-            </button>
-          ) : null}
-        </div>
-
+      <FilterBar
+        screenLabel="projects"
+        searchTestId="projects-search"
+        state={filter.state}
+        facets={[
+          {
+            key: "status",
+            label: "Status",
+            options: [
+              { value: "active", label: "Active" },
+              { value: "on_hold", label: "On hold" },
+              { value: "estimate", label: "Estimate" },
+              { value: "complete", label: "Complete" },
+            ],
+          },
+          {
+            key: "pm",
+            label: "PM",
+            options: [
+              { value: "unassigned", label: "No PM assigned" },
+              ...Object.entries(pmLabelById).map(([id, label]) => ({
+                value: id,
+                label,
+              })),
+            ],
+          },
+        ]}
+        resultCount={matches.length}
+        resultNoun="projects"
+        views={filter.views}
+        activeCount={filter.activeCount}
+        onSearch={filter.setSearch}
+        onToggleFacet={filter.toggleFacet}
+        onClearFacet={filter.clearFacet}
+        onClearAll={filter.clearAll}
+        onApplyView={filter.applyView}
+        onSaveView={filter.saveView}
+        onDeleteView={filter.deleteView}
+      >
         {/* Raised-chip active state on a sunken track (design system), not
-            a yellow slab. Hand-rolled rather than <Segmented> to keep the
-            E2E testids and icon-only buttons. */}
+              a yellow slab. Hand-rolled rather than <Segmented> to keep the
+              E2E testids and icon-only buttons. */}
         <div
           role="group"
           aria-label="View mode"
@@ -310,7 +335,7 @@ export function ProjectList({
           />
           My projects only
         </label>
-      </div>
+      </FilterBar>
 
       {projects.length === 0 ? (
         <EmptyState
@@ -327,7 +352,7 @@ export function ProjectList({
               query ? (
                 <button
                   type="button"
-                  onClick={() => setSearch("")}
+                  onClick={() => filter.clearAll()}
                   className="text-sm font-medium text-info-fg hover:underline"
                 >
                   Clear search

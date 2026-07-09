@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { CrewRatesPanel } from "@/components/estimating/crew-rates-panel";
 import { LaborStandardsEditor } from "@/components/estimating/labor-standards-editor";
 import { NewEstimateDialog } from "@/components/estimating/new-estimate-dialog";
-import { ProjectCard } from "@/components/projects/project-card";
+import { EstimateDraftsList } from "@/components/estimating/estimate-drafts-list";
 import {
   listCompanyAutopsies,
   listLaborStandardDivergence,
@@ -72,21 +72,7 @@ export default async function EstimatingPage() {
         <h2 className="mb-3 text-lg font-semibold text-foreground">
           Draft estimates
         </h2>
-        {estimates.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-border bg-card p-8 text-center">
-            <p className="text-foreground">No draft estimates yet.</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Create one to paste a future job&apos;s material list and see
-              estimated days before it&apos;s a real project.
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {estimates.map((project) => (
-              <ProjectCard key={project.project_id} project={project} />
-            ))}
-          </div>
-        )}
+        <EstimateDraftsList estimates={estimates} />
       </div>
 
       {isOffice ? (
