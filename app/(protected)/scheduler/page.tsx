@@ -63,9 +63,15 @@ export default async function SchedulerPage() {
             </Link>
             <Link
               href="/scheduler/calendar"
-              className="rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground shadow-e1 transition-colors hover:bg-[var(--brand-hover)]"
+              className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-foreground shadow-e1 transition-colors hover:bg-muted"
             >
               Crew calendar
+            </Link>
+            <Link
+              href="/scheduler/board"
+              className="rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground shadow-e1 transition-colors hover:bg-[var(--brand-hover)]"
+            >
+              Schedule board
             </Link>
           </>
         }

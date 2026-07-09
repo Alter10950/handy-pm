@@ -1,6 +1,36 @@
 # Progress
 
-**CONFIRMED BATCH — Phases 10–16 (the "$1M product" batch, started
+**CURRENT BATCH — Design pass v3 + feature slice (started 2026-07-09;
+= HANDY-PM-QUEUE Step 2).** Elevates the Phase 10–16 light system to the
+reference standard and builds the highest-impact UX features.
+
+- ✅ **D1 — Chrome & type** (2026-07-09, 54d01d1): deep-ink left sidebar
+  w/ grouped nav (DAILY/PROJECTS/COMPANY) + gold active bar, top-bar
+  global search (⌘K) + bell, Fraunces display face on titles/stat
+  numerals, `.type-stat`, StatTile donut `ringPct`, warm cream canvas.
+- ✅ **D2 — Search + filters everywhere** (2026-07-09, 25c1c20): one
+  FilterBar (search/facets/chips/count/clear-all/saved views, persisted
+  per user per screen) on Projects, Team, Materials, Receiving, Comms,
+  Dashboard risk table, Scheduler list, Estimating drafts, Field rows +
+  `filter-bar-flow.spec.ts`. ADR-054. (Audit log deferred — table behind
+  the unpushed migration.)
+- ✅ **F1 — THE schedule board** (2026-07-09): `/scheduler/board` drag-drop
+  calendar — bars on crew swimlanes, move/resize/cross-lane reassign,
+  paint days off, unscheduled tray, auto-plan from estimate, wk/mo/qtr
+  zoom, today line, deadline diamonds, blocker delay markers, crew
+  avatars, live conflict ghost, capacity hard stop + double-book confirm,
+  print weekly schedule, notify-customer via comms. `writeProjectBar`
+  primitive + pure board math w/ unit tests + full E2E. ADR-055.
+- ⬜ **D3 — Screen-by-screen elevation** (Overview health hero, Materials
+  totals row, Receiving chips, Estimating stat header, Dashboard donut +
+  exception cards, Field/Team/Settings/Portal polish, empty-state glyphs)
+- ⬜ **F2 — Global quality features** (pins/recents, bulk bar + CSV/XLSX
+  exports, undo toast, column chooser/density, health badges, shortcut
+  sheet)
+- ⬜ **QA** — mobile pass, contrast re-check, remaining E2E, deploy +
+  verify live
+
+**PREVIOUS BATCH — Phases 10–16 (the "$1M product" batch, started
 2026-07-08).** Everything before this batch (the original Phases 1–5 and
 Batches 2–4, all ✅ done below) stays live and untouched at the data/route
 level; this batch replaces the presentation layer, fixes the labor/estimate

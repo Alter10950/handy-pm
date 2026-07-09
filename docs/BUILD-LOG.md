@@ -4,6 +4,71 @@ Engineering journal. Newest entries at top.
 
 ---
 
+## 2026-07-09 — Design pass v3: D1 chrome/type, D2 filters everywhere, F1 schedule board
+
+**D1 — chrome & type (54d01d1).** Permanent deep-ink LEFT sidebar
+(`--sidebar-*` tokens, fixed dark regardless of theme) with grouped nav
+— DAILY (Dashboard, Field) / PROJECTS (Projects, Scheduler, Estimating) /
+COMPANY (Team, Settings) — gold active bar, user card + sign-out at the
+bottom. Slim desktop top bar = global search field (dispatches ⌘K) +
+notification bell. Fraunces (next/font, `--font-display`) on display
+type and the new `.type-stat`; StatTile takes `ringPct` for donut
+rings. Canvas warmed to #f8f7f4. Gotcha: a stale `.next` cache masked
+the token changes — purge + cold start.
+
+**D2 — FilterBar everywhere (25c1c20).** One pattern for every list:
+`useFilterState(screenKey)` (localStorage per user per screen,
+useSyncExternalStore with cached snapshots) + pure-UI `<FilterBar>` —
+instant search, multi-select facet popovers, active chips with ×, result
+count, clear-all, saved views (save/recall/delete). Applied to Projects
+(status/PM facets), Team (role/crew/status — new TeamList wrapper),
+Materials grid (category/condition), Receiving (search; reorder list
+deliberately unfiltered), Comms log (kind), Dashboard risk table (risk),
+Scheduler project list, Estimating drafts, Field rows (44px crew-friendly
+plain search). `filter-bar-flow.spec.ts` covers filter/chips/reload
+persistence/saved-view recall. Audit-log screen skipped — table sits
+behind the unpushed migration.
+
+**F1 — THE schedule board (this commit).** `/scheduler/board`: project
+bars on crew swimlanes over a day grid. Drag to move (working-day aware),
+grab edges to resize (painted skips preserved), drag across lanes to
+reassign crews, click days in paint mode to toggle days off, drag
+unscheduled projects from the tray (sized by planned days), auto-plan
+from the per-SKU estimate (least-loaded crew, capacity-aware fill).
+Week/month/quarter zoom, today line, weekend shading, milestone diamonds
+(deadlines), blocker delay markers w/ reason tooltips, crew-initial
+avatars, over-capacity column wash, live conflict ghost (red = capacity
+hard stop, amber = double-book confirm). Print/PDF weekly crew schedule
+at `/scheduler/print` (app chrome hides via `print:` classes).
+Schedule-change notifications reuse comms: success toast offers "Notify
+customer" → reason dialog → `sendFinishChangedNotice`.
+
+Data layer: ONE write primitive — `writeProjectBar(project, crew,
+dates[], fromCrew?)` replaces the whole-project assignment set, enforces
+the dispatch gate (ADR-042) + the distinct-projects capacity rule
+(ADR-044, hard), and diffs `project_schedule` in sync (adds newly
+crewed days; removes only days this edit abandoned that nothing else
+covers). Pure geometry/conflict math in `lib/scheduler/board.ts` — 15
+unit tests (move keeps working-day duration, resize preserves painted
+skips, capacity/lane-clash detection, track stacking).
+
+**Three real bugs found by the E2E (`schedule-board-flow.spec.ts`):**
+(1) commits land in the DB before the server action returns, so the next
+interaction raced `busy` — board now exposes `data-busy` and the spec
+waits for idle; (2) the drag ghost claimed a lane track, growing the lane
+and shifting every boundary under the stationary pointer — candidate crew
+oscillated; ghost is now a pure overlay and the drag status pill is
+`fixed` (in-flow mounting had the same geometry-corrupting effect);
+(3) `window.confirm` fired synchronously inside the drop dispatch,
+deadlocking the drag source's dragend — the handler now yields the event
+loop first.
+
+**Verify:** lint/typecheck/build green; 29 unit tests green; board spec +
+crew-calendar + scheduler + capacity flows green (no regressions from the
+exported gate helpers or the new Scheduler-page CTA).
+
+---
+
 ## 2026-07-08 — Layout pan cursor feedback + Projects-page spec audit
 
 **Pan cursor feedback (the leftover).** The layout editor's pans worked

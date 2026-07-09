@@ -5,6 +5,46 @@ Consequences.
 
 ---
 
+## ADR-055: Design pass v3 F1 — schedule board on the existing per-day assignment model
+
+**Decision.** The drag-drop schedule board introduces NO new schema. A
+"bar" is defined as the set of whole-project (`row_id null`) assignment
+rows a crew has for a project; days inside the span with no row are
+"painted off". Move/resize/reassign/paint/tray-drop/auto-plan all reduce
+to one server primitive, `writeProjectBar`, which is therefore the
+single enforcement point for the dispatch gate (ADR-042) and the
+distinct-projects-per-day capacity hard limit (ADR-044), and the single
+place that keeps `project_schedule` in sync (add newly crewed days;
+remove only days the edit abandoned that no other assignment covers —
+manually planned crew-less days are never touched).
+
+**Why.** Per-day rows already model partial weeks, split crews and skip
+days for free; a start/end-column "bars" table would duplicate state the
+calendar and targets already read. Conflict math is pure and shared
+(`lib/scheduler/board.ts`, node --test) so the client's live drag
+preview and the server's authoritative check can't drift.
+
+**Board-interaction rules learned the hard way (regression-tested):**
+nothing may mount in-flow or change lane heights during a drag (the
+candidate-crew hit-test reads live geometry — the ghost is an overlay,
+the status pill is `fixed`), and no synchronous `window.confirm`
+inside a drop dispatch (blocks dragend; yield the event loop first).
+
+## ADR-054: Design pass v3 D2 — one FilterBar pattern, client-side, per-screen persisted
+
+**Decision.** Every list/table filters through `useFilterState(key)` +
+`<FilterBar>`: search + multi-select facets + saved views, persisted in
+localStorage per user per screen (`handy-pm:filters:<key>`), filtering
+in-memory on already-fetched rows. Not server-side querying, not URL
+params.
+
+**Why.** Every list in the app is org-scoped and small (dozens–hundreds
+of rows) — client filtering is instant, keeps Server Components' data
+fetching untouched, and localStorage gives "my screen, how I left it"
+without a settings table. URL params were rejected: they leak filter
+state into shared links (a PM's saved view is personal). The audit-log
+table is the one exception (server-side, behind the pending migration).
+
 ## ADR-053: Phase 16 — application-level, append-only audit log
 
 **Decision date:** 2026-07-08

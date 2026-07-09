@@ -34,7 +34,9 @@ function revalidateScheduler(projectId: string) {
 // asymmetry with the row-level readiness check in AssignCrewForm, which
 // stays a dismissible client-side warning (ADR-029) — that one is about
 // a specific row's physical state, this one is the project-level gate.
-async function requireClearedForDispatch(
+// Exported for the schedule board's bulk bar writes (board-actions.ts),
+// which are the same dispatch act on many days at once.
+export async function requireClearedForDispatch(
   projectId: string,
   orgId: string
 ): Promise<void> {
@@ -77,7 +79,10 @@ export async function upsertPlannedDays(
 // item — same pattern (and same reasoning) as the handoff/materials
 // syncs (ADR-041/042): the schedule data is the source of truth, this
 // just saves the duplicate manual click. Tick-only.
-async function syncScheduleGateItem(
+// Exported for board-actions.ts (same tick-only semantics; the underlying
+// toggleGateItem enforces roles, so exposing this as a server action adds
+// no write surface beyond what it already syncs).
+export async function syncScheduleGateItem(
   projectId: string,
   label: string
 ): Promise<void> {

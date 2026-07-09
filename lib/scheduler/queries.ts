@@ -375,3 +375,86 @@ export async function getPhaseTimelines(
     };
   });
 }
+
+// ── Schedule board (design pass v3 F1) ────────────────────────────────
+
+// Every project's committed schedule days in a range — feeds the board's
+// capacity math (distinct projects per day, ADR-044) and its over-
+// capacity column wash.
+export interface OrgScheduleDay {
+  projectId: string;
+  workDate: string;
+}
+
+export async function listOrgScheduleInRange(
+  startDate: string,
+  endDate: string
+): Promise<OrgScheduleDay[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("project_schedule")
+    .select("project_id, work_date")
+    .gte("work_date", startDate)
+    .lte("work_date", endDate);
+  if (error) throw error;
+  return data.map((row) => ({
+    projectId: row.project_id,
+    workDate: row.work_date,
+  }));
+}
+
+// Blockers in a date range — the board's delay-day markers (a red tick on
+// the bar with the code/note as its reason).
+export interface BoardBlocker {
+  projectId: string;
+  workDate: string;
+  code: string;
+  note: string | null;
+  resolvedAt: string | null;
+}
+
+export async function listBlockersInRange(
+  startDate: string,
+  endDate: string
+): Promise<BoardBlocker[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("blockers")
+    .select("project_id, work_date, code, note, resolved_at")
+    .gte("work_date", startDate)
+    .lte("work_date", endDate);
+  if (error) throw error;
+  return data.map((row) => ({
+    projectId: row.project_id,
+    workDate: row.work_date,
+    code: row.code,
+    note: row.note,
+    resolvedAt: row.resolved_at,
+  }));
+}
+
+// The board's project metadata in one query: deadlines drive the
+// milestone diamonds, planned_days sizes a tray drop before an estimate
+// exists.
+export interface BoardProjectMeta {
+  id: string;
+  name: string;
+  deadline: string | null;
+  plannedDays: number | null;
+}
+
+export async function listBoardProjectMeta(): Promise<BoardProjectMeta[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("projects")
+    .select("id, name, deadline, planned_days")
+    .eq("status", "active")
+    .order("name");
+  if (error) throw error;
+  return data.map((p) => ({
+    id: p.id,
+    name: p.name,
+    deadline: p.deadline,
+    plannedDays: p.planned_days,
+  }));
+}

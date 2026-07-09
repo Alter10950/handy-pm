@@ -197,7 +197,7 @@ export function AppShell({
       <CommandPalette role={role} />
 
       {/* ── Desktop sidebar ── */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col bg-[var(--sidebar-bg)] lg:flex">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col bg-[var(--sidebar-bg)] print:hidden lg:flex">
         <div className="flex h-14 items-center px-4">
           <BrandMark onDark />
         </div>
@@ -264,9 +264,9 @@ export function AppShell({
       </aside>
 
       {/* ── Main column ── */}
-      <div className="flex min-w-0 flex-1 flex-col lg:pl-60">
+      <div className="flex min-w-0 flex-1 flex-col print:pl-0 lg:pl-60">
         {/* Mobile top bar */}
-        <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border-subtle bg-background/90 px-4 backdrop-blur lg:hidden">
+        <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border-subtle bg-background/90 px-4 backdrop-blur print:hidden lg:hidden">
           <BrandMark />
           <div className="flex items-center gap-1">
             <NotificationBell notifications={notifications} />
@@ -340,7 +340,7 @@ export function AppShell({
         </header>
 
         {/* Desktop slim top bar: global search + bell (design pass v3) */}
-        <div className="sticky top-0 z-20 hidden h-14 items-center gap-4 border-b border-border-subtle bg-background/90 px-6 backdrop-blur lg:flex">
+        <div className="sticky top-0 z-20 hidden h-14 items-center gap-4 border-b border-border-subtle bg-background/90 px-6 backdrop-blur print:!hidden lg:flex">
           <button
             type="button"
             aria-label="Search everything"
@@ -366,7 +366,7 @@ export function AppShell({
 
         <main
           id="main-content"
-          className="mx-auto w-full min-w-0 max-w-6xl flex-1 px-4 pb-24 pt-6 lg:px-8 lg:pb-10"
+          className="mx-auto w-full min-w-0 max-w-6xl flex-1 px-4 pb-24 pt-6 print:max-w-none print:p-0 lg:px-8 lg:pb-10"
         >
           {children}
         </main>
@@ -374,7 +374,7 @@ export function AppShell({
         {/* ── Mobile bottom tab bar ── */}
         <nav
           aria-label="Quick"
-          className="fixed inset-x-0 bottom-0 z-30 border-t border-border-subtle bg-surface/95 backdrop-blur lg:hidden"
+          className="fixed inset-x-0 bottom-0 z-30 border-t border-border-subtle bg-surface/95 backdrop-blur print:hidden lg:hidden"
           style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
         >
           <div className="grid auto-cols-fr grid-flow-col">
