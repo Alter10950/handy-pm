@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useSyncExternalStore } from "react";
 
+import { HealthBadge } from "@/components/projects/health-badge";
 import { ProjectCard } from "@/components/projects/project-card";
 import { ProjectStatusBadge } from "@/components/projects/project-status-badge";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -14,7 +15,15 @@ import {
   matchesSearch,
   useFilterState,
 } from "@/lib/filters/use-filter-state";
+import {
+  ColumnChooser,
+  DensityToggle,
+  ExportCsvButton,
+} from "@/components/ui/grid-controls";
 import { ProgressBar } from "@/components/ui/progress-meter";
+import type { ProjectHealth } from "@/lib/dashboard/health";
+import { downloadCsv } from "@/lib/export/csv";
+import { useGridPrefs } from "@/lib/filters/grid-prefs";
 import type { Views } from "@/lib/supabase/database.types";
 import { cn } from "@/lib/utils";
 
@@ -61,13 +70,17 @@ function byName(a: ProjectRow, b: ProjectRow): number {
 function ProjectTable({
   projects,
   pmLabelById,
+  healthById,
   muted,
 }: {
   projects: ProjectRow[];
   pmLabelById: Record<string, string>;
+  healthById: Record<string, ProjectHealth>;
   muted?: boolean;
 }) {
   const router = useRouter();
+  const grid = useGridPrefs("projects-table");
+  const cellPad = grid.prefs.density === "compact" ? "py-1" : "py-2.5";
 
   return (
     <div className="overflow-x-auto rounded-lg border border-border bg-surface shadow-e1">
@@ -78,10 +91,18 @@ function ProjectTable({
         <thead>
           <tr className="border-b border-border bg-surface-sunken text-left text-xs font-semibold text-muted-foreground">
             <th className="px-3 py-2 font-semibold">Project</th>
-            <th className="px-3 py-2 font-semibold">Status</th>
-            <th className="min-w-32 px-3 py-2 font-semibold">Complete</th>
-            <th className="px-3 py-2 font-semibold">Target</th>
-            <th className="px-3 py-2 font-semibold">PM</th>
+            {!grid.isHidden("status") ? (
+              <th className="px-3 py-2 font-semibold">Status</th>
+            ) : null}
+            {!grid.isHidden("complete") ? (
+              <th className="min-w-32 px-3 py-2 font-semibold">Complete</th>
+            ) : null}
+            {!grid.isHidden("target") ? (
+              <th className="px-3 py-2 font-semibold">Target</th>
+            ) : null}
+            {!grid.isHidden("pm") ? (
+              <th className="px-3 py-2 font-semibold">PM</th>
+            ) : null}
           </tr>
         </thead>
         <tbody>
@@ -98,42 +119,60 @@ function ProjectTable({
                 }
                 className="cursor-pointer border-b border-border-subtle transition-colors last:border-0 hover:bg-accent/50"
               >
-                <td className="px-3 py-2.5">
-                  <Link
-                    href={`/app/project/${project.project_id}`}
-                    className="font-medium text-foreground hover:underline"
-                    onClick={(event) => event.stopPropagation()}
+                <td className={cn("px-3", cellPad)}>
+                  <span className="flex items-center gap-2">
+                    {healthById[project.project_id] ? (
+                      <HealthBadge health={healthById[project.project_id]} />
+                    ) : null}
+                    <Link
+                      href={`/app/project/${project.project_id}`}
+                      className="font-medium text-foreground hover:underline"
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      {project.name}
+                    </Link>
+                  </span>
+                </td>
+                {!grid.isHidden("status") ? (
+                  <td className={cn("px-3", cellPad)}>
+                    <ProjectStatusBadge status={project.status} />
+                  </td>
+                ) : null}
+                {!grid.isHidden("complete") ? (
+                  <td className={cn("px-3", cellPad)}>
+                    <div className="flex items-center gap-2">
+                      <ProgressBar
+                        pct={pct}
+                        size="sm"
+                        className="w-20 shrink-0"
+                      />
+                      <span className="num text-xs text-muted-foreground">
+                        {pct}%
+                      </span>
+                    </div>
+                  </td>
+                ) : null}
+                {!grid.isHidden("target") ? (
+                  <td
+                    className={cn(
+                      "whitespace-nowrap px-3 text-muted-foreground",
+                      cellPad
+                    )}
                   >
-                    {project.name}
-                  </Link>
-                </td>
-                <td className="px-3 py-2.5">
-                  <ProjectStatusBadge status={project.status} />
-                </td>
-                <td className="px-3 py-2.5">
-                  <div className="flex items-center gap-2">
-                    <ProgressBar
-                      pct={pct}
-                      size="sm"
-                      className="w-20 shrink-0"
-                    />
-                    <span className="num text-xs text-muted-foreground">
-                      {pct}%
-                    </span>
-                  </div>
-                </td>
-                <td className="whitespace-nowrap px-3 py-2.5 text-muted-foreground">
-                  {formatDeadline(project.deadline)}
-                </td>
-                <td className="max-w-40 truncate px-3 py-2.5">
-                  {pmLabel ? (
-                    <span className="text-muted-foreground">{pmLabel}</span>
-                  ) : (
-                    <span className="font-medium text-warning-fg">
-                      No PM assigned
-                    </span>
-                  )}
-                </td>
+                    {formatDeadline(project.deadline)}
+                  </td>
+                ) : null}
+                {!grid.isHidden("pm") ? (
+                  <td className={cn("max-w-40 truncate px-3", cellPad)}>
+                    {pmLabel ? (
+                      <span className="text-muted-foreground">{pmLabel}</span>
+                    ) : (
+                      <span className="font-medium text-warning-fg">
+                        No PM assigned
+                      </span>
+                    )}
+                  </td>
+                ) : null}
               </tr>
             );
           })}
@@ -146,10 +185,12 @@ function ProjectTable({
 function ProjectCards({
   projects,
   pmLabelById,
+  healthById,
   muted,
 }: {
   projects: ProjectRow[];
   pmLabelById: Record<string, string>;
+  healthById: Record<string, ProjectHealth>;
   muted?: boolean;
 }) {
   return (
@@ -163,6 +204,7 @@ function ProjectCards({
         <ProjectCard
           key={project.project_id}
           project={project}
+          health={healthById[project.project_id]}
           pmLabel={
             project.pm_user_id
               ? (pmLabelById[project.pm_user_id] ?? null)
@@ -178,11 +220,14 @@ export function ProjectList({
   projects,
   pmLabelById,
   currentUserId,
+  healthById,
 }: {
   projects: ProjectRow[];
   pmLabelById: Record<string, string>;
   currentUserId: string;
+  healthById: Record<string, ProjectHealth>;
 }) {
+  const grid = useGridPrefs("projects-table");
   const [myProjectsOnly, setMyProjectsOnly] = useState(false);
   const filter = useFilterState("projects");
   const search = filter.state.search;
@@ -264,6 +309,40 @@ export function ProjectList({
         onSaveView={filter.saveView}
         onDeleteView={filter.deleteView}
       >
+        <ExportCsvButton
+          testId="projects-export-csv"
+          onExport={() =>
+            downloadCsv(
+              "projects",
+              ["Project", "Status", "Complete %", "Target", "PM", "Health"],
+              matches.map((project) => [
+                project.name,
+                project.status,
+                Math.round(project.pct * 100),
+                project.deadline,
+                project.pm_user_id
+                  ? (pmLabelById[project.pm_user_id] ?? "")
+                  : "",
+                healthById[project.project_id]?.tier ?? "",
+              ])
+            )
+          }
+        />
+        {view === "list" ? (
+          <>
+            <ColumnChooser
+              testId="projects-columns"
+              grid={grid}
+              columns={[
+                { key: "status", label: "Status" },
+                { key: "complete", label: "Complete" },
+                { key: "target", label: "Target" },
+                { key: "pm", label: "PM" },
+              ]}
+            />
+            <DensityToggle grid={grid} />
+          </>
+        ) : null}
         {/* Raised-chip active state on a sunken track (design system), not
               a yellow slab. Hand-rolled rather than <Segmented> to keep the
               E2E testids and icon-only buttons. */}
@@ -374,7 +453,11 @@ export function ProjectList({
                   : "No active projects."}
               </p>
             ) : (
-              <Renderer projects={activeProjects} pmLabelById={pmLabelById} />
+              <Renderer
+                projects={activeProjects}
+                pmLabelById={pmLabelById}
+                healthById={healthById}
+              />
             )}
           </div>
 
@@ -403,6 +486,7 @@ export function ProjectList({
                   <Renderer
                     projects={completedProjects}
                     pmLabelById={pmLabelById}
+                    healthById={healthById}
                     muted
                   />
                 </div>

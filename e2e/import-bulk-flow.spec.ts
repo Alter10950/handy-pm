@@ -149,20 +149,41 @@ test("import/bulk: CSV materials + row-assignment import, bulk select/condition/
       })
       .toBe("used");
 
-    // Narrow the selection to just one material before deleting — the
-    // dialog message asserted below names the count, so this keeps the
-    // assertion tied to a single, unambiguous row.
+    // Narrow the selection to just one material before deleting, so the
+    // assertions stay tied to a single, unambiguous row.
     await page.getByTestId(`material-select-${anchorId}`).uncheck();
     await expect(page.getByText("1 selected")).toBeVisible();
 
-    let dialogMessage = "";
-    page.once("dialog", (dialog) => {
-      dialogMessage = dialog.message();
-      void dialog.accept();
-    });
+    // Design pass v3 F2: destructive actions use a delayed commit with an
+    // undo toast instead of a confirm dialog. First delete → Undo brings
+    // the row back and the DB row survives.
     await page.getByRole("button", { name: "Delete 1" }).click();
-    await expect.poll(() => dialogMessage).toContain("Delete 1 material");
     await expect(page.locator('[data-testid^="material-row-"]')).toHaveCount(1);
+    await page.getByRole("button", { name: "Undo" }).click();
+    await expect(page.locator('[data-testid^="material-row-"]')).toHaveCount(2);
+    const { count: afterUndo } = await admin
+      .from("materials")
+      .select("id", { count: "exact", head: true })
+      .eq("id", beamId);
+    expect(afterUndo).toBe(1);
+
+    // Second delete, left alone → commits to the DB after the grace window.
+    await page.getByTestId(`material-select-${beamId}`).check();
+    await expect(page.getByText("1 selected")).toBeVisible();
+    await page.getByRole("button", { name: "Delete 1" }).click();
+    await expect(page.locator('[data-testid^="material-row-"]')).toHaveCount(1);
+    await expect
+      .poll(
+        async () => {
+          const { count } = await admin
+            .from("materials")
+            .select("id", { count: "exact", head: true })
+            .eq("id", beamId);
+          return count;
+        },
+        { timeout: 15_000 }
+      )
+      .toBe(0);
   });
 
   await test.step("duplicate range: select 2 rows, duplicate as a block", async () => {
@@ -171,9 +192,12 @@ test("import/bulk: CSV materials + row-assignment import, bulk select/condition/
     // this navigation has no async checkpoint of its own — wait for the
     // existing row to render so the image has fully loaded and zoom/fit
     // has settled before computing a bounding box off it.
-    await expect(page.getByText("Row 1", { exact: true })).toBeVisible();
+    // Scope to the marking canvas' row box — "Row 1" as bare text also
+    // matches the materials grid's per-row column header, which can still
+    // be in the DOM mid-navigation (design pass v3 D3 added more columns).
+    await expect(page.getByTestId("row-box-Row 1")).toBeVisible();
     await drawRow(page, { x: 0.2, y: 0.05, w: 0.1, h: 0.1 });
-    await expect(page.getByText("Row 2", { exact: true })).toBeVisible();
+    await expect(page.getByTestId("row-box-Row 2")).toBeVisible();
 
     await page.getByTestId("row-box-Row 1").click();
     await page.getByTestId("row-box-Row 2").click({ modifiers: ["Shift"] });

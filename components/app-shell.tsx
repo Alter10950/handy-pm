@@ -3,12 +3,14 @@
 import {
   CalculatorIcon,
   CalendarDaysIcon,
+  ClockIcon,
   FolderKanbanIcon,
   HardHatIcon,
   LayoutDashboardIcon,
   MenuIcon,
   SearchIcon,
   SettingsIcon,
+  StarIcon,
   UserCircleIcon,
   UsersIcon,
   type LucideIcon,
@@ -19,7 +21,13 @@ import { useState } from "react";
 
 import { CommandPalette } from "@/components/command-palette";
 import { NotificationBell } from "@/components/notifications/notification-bell";
+import { ShortcutsSheet } from "@/components/shortcuts-sheet";
 import { ThemeToggle } from "@/components/theme-toggle";
+import {
+  isPinned,
+  usePinnedProjects,
+  useRecentProjects,
+} from "@/lib/projects/pinned";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -140,6 +148,55 @@ function BrandMark({ onDark = false }: { onDark?: boolean }) {
   );
 }
 
+// Pinned + recently-viewed projects (design pass v3 F2) — fed from
+// localStorage (lib/projects/pinned.ts), so it costs no fetch and renders
+// nothing until the user has pinned or visited something.
+function SidebarProjectRefs({ pathname }: { pathname: string }) {
+  const pinned = usePinnedProjects();
+  const recent = useRecentProjects().filter((p) => !isPinned(pinned, p.id));
+  if (pinned.length === 0 && recent.length === 0) return null;
+  return (
+    <>
+      {pinned.length > 0 ? (
+        <div className="flex flex-col gap-0.5" data-testid="sidebar-pinned">
+          <div className="type-overline px-2.5 pb-1 text-[var(--sidebar-text)]/70">
+            Pinned
+          </div>
+          {pinned.map((p) => (
+            <SidebarLink
+              key={p.id}
+              item={{
+                href: `/app/project/${p.id}`,
+                label: p.name,
+                icon: StarIcon,
+              }}
+              active={pathname === `/app/project/${p.id}`}
+            />
+          ))}
+        </div>
+      ) : null}
+      {recent.length > 0 ? (
+        <div className="flex flex-col gap-0.5" data-testid="sidebar-recent">
+          <div className="type-overline px-2.5 pb-1 text-[var(--sidebar-text)]/70">
+            Recent
+          </div>
+          {recent.slice(0, 4).map((p) => (
+            <SidebarLink
+              key={p.id}
+              item={{
+                href: `/app/project/${p.id}`,
+                label: p.name,
+                icon: ClockIcon,
+              }}
+              active={pathname === `/app/project/${p.id}`}
+            />
+          ))}
+        </div>
+      ) : null}
+    </>
+  );
+}
+
 function SidebarLink({ item, active }: { item: NavItem; active: boolean }) {
   const Icon = item.icon;
   return (
@@ -195,6 +252,7 @@ export function AppShell({
         Skip to content
       </a>
       <CommandPalette role={role} />
+      <ShortcutsSheet role={role} />
 
       {/* ── Desktop sidebar ── */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col bg-[var(--sidebar-bg)] print:hidden lg:flex">
@@ -221,6 +279,7 @@ export function AppShell({
               ))}
             </div>
           ))}
+          <SidebarProjectRefs pathname={pathname} />
         </nav>
         <div className="flex flex-col gap-2 border-t border-[var(--sidebar-line)] p-3">
           <Link

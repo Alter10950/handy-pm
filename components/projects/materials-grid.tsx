@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +17,8 @@ import {
 } from "@/lib/projects/actions";
 import { upsertRowMaterialQty } from "@/lib/rows/actions";
 import { FilterBar } from "@/components/ui/filter-bar";
+import { ExportCsvButton } from "@/components/ui/grid-controls";
+import { downloadCsv } from "@/lib/export/csv";
 import {
   matchesFacet,
   matchesSearch,
@@ -56,9 +59,12 @@ export function MaterialsGrid({
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  // Rows pending a delayed (undoable) delete are hidden immediately.
+  const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
   const filter = useFilterState("materials");
   const visibleMaterials = materials.filter(
     (material) =>
+      !hiddenIds.has(material.id) &&
       matchesSearch(filter.state.search, material.name, material.size) &&
       matchesFacet(filter.state.facets.category, material.task_key) &&
       matchesFacet(filter.state.facets.condition, material.condition)
@@ -98,6 +104,46 @@ export function MaterialsGrid({
     });
   }
 
+  // Undo toast on destructive actions (design pass v3 F2): the delete is
+  // DELAYED — rows hide instantly, a toast offers Undo for 5s, and only
+  // then does the server action run. Undo simply cancels the timer.
+  function scheduleDelete(
+    ids: string[],
+    label: string,
+    fn: () => Promise<void>
+  ) {
+    setHiddenIds((prev) => new Set([...prev, ...ids]));
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          await fn();
+          router.refresh();
+        } catch (err) {
+          setHiddenIds((prev) => {
+            const next = new Set(prev);
+            for (const id of ids) next.delete(id);
+            return next;
+          });
+          setError(err instanceof Error ? err.message : "Could not delete.");
+        }
+      })();
+    }, 5000);
+    toast(label, {
+      duration: 5000,
+      action: {
+        label: "Undo",
+        onClick: () => {
+          window.clearTimeout(timer);
+          setHiddenIds((prev) => {
+            const next = new Set(prev);
+            for (const id of ids) next.delete(id);
+            return next;
+          });
+        },
+      },
+    });
+  }
+
   function toggleSelection(materialId: string) {
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -110,14 +156,11 @@ export function MaterialsGrid({
   function handleBulkDelete() {
     const ids = [...selectedIds];
     if (ids.length === 0) return;
-    if (
-      !window.confirm(
-        `Delete ${ids.length} material${ids.length === 1 ? "" : "s"}? This can't be undone.`
-      )
-    ) {
-      return;
-    }
-    run(() => deleteMaterialsBatch(projectId, ids));
+    scheduleDelete(
+      ids,
+      `Deleted ${ids.length} material${ids.length === 1 ? "" : "s"}`,
+      () => deleteMaterialsBatch(projectId, ids)
+    );
     setSelectedIds(new Set());
   }
 
@@ -158,7 +201,43 @@ export function MaterialsGrid({
         onApplyView={filter.applyView}
         onSaveView={filter.saveView}
         onDeleteView={filter.deleteView}
-      />
+      >
+        <ExportCsvButton
+          testId="materials-export-csv"
+          onExport={() =>
+            downloadCsv(
+              "materials",
+              [
+                "Part",
+                "Task",
+                "Size",
+                "Needed",
+                "Received",
+                "Assigned",
+                "Left",
+                "To order",
+                "Condition",
+                "System",
+              ],
+              visibleMaterials.map((m) => {
+                const recon = reconciliationByMaterial.get(m.id);
+                return [
+                  m.name,
+                  m.task_key,
+                  m.size,
+                  m.total_needed,
+                  m.received,
+                  recon?.assigned ?? 0,
+                  recon?.left_qty ?? m.total_needed,
+                  recon?.to_order ?? Math.max(0, m.total_needed - m.received),
+                  m.condition,
+                  m.compatible_system,
+                ];
+              })
+            )
+          }
+        />
+      </FilterBar>
       {rows.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border bg-card p-4 text-sm text-muted-foreground">
           No rows yet — add materials below now; assigning quantities to
@@ -525,7 +604,11 @@ export function MaterialsGrid({
                       aria-label={`Delete ${material.name}`}
                       disabled={isPending}
                       onClick={() =>
-                        run(() => deleteMaterial(material.id, projectId))
+                        scheduleDelete(
+                          [material.id],
+                          `Deleted ${material.name}`,
+                          () => deleteMaterial(material.id, projectId)
+                        )
                       }
                       className="text-destructive"
                     >

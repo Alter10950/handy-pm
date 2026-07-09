@@ -1,6 +1,8 @@
 "use client";
 
 import { FilterBar } from "@/components/ui/filter-bar";
+import { ExportCsvButton } from "@/components/ui/grid-controls";
+import { downloadCsv } from "@/lib/export/csv";
 import {
   matchesFacet,
   matchesSearch,
@@ -62,7 +64,36 @@ export function ProjectRiskList({
         onApplyView={filter.applyView}
         onSaveView={filter.saveView}
         onDeleteView={filter.deleteView}
-      />
+      >
+        <ExportCsvButton
+          testId="dashboard-export-csv"
+          onExport={() =>
+            downloadCsv(
+              "active-projects",
+              [
+                "Project",
+                "PM",
+                "Health",
+                "SPI",
+                "Complete %",
+                "Crew today",
+                "Forecast finish",
+                "Deadline",
+              ],
+              matches.map((p) => [
+                p.name,
+                p.pmName,
+                RISK_TIER_LABEL[p.riskTier],
+                p.spi?.toFixed(2) ?? "",
+                Math.round(p.pct * 100),
+                p.assignedCrewNames.join("; "),
+                p.forecastFinish,
+                p.deadline,
+              ])
+            )
+          }
+        />
+      </FilterBar>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>

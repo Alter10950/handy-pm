@@ -3,8 +3,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { ConvertEstimateButton } from "@/components/estimating/convert-estimate-button";
+import { PinProjectButton } from "@/components/projects/pin-project-button";
 import { ProjectStatusBadge } from "@/components/projects/project-status-badge";
 import { ProjectTabs } from "@/components/projects/project-tabs";
+import { RecentProjectTracker } from "@/components/projects/recent-project-tracker";
 import { PageHeader } from "@/components/ui/page-header";
 import { getProject } from "@/lib/projects/queries";
 import { createClient } from "@/lib/supabase/server";
@@ -46,13 +48,17 @@ export default async function ProjectLayout({
           <ChevronLeftIcon aria-hidden className="size-3.5" />
           Projects
         </Link>
+        <RecentProjectTracker id={project.id} name={project.name} />
         <PageHeader
           title={project.name}
           status={<ProjectStatusBadge status={project.status} />}
           actions={
-            project.status === "estimate" ? (
-              <ConvertEstimateButton projectId={project.id} />
-            ) : undefined
+            <>
+              <PinProjectButton id={project.id} name={project.name} />
+              {project.status === "estimate" ? (
+                <ConvertEstimateButton projectId={project.id} />
+              ) : null}
+            </>
           }
         />
       </div>

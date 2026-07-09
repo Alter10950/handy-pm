@@ -20,6 +20,8 @@ import type {
   Views,
 } from "@/lib/supabase/database.types";
 import { FilterBar } from "@/components/ui/filter-bar";
+import { ExportCsvButton } from "@/components/ui/grid-controls";
+import { downloadCsv } from "@/lib/export/csv";
 import { ProgressBar } from "@/components/ui/progress-meter";
 import { StatusPill } from "@/components/ui/status-pill";
 import { matchesSearch, useFilterState } from "@/lib/filters/use-filter-state";
@@ -243,7 +245,44 @@ export function ReceivingPanel({
         onApplyView={filter.applyView}
         onSaveView={filter.saveView}
         onDeleteView={filter.deleteView}
-      />
+      >
+        <ExportCsvButton
+          testId="receiving-export-csv"
+          onExport={() =>
+            downloadCsv(
+              "receiving",
+              [
+                "Material",
+                "Size",
+                "Needed",
+                "Received",
+                "Verified",
+                "Staged",
+                "To order",
+                "Open flags",
+              ],
+              visibleMaterials.map((m) => {
+                const totals = totalsByMaterial.get(m.id) ?? {};
+                const openFlags = (receiptHistory[m.id] ?? []).filter(
+                  (entry) =>
+                    FLAG_STATUSES.has(entry.status) &&
+                    entry.resolved_at === null
+                ).length;
+                return [
+                  m.name,
+                  m.size,
+                  m.total_needed,
+                  m.received,
+                  totals["verified"] ?? 0,
+                  totals["staged"] ?? 0,
+                  reconByMaterial.get(m.id)?.to_order ?? 0,
+                  openFlags,
+                ];
+              })
+            )
+          }
+        />
+      </FilterBar>
       <div
         data-testid="materials-gate-card"
         className={cn(

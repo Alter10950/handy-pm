@@ -1,8 +1,10 @@
 import { CalendarIcon, UserIcon } from "lucide-react";
 import Link from "next/link";
 
+import { HealthBadge } from "@/components/projects/health-badge";
 import { ProjectStatusBadge } from "@/components/projects/project-status-badge";
 import { ProgressBar } from "@/components/ui/progress-meter";
+import type { ProjectHealth } from "@/lib/dashboard/health";
 import type { Views } from "@/lib/supabase/database.types";
 
 function formatDeadline(deadline: string | null): string {
@@ -17,12 +19,14 @@ function formatDeadline(deadline: string | null): string {
 export function ProjectCard({
   project,
   pmLabel,
+  health,
 }: {
   project: Views<"project_progress">;
   // undefined: don't show a PM row at all (the pre-sale estimates list —
   // a PM isn't expected yet there). null: show the "No PM assigned"
   // warning (the real, active projects list — Batch 4 Sub-phase B).
   pmLabel?: string | null;
+  health?: ProjectHealth;
 }) {
   const pct = Math.round(project.pct * 100);
 
@@ -33,8 +37,9 @@ export function ProjectCard({
       style={{ transitionDuration: "var(--duration-base)" }}
     >
       <div className="flex items-start justify-between gap-3">
-        <h2 className="text-base font-semibold leading-snug text-foreground">
-          {project.name}
+        <h2 className="flex min-w-0 items-center gap-2 text-base font-semibold leading-snug text-foreground">
+          {health ? <HealthBadge health={health} /> : null}
+          <span className="min-w-0">{project.name}</span>
         </h2>
         <ProjectStatusBadge status={project.status} />
       </div>

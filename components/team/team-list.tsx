@@ -5,6 +5,8 @@ import { UsersIcon } from "lucide-react";
 import { TeamMemberRow } from "@/components/team/team-member-row";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FilterBar } from "@/components/ui/filter-bar";
+import { ExportCsvButton } from "@/components/ui/grid-controls";
+import { downloadCsv } from "@/lib/export/csv";
 import {
   matchesFacet,
   matchesSearch,
@@ -80,7 +82,26 @@ export function TeamList({
         onApplyView={filter.applyView}
         onSaveView={filter.saveView}
         onDeleteView={filter.deleteView}
-      />
+      >
+        <ExportCsvButton
+          testId="team-export-csv"
+          onExport={() =>
+            downloadCsv(
+              "team",
+              ["Name", "Email", "Role", "Crew", "Status"],
+              matches.map((member) => [
+                member.fullName,
+                member.email,
+                member.role,
+                member.crewId
+                  ? (crews.find((c) => c.id === member.crewId)?.name ?? "")
+                  : "",
+                member.isActive ? "active" : "deactivated",
+              ])
+            )
+          }
+        />
+      </FilterBar>
 
       {matches.length === 0 ? (
         <EmptyState
