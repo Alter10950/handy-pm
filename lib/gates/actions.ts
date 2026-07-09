@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { requireRole } from "@/lib/auth/session";
 import { recordAudit } from "@/lib/audit/log";
+import { syncProjectStageToZoho } from "@/lib/integrations/zoho-sync";
 import { tryMilestone } from "@/lib/comms/milestones";
 import {
   getDefaultGateTemplateId,
@@ -349,6 +350,8 @@ export async function completeStage(
 
   await advanceToNextStage(projectId, stage.stage_key);
   await maybeSendStageMilestones(projectId, stage.stage_key);
+  // Batch 5 G: mirror the stage/% onto a linked Zoho deal (best-effort).
+  await syncProjectStageToZoho(projectId, stage.stage_key);
   await touchProjectActivity(projectId);
   revalidateProject(projectId);
 }

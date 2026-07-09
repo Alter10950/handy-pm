@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
+import { ImportFromZohoDialog } from "@/components/projects/import-from-zoho-dialog";
 import { NewProjectDialog } from "@/components/projects/new-project-dialog";
 import { ProjectList } from "@/components/projects/project-list";
 import { PageHeader } from "@/components/ui/page-header";
@@ -29,6 +30,12 @@ export default async function ProjectsPage() {
   const pmLabelById = Object.fromEntries(
     teamMembers.map((member) => [member.id, member.fullName || member.email])
   );
+  const { data: viewer } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+  const canCreate = viewer?.role === "owner" || viewer?.role === "pm";
 
   return (
     <div className="flex flex-col gap-6">
@@ -37,10 +44,15 @@ export default async function ProjectsPage() {
         title="Projects"
         description="Every active install, its progress, and who's running it."
         actions={
-          <NewProjectDialog
-            pmCandidates={pmCandidates}
-            currentUserId={user.id}
-          />
+          canCreate ? (
+            <>
+              <ImportFromZohoDialog />
+              <NewProjectDialog
+                pmCandidates={pmCandidates}
+                currentUserId={user.id}
+              />
+            </>
+          ) : undefined
         }
       />
 
