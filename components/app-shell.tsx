@@ -19,6 +19,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 
+import { AskDialog } from "@/components/assistant/ask-dialog";
 import { CommandPalette } from "@/components/command-palette";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { ShortcutsSheet } from "@/components/shortcuts-sheet";
@@ -419,6 +420,7 @@ export function AppShell({
             </kbd>
           </button>
           <div className="ml-auto flex items-center gap-2">
+            <AskDialog />
             <NotificationBell notifications={notifications} />
           </div>
         </div>
