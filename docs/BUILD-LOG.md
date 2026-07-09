@@ -4,6 +4,33 @@ Engineering journal. Newest entries at top.
 
 ---
 
+## 2026-07-09 — Batch 5 Sub-phases C, F, G + close-out (H)
+
+**C — field capture (8665671).** QR receiving: printable label sheet
+(server-rendered SVG QR per material) + camera scan-to-receive
+(BarcodeDetector, manual code fallback) that highlights the scanned line;
+added qrcode dep. Voice: offline transcript queue drained on reconnect.
+SMS/WhatsApp: signed Twilio webhook → inbound_messages DRAFT (best-effort
+project match) + dashboard 'Field messages' triage; gated on Twilio.
+
+**F — margin + integrations (f57848b).** Owner-only per-project margin:
+manual quote (+ approved COs) vs actual labor cost vs forecast-at-
+completion; projects.quoted_amount migration (idempotent, degrades via
+select('*')). Settings → Integrations with real Connect buttons + full
+OAuth2 connect/callback routes (tokens server-side), gated on QBO_/ZOHO_
+credentials. ADR-059.
+
+**G — Zoho bridge (2f52f50).** 'Import from Zoho' → pre-filled linked
+project (integration_links); stage completions push stage/% back to the
+deal best-effort; field names from integrations.settings. Gated on the
+Zoho connection; manual creation untouched.
+
+**H — close-out.** Docs + full E2E + deploy below. Live-verification of
+the extraction/detection accuracy on real documents and the QBO/Zoho/
+Twilio round-trips remain NEEDS-YOU (credentials Alter deferred).
+
+---
+
 ## 2026-07-09 — Batch 5 Sub-phase E: read-only NL assistant
 
 **Assistant (04f433d).** An "Ask" box (top-bar sparkle button +

@@ -16,7 +16,11 @@ is NEEDS-ME on the live DB).
   detection (6 unit tests, dashboard strip, close-of-day trigger).
 - ✅ **Sub-phase E** (04f433d): read-only NL assistant (tool-calling,
   role-scoped, show-me links, live E2E). ADR-058.
-- ⬜ C (QR/voice/SMS), F (QuickBooks), G (Zoho), H (QA/deploy).
+- ✅ **C** (8665671): QR receiving + voice offline queue + SMS intake (gated).
+- ✅ **F** (f57848b): margin + integrations Connect/OAuth (gated). ADR-059.
+- ✅ **G** (2f52f50): Zoho deal→project + stage push-back (gated).
+- ✅ **H**: full E2E + deploy. **Batch 5 COMPLETE** (build); live-verify of
+  real-file accuracy + QBO/Zoho/Twilio round-trips is NEEDS-YOU.
 
 
 **CURRENT BATCH — Design pass v3 + feature slice (started 2026-07-09;

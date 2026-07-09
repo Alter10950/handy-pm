@@ -5,6 +5,20 @@ Consequences.
 
 ---
 
+## ADR-059: Batch 5 F/G — integrations enrich, never block; tokens server-only
+
+**Decision.** Every integration is optional and additive. QuickBooks
+enriches the margin view (syncing the quote) but manual quote entry always
+works; Zoho imports won deals into projects but manual 'New project' is
+untouched; Twilio adds SMS intake but the field app works without it. No
+core flow ever hard-depends on an external system being connected or up —
+each integration function is a clean no-op / gated prompt when
+disconnected. OAuth tokens are written and read only by the service-role
+client server-side; RLS keeps the integrations row owner-only and the app
+never selects the tokens column into a browser-scoped query. The Connect
+button is real but gated on the org's app credentials (QBO_/ZOHO_CLIENT_ID)
+— absent, it explains what's missing rather than dead-ending.
+
 ## ADR-058: Batch 5 Sub-phase E — assistant is read-only tool-calling, never raw SQL
 
 **Decision.** The NL assistant answers ONLY by calling a fixed set of
