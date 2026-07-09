@@ -2142,6 +2142,7 @@ export type Database = {
           original_estimate_days: number | null;
           original_estimate_labor_units: number | null;
           original_estimate_saved_at: string | null;
+          quoted_amount: number | null;
           planned_days: number | null;
           pm_user_id: string | null;
           site_address: string | null;
@@ -2164,6 +2165,7 @@ export type Database = {
           original_estimate_days?: number | null;
           original_estimate_labor_units?: number | null;
           original_estimate_saved_at?: string | null;
+          quoted_amount?: number | null;
           planned_days?: number | null;
           pm_user_id?: string | null;
           site_address?: string | null;
@@ -2186,6 +2188,7 @@ export type Database = {
           original_estimate_days?: number | null;
           original_estimate_labor_units?: number | null;
           original_estimate_saved_at?: string | null;
+          quoted_amount?: number | null;
           planned_days?: number | null;
           pm_user_id?: string | null;
           site_address?: string | null;

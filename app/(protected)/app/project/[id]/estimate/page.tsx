@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { MarginPanel } from "@/components/margin/margin-panel";
 import { ProjectEstimatePanel } from "@/components/estimating/project-estimate-panel";
 import { getApprovedChangeOrderTotals } from "@/lib/change-orders/queries";
 import {
@@ -7,7 +8,10 @@ import {
   listProjectEstimates,
 } from "@/lib/estimating/queries";
 import { listCrews } from "@/lib/crews/queries";
+import { isConnected } from "@/lib/integrations/queries";
+import { getProjectMargin } from "@/lib/margin/queries";
 import { getProject } from "@/lib/projects/queries";
+import { createClient } from "@/lib/supabase/server";
 
 export default async function ProjectEstimatePage({
   params,
@@ -30,6 +34,19 @@ export default async function ProjectEstimatePage({
         days: project.original_estimate_days ?? 0,
       }
     : null;
+
+  // Margin is owner-only (costs never surface to PM/scheduler/crew).
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const { data: viewer } = user
+    ? await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle()
+    : { data: null };
+  const isOwner = viewer?.role === "owner";
+  const [margin, quickbooksConnected] = isOwner
+    ? await Promise.all([getProjectMargin(id), isConnected("quickbooks")])
+    : [null, false];
 
   return (
     <div className="flex flex-col gap-4">
@@ -104,6 +121,14 @@ export default async function ProjectEstimatePage({
         crews={crews}
         aiExplainAvailable={Boolean(process.env.ANTHROPIC_API_KEY)}
       />
+
+      {isOwner && margin ? (
+        <MarginPanel
+          projectId={id}
+          margin={margin}
+          quickbooksConnected={quickbooksConnected}
+        />
+      ) : null}
     </div>
   );
 }

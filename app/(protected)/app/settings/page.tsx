@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { OrgLogoUpload } from "@/components/org/org-logo-upload";
+import { IntegrationsSection } from "@/components/settings/integrations-section";
 import { PageHeader } from "@/components/ui/page-header";
 import { OrgSettingsForm } from "@/components/org/org-settings-form";
 import { TemplateEditor } from "@/components/gates/template-editor";
@@ -9,6 +10,7 @@ import {
   getDefaultGateTemplateId,
   getTemplateStagesWithItems,
 } from "@/lib/gates/queries";
+import { listIntegrationStatuses } from "@/lib/integrations/queries";
 import { getOrgSettings, getSignedOrgLogoUrl } from "@/lib/org/queries";
 import { createClient } from "@/lib/supabase/server";
 
@@ -46,6 +48,8 @@ export default async function OrgSettingsPage() {
   const templateStages = templateId
     ? await getTemplateStagesWithItems(templateId)
     : [];
+  const integrationStatuses =
+    profile.role === "owner" ? await listIntegrationStatuses() : [];
 
   return (
     <div className="flex flex-col gap-6">
@@ -68,6 +72,20 @@ export default async function OrgSettingsPage() {
           initialWorkingDays={org.default_working_days}
         />
       </div>
+
+      {profile.role === "owner" ? (
+        <div className="flex flex-col gap-3">
+          <h2 className="text-lg font-semibold text-foreground">
+            Integrations
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Connect QuickBooks for job-cost margin and Zoho to turn won deals
+            into projects. Both are optional — the app works fully without
+            them.
+          </p>
+          <IntegrationsSection statuses={integrationStatuses} />
+        </div>
+      ) : null}
 
       <div className="flex flex-col gap-3">
         <h2 className="text-lg font-semibold text-foreground">
