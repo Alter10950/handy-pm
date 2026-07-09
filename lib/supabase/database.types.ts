@@ -1174,6 +1174,207 @@ export type Database = {
         };
         Relationships: [];
       };
+      anomaly_flags: {
+        Row: {
+          acknowledged_at: string | null;
+          acknowledged_by: string | null;
+          created_at: string;
+          crew_id: string | null;
+          dedupe_key: string;
+          id: string;
+          kind: string;
+          org_id: string;
+          payload: Json;
+          project_id: string | null;
+          severity: string;
+        };
+        Insert: {
+          acknowledged_at?: string | null;
+          acknowledged_by?: string | null;
+          created_at?: string;
+          crew_id?: string | null;
+          dedupe_key: string;
+          id?: string;
+          kind: string;
+          org_id: string;
+          payload?: Json;
+          project_id?: string | null;
+          severity?: string;
+        };
+        Update: {
+          acknowledged_at?: string | null;
+          acknowledged_by?: string | null;
+          created_at?: string;
+          crew_id?: string | null;
+          dedupe_key?: string;
+          id?: string;
+          kind?: string;
+          org_id?: string;
+          payload?: Json;
+          project_id?: string | null;
+          severity?: string;
+        };
+        Relationships: [];
+      };
+      extraction_runs: {
+        Row: {
+          applied: boolean;
+          confidence: number | null;
+          created_at: string;
+          created_by: string | null;
+          id: string;
+          input_path: string | null;
+          kind: string;
+          org_id: string;
+          project_id: string | null;
+          raw_output: Json | null;
+          reviewed_at: string | null;
+          reviewed_by: string | null;
+          status: string;
+        };
+        Insert: {
+          applied?: boolean;
+          confidence?: number | null;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          input_path?: string | null;
+          kind: string;
+          org_id: string;
+          project_id?: string | null;
+          raw_output?: Json | null;
+          reviewed_at?: string | null;
+          reviewed_by?: string | null;
+          status?: string;
+        };
+        Update: {
+          applied?: boolean;
+          confidence?: number | null;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          input_path?: string | null;
+          kind?: string;
+          org_id?: string;
+          project_id?: string | null;
+          raw_output?: Json | null;
+          reviewed_at?: string | null;
+          reviewed_by?: string | null;
+          status?: string;
+        };
+        Relationships: [];
+      };
+      inbound_messages: {
+        Row: {
+          body: string | null;
+          channel: string;
+          created_at: string;
+          from_number: string;
+          id: string;
+          matched_project_id: string | null;
+          matched_user_id: string | null;
+          media: Json | null;
+          org_id: string;
+          parsed: Json | null;
+          status: string;
+        };
+        Insert: {
+          body?: string | null;
+          channel: string;
+          created_at?: string;
+          from_number: string;
+          id?: string;
+          matched_project_id?: string | null;
+          matched_user_id?: string | null;
+          media?: Json | null;
+          org_id: string;
+          parsed?: Json | null;
+          status?: string;
+        };
+        Update: {
+          body?: string | null;
+          channel?: string;
+          created_at?: string;
+          from_number?: string;
+          id?: string;
+          matched_project_id?: string | null;
+          matched_user_id?: string | null;
+          media?: Json | null;
+          org_id?: string;
+          parsed?: Json | null;
+          status?: string;
+        };
+        Relationships: [];
+      };
+      integrations: {
+        Row: {
+          connected_at: string | null;
+          connected_by: string | null;
+          created_at: string;
+          id: string;
+          org_id: string;
+          provider: string;
+          settings: Json;
+          status: string;
+          tokens: Json | null;
+        };
+        Insert: {
+          connected_at?: string | null;
+          connected_by?: string | null;
+          created_at?: string;
+          id?: string;
+          org_id: string;
+          provider: string;
+          settings?: Json;
+          status?: string;
+          tokens?: Json | null;
+        };
+        Update: {
+          connected_at?: string | null;
+          connected_by?: string | null;
+          created_at?: string;
+          id?: string;
+          org_id?: string;
+          provider?: string;
+          settings?: Json;
+          status?: string;
+          tokens?: Json | null;
+        };
+        Relationships: [];
+      };
+      integration_links: {
+        Row: {
+          created_at: string;
+          id: string;
+          local_id: string;
+          local_kind: string;
+          org_id: string;
+          provider: string;
+          remote_id: string;
+          synced_at: string | null;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          local_id: string;
+          local_kind: string;
+          org_id: string;
+          provider: string;
+          remote_id: string;
+          synced_at?: string | null;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          local_id?: string;
+          local_kind?: string;
+          org_id?: string;
+          provider?: string;
+          remote_id?: string;
+          synced_at?: string | null;
+        };
+        Relationships: [];
+      };
       material_skus: {
         Row: {
           category: string;
@@ -1295,6 +1496,7 @@ export type Database = {
           profile: string | null;
           project_id: string;
           received: number;
+          scan_code: string | null;
           size: string | null;
           sku_id: string | null;
           task_key: string;
@@ -1313,6 +1515,7 @@ export type Database = {
           profile?: string | null;
           project_id: string;
           received?: number;
+          scan_code?: string | null;
           size?: string | null;
           sku_id?: string | null;
           task_key?: string;
@@ -1331,6 +1534,7 @@ export type Database = {
           profile?: string | null;
           project_id?: string;
           received?: number;
+          scan_code?: string | null;
           size?: string | null;
           sku_id?: string | null;
           task_key?: string;
@@ -1402,6 +1606,7 @@ export type Database = {
       organizations: {
         Row: {
           address: string | null;
+          anomaly_settings: Json;
           created_at: string;
           default_working_days: number[];
           id: string;
@@ -1412,6 +1617,7 @@ export type Database = {
         };
         Insert: {
           address?: string | null;
+          anomaly_settings?: Json;
           created_at?: string;
           default_working_days?: number[];
           id?: string;
@@ -1422,6 +1628,7 @@ export type Database = {
         };
         Update: {
           address?: string | null;
+          anomaly_settings?: Json;
           created_at?: string;
           default_working_days?: number[];
           id?: string;
