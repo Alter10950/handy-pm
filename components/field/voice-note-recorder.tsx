@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import type { BlockerCode } from "@/lib/supabase/database.types";
@@ -47,6 +47,22 @@ function getSpeechRecognitionCtor(): (new () => SpeechRecognitionLike) | null {
 // into a draft — which the crew reviews before it's saved anywhere. Never
 // renders on a browser without SpeechRecognition support, rather than
 // showing a button that would always fail.
+// Batch 5 Sub-phase C(2): transcripts captured while offline are queued
+// and parsed on reconnect, so a crew's voice note is never lost in a dead
+// spot on the warehouse floor.
+const QUEUE_KEY = "handy-pm:voice-queue";
+function readQueue(): string[] {
+  try {
+    const raw = window.localStorage.getItem(QUEUE_KEY);
+    return raw ? (JSON.parse(raw) as string[]) : [];
+  } catch {
+    return [];
+  }
+}
+function writeQueue(items: string[]) {
+  window.localStorage.setItem(QUEUE_KEY, JSON.stringify(items));
+}
+
 export function VoiceNoteRecorder({
   onDraft,
 }: {
@@ -54,28 +70,86 @@ export function VoiceNoteRecorder({
 }) {
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState<string | null>(null);
+  const [queued, setQueued] = useState(() =>
+    typeof window === "undefined" ? 0 : readQueue().length
+  );
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const SpeechRecognitionCtor = getSpeechRecognitionCtor();
 
+  async function parseTranscript(transcript: string): Promise<VoiceNoteDraft> {
+    const response = await fetch("/api/field/voice-note", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ transcript }),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error ?? "Could not process that note.");
+    }
+    return data as VoiceNoteDraft;
+  }
+
+  const drainQueue = useCallback(async () => {
+    const items = readQueue();
+    if (items.length === 0) return;
+    const remaining = [...items];
+    for (const transcript of items) {
+      try {
+        const draft = await parseTranscript(transcript);
+        onDraft(draft);
+        remaining.shift();
+        writeQueue(remaining);
+        setQueued(remaining.length);
+      } catch {
+        break; // still offline / server down — keep the rest queued
+      }
+    }
+  }, [onDraft]);
+
+  useEffect(() => {
+    // Deferred so any state updates land after this effect, not
+    // synchronously inside it.
+    const initial = window.setTimeout(() => void drainQueue(), 0);
+    const onOnline = () => void drainQueue();
+    window.addEventListener("online", onOnline);
+    return () => {
+      window.clearTimeout(initial);
+      window.removeEventListener("online", onOnline);
+    };
+  }, [drainQueue]);
+
   async function processTranscript(transcript: string) {
     setStatus("processing");
+    // Offline up front → queue immediately, don't even try the round-trip.
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      const next = [...readQueue(), transcript];
+      writeQueue(next);
+      setQueued(next.length);
+      setStatus("idle");
+      setError(null);
+      return;
+    }
     try {
-      const response = await fetch("/api/field/voice-note", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ transcript }),
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error ?? "Could not process that note.");
-      }
-      onDraft(data as VoiceNoteDraft);
+      const draft = await parseTranscript(transcript);
+      onDraft(draft);
       setStatus("idle");
     } catch (err) {
-      setStatus("error");
-      setError(
-        err instanceof Error ? err.message : "Could not process that note."
-      );
+      // A network failure (vs. a real API error) → queue for reconnect.
+      const offlineish =
+        err instanceof TypeError ||
+        (typeof navigator !== "undefined" && navigator.onLine === false);
+      if (offlineish) {
+        const next = [...readQueue(), transcript];
+        writeQueue(next);
+        setQueued(next.length);
+        setStatus("idle");
+        setError(null);
+      } else {
+        setStatus("error");
+        setError(
+          err instanceof Error ? err.message : "Could not process that note."
+        );
+      }
     }
   }
 
@@ -122,6 +196,12 @@ export function VoiceNoteRecorder({
             ? "Processing..."
             : "🎤 Voice note"}
       </Button>
+      {queued > 0 ? (
+        <p className="text-xs text-warning-fg">
+          {queued} note{queued === 1 ? "" : "s"} queued — will process when
+          you&apos;re back online.
+        </p>
+      ) : null}
       {error ? <p className="text-xs text-destructive">{error}</p> : null}
     </div>
   );

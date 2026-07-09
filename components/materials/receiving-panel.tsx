@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +21,7 @@ import type {
 } from "@/lib/supabase/database.types";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { ExportCsvButton } from "@/components/ui/grid-controls";
+import { ScanToReceive } from "@/components/materials/scan-to-receive";
 import { downloadCsv } from "@/lib/export/csv";
 import { ProgressBar } from "@/components/ui/progress-meter";
 import { StatusPill } from "@/components/ui/status-pill";
@@ -213,6 +214,18 @@ export function ReceivingPanel({
   const visibleMaterials = materials.filter((material) =>
     matchesSearch(filter.state.search, material.name, material.size)
   );
+  // Batch 5 Sub-phase C(1): a scanned label highlights + scrolls to its
+  // material's check-in row.
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+  const rowRefs = useRef(new Map<string, HTMLTableRowElement>());
+  useEffect(() => {
+    if (!highlightId) return;
+    rowRefs.current
+      .get(highlightId)
+      ?.scrollIntoView({ block: "center", behavior: "smooth" });
+    const timer = window.setTimeout(() => setHighlightId(null), 2500);
+    return () => window.clearTimeout(timer);
+  }, [highlightId]);
   const reconByMaterial = new Map(
     reconciliation.map((r) => [r.material_id, r])
   );
@@ -282,6 +295,16 @@ export function ReceivingPanel({
             )
           }
         />
+        <ScanToReceive
+          knownIds={materials.map((m) => m.id)}
+          onScan={(id) => setHighlightId(id)}
+        />
+        <Link
+          href={`/app/project/${projectId}/labels`}
+          className="flex items-center gap-1.5 rounded-lg border border-border bg-surface px-2.5 py-1.5 text-sm font-medium text-foreground shadow-e1 transition-colors hover:bg-muted"
+        >
+          Print labels
+        </Link>
       </FilterBar>
       <div
         data-testid="materials-gate-card"
@@ -415,6 +438,11 @@ export function ReceivingPanel({
                   history={receiptHistory[material.id] ?? []}
                   projectId={projectId}
                   onChanged={() => router.refresh()}
+                  highlighted={highlightId === material.id}
+                  rowRef={(el) => {
+                    if (el) rowRefs.current.set(material.id, el);
+                    else rowRefs.current.delete(material.id);
+                  }}
                 />
               );
             })}
@@ -440,6 +468,8 @@ function ReceivingRow({
   history,
   projectId,
   onChanged,
+  highlighted,
+  rowRef,
 }: {
   material: Tables<"materials">;
   pctReceived: number;
@@ -453,11 +483,20 @@ function ReceivingRow({
   history: Tables<"material_receipts">[];
   projectId: string;
   onChanged: () => void;
+  highlighted?: boolean;
+  rowRef?: (el: HTMLTableRowElement | null) => void;
 }) {
   const fullyReceived = needed > 0 && received >= needed;
   return (
     <>
-      <tr className="border-t border-border-subtle">
+      <tr
+        ref={rowRef}
+        data-material-id={material.id}
+        className={cn(
+          "border-t border-border-subtle transition-colors",
+          highlighted && "bg-brand-subtle"
+        )}
+      >
         <td className="px-3 pb-1 pt-2.5 align-top">
           <p className="font-medium text-foreground">{material.name}</p>
           {material.size ? (

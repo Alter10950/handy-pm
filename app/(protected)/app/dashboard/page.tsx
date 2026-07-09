@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 
 import { AnomalyStrip } from "@/components/dashboard/anomaly-strip";
 import { BlockerEscalationList } from "@/components/dashboard/blocker-escalation-list";
+import { InboundStrip } from "@/components/dashboard/inbound-strip";
 import { CapacityOverrideList } from "@/components/dashboard/capacity-override-list";
 import { CrewPerformanceSummary } from "@/components/dashboard/crew-performance-summary";
 import { EmailReportButton } from "@/components/dashboard/email-report-button";
@@ -37,6 +38,7 @@ import {
   listOverriddenStages,
 } from "@/lib/gates/queries";
 import { listOpenAnomalies } from "@/lib/anomalies/queries";
+import { listInboundMessages } from "@/lib/inbound/queries";
 import { listCapacityOverrides } from "@/lib/scheduler/capacity";
 import { createClient } from "@/lib/supabase/server";
 
@@ -133,7 +135,10 @@ export default async function DashboardPage() {
     listOverriddenStages(),
     listCapacityOverrides(),
   ]);
-  const anomalyResult = await listOpenAnomalies();
+  const [anomalyResult, inbound] = await Promise.all([
+    listOpenAnomalies(),
+    listInboundMessages(),
+  ]);
 
   const openBlockers = blockers.length;
   const shortCount = shortages.length;
@@ -186,6 +191,12 @@ export default async function DashboardPage() {
       <AnomalyStrip
         anomalies={anomalyResult.anomalies}
         available={anomalyResult.available}
+      />
+
+      <InboundStrip
+        messages={inbound.messages}
+        available={inbound.available}
+        configured={inbound.configured}
       />
 
       <Section title={`Active projects (${projects.length})`}>
