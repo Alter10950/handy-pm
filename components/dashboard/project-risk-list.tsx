@@ -67,19 +67,19 @@ export function ProjectRiskList({
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-xs uppercase tracking-wide text-muted-foreground">
-              <th className="pb-2">Project</th>
-              <th className="pb-2">PM</th>
-              <th className="pb-2">Status</th>
-              <th className="pb-2 text-right">Complete</th>
-              <th className="pb-2">Crew today</th>
-              <th className="pb-2">Forecast finish</th>
-              <th className="pb-2">Deadline</th>
+              <th className="pb-2 pr-4 last:pr-0">Project</th>
+              <th className="pb-2 pr-4 last:pr-0">PM</th>
+              <th className="pb-2 pr-4 last:pr-0">Status</th>
+              <th className="pb-2 pr-4 last:pr-0 text-right">Complete</th>
+              <th className="pb-2 pr-4 last:pr-0">Crew today</th>
+              <th className="pb-2 pr-4 last:pr-0">Forecast finish</th>
+              <th className="pb-2 pr-4 last:pr-0">Deadline</th>
             </tr>
           </thead>
           <tbody>
             {matches.map((project) => (
               <tr key={project.projectId} className="border-t border-border">
-                <td className="py-2">
+                <td className="py-2 pr-4 last:pr-0">
                   <Link
                     href={`/app/project/${project.projectId}`}
                     className="font-medium text-foreground hover:underline"
@@ -87,7 +87,7 @@ export function ProjectRiskList({
                     {project.name}
                   </Link>
                 </td>
-                <td className="py-2">
+                <td className="py-2 pr-4 last:pr-0">
                   {project.pmName ? (
                     <span className="text-muted-foreground">
                       {project.pmName}
@@ -98,25 +98,25 @@ export function ProjectRiskList({
                     </span>
                   )}
                 </td>
-                <td className="py-2">
+                <td className="py-2 pr-4 last:pr-0">
                   <span
                     className={`rounded-full px-2 py-0.5 text-xs font-medium ${RISK_TIER_CLASS[project.riskTier]}`}
                   >
                     {RISK_TIER_LABEL[project.riskTier]}
                   </span>
                 </td>
-                <td className="py-2 text-right tabular-nums text-foreground">
+                <td className="py-2 pr-4 last:pr-0 text-right tabular-nums text-foreground">
                   {Math.round(project.pct * 100)}%
                 </td>
-                <td className="py-2 text-muted-foreground">
+                <td className="py-2 pr-4 last:pr-0 text-muted-foreground">
                   {project.assignedCrewNames.length > 0
                     ? project.assignedCrewNames.join(", ")
                     : "—"}
                 </td>
-                <td className="py-2 text-muted-foreground">
+                <td className="py-2 pr-4 last:pr-0 text-muted-foreground">
                   {formatDate(project.forecastFinish)}
                 </td>
-                <td className="py-2 text-muted-foreground">
+                <td className="py-2 pr-4 last:pr-0 text-muted-foreground">
                   {formatDate(project.deadline)}
                 </td>
               </tr>

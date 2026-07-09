@@ -131,7 +131,11 @@ test("estimating: draft an estimate, classify materials, save a forecast, conver
       .getByRole("button", { name: "Convert to active project" })
       .click();
     await page.waitForURL(new RegExp(`/app/project/${projectId}$`));
-    await expect(page.getByText("Active", { exact: true })).toBeVisible();
+    // Two status badges since design pass v3 D3 (project header + the
+    // Overview health hero) — either one proves the conversion.
+    await expect(
+      page.getByText("Active", { exact: true }).first()
+    ).toBeVisible();
     await expect(page.getByRole("link", { name: "Layout" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Progress" })).toBeVisible();
 

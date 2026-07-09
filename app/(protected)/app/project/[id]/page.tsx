@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import { LifecyclePanel } from "@/components/gates/lifecycle-panel";
 import { WhatsNextPanel } from "@/components/gates/whats-next-panel";
 import { PmAssignment } from "@/components/projects/pm-assignment";
-import { StatTile } from "@/components/ui/stat-tile";
+import { ProjectHealthHero } from "@/components/projects/project-health-hero";
 import { ensureProjectStages } from "@/lib/gates/actions";
 import { computeNextActions, getProjectLifecycle } from "@/lib/gates/queries";
 import {
@@ -83,6 +83,14 @@ export default async function ProjectOverviewPage({
 
   return (
     <div className="flex flex-col gap-4">
+      <ProjectHealthHero
+        project={project}
+        pct={progress?.pct ?? 0}
+        rowCount={progress?.row_count ?? 0}
+        materialCount={materials.length}
+        stages={lifecycle}
+      />
+
       {lifecycle.length > 0 ? (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <div className="lg:col-span-2">
@@ -149,16 +157,6 @@ export default async function ProjectOverviewPage({
                 </div>
               ) : null}
             </dl>
-          </div>
-
-          <div className="grid grid-cols-3 gap-4">
-            <StatTile label="Rows" value={String(progress?.row_count ?? 0)} />
-            <StatTile label="Materials" value={String(materials.length)} />
-            <StatTile
-              label="Complete"
-              value={String(Math.round((progress?.pct ?? 0) * 100))}
-              suffix="%"
-            />
           </div>
         </div>
 

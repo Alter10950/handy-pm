@@ -1,5 +1,7 @@
 "use client";
 
+import { CalculatorIcon } from "lucide-react";
+
 import { ProjectCard } from "@/components/projects/project-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FilterBar } from "@/components/ui/filter-bar";
@@ -20,6 +22,7 @@ export function EstimateDraftsList({
   if (estimates.length === 0) {
     return (
       <EmptyState
+        icon={<CalculatorIcon aria-hidden />}
         title="No draft estimates yet"
         description="Create one to paste a future job's material list and see estimated days before it's a real project."
       />

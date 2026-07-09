@@ -148,14 +148,12 @@ export async function writeProjectBar(input: {
 
   const toInsert = added.filter((d) => !scheduled.has(d));
   if (toInsert.length > 0) {
-    const { error } = await supabase
-      .from("project_schedule")
-      .insert(
-        toInsert.map((workDate) => ({
-          project_id: projectId,
-          work_date: workDate,
-        }))
-      );
+    const { error } = await supabase.from("project_schedule").insert(
+      toInsert.map((workDate) => ({
+        project_id: projectId,
+        work_date: workDate,
+      }))
+    );
     if (error) throw error;
   }
 

@@ -14,10 +14,12 @@ import type { ComputedEstimate } from "@/lib/estimating/queries";
 import type { Tables } from "@/lib/supabase/database.types";
 import { cn } from "@/lib/utils";
 
-const CONFIDENCE_CLASS: Record<ComputedEstimate["confidence"], string> = {
-  high: "text-success-fg",
-  medium: "text-warning-fg",
-  low: "text-destructive",
+// Confidence renders as a StatusPill chip in the stat header (design pass
+// v3 D3) — a tone-mapped chip, not a line of red text.
+const CONFIDENCE_TONE: Record<ComputedEstimate["confidence"], PillTone> = {
+  high: "success",
+  medium: "warning",
+  low: "danger",
 };
 
 // Per-SKU line source labels + tones (Phase 13 engine).
@@ -53,14 +55,9 @@ function Stat({
   testId: string;
 }) {
   return (
-    <div className="rounded-lg border border-border bg-card shadow-e1 p-3">
-      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        {label}
-      </p>
-      <p
-        data-testid={testId}
-        className="mt-1 text-lg font-semibold text-foreground"
-      >
+    <div className="rounded-xl border border-border bg-surface p-4 shadow-e1">
+      <p className="type-overline text-muted-foreground">{label}</p>
+      <p data-testid={testId} className="num type-stat mt-1.5 text-foreground">
         {value}
       </p>
     </div>
@@ -216,42 +213,38 @@ export function ProjectEstimatePanel({
         </div>
       ) : null}
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Stat
-          label="Full scope"
-          value={`${formatNumber(estimate.fullScopeLaborUnits)} hrs`}
-          testId="estimate-stat-full-scope"
-        />
-        <Stat
-          label="Remaining to finish"
-          value={`${formatNumber(estimate.remainingLaborUnits)} hrs`}
-          testId="estimate-stat-remaining"
-        />
-        <Stat
-          label="At this rate"
-          value={`${formatNumber(estimate.estimatedDays)} crew-days`}
-          testId="estimate-stat-days"
-        />
-        <Stat
-          label="Forecast finish"
-          value={formatDate(estimate.forecastFinish)}
-          testId="estimate-stat-forecast-finish"
-        />
+      <div className="flex flex-col gap-3">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <Stat
+            label="Full scope"
+            value={`${formatNumber(estimate.fullScopeLaborUnits)} hrs`}
+            testId="estimate-stat-full-scope"
+          />
+          <Stat
+            label="Remaining to finish"
+            value={`${formatNumber(estimate.remainingLaborUnits)} hrs`}
+            testId="estimate-stat-remaining"
+          />
+          <Stat
+            label="At this rate"
+            value={`${formatNumber(estimate.estimatedDays)} crew-days`}
+            testId="estimate-stat-days"
+          />
+          <Stat
+            label="Forecast finish"
+            value={formatDate(estimate.forecastFinish)}
+            testId="estimate-stat-forecast-finish"
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <StatusPill tone={CONFIDENCE_TONE[estimate.confidence]}>
+            Confidence: {estimate.confidence}
+          </StatusPill>
+          {isPending ? (
+            <span className="text-sm text-muted-foreground">recomputing…</span>
+          ) : null}
+        </div>
       </div>
-
-      <p
-        className={cn(
-          "text-sm font-semibold",
-          CONFIDENCE_CLASS[estimate.confidence]
-        )}
-      >
-        Confidence: {estimate.confidence}
-        {isPending ? (
-          <span className="ml-2 font-normal text-muted-foreground">
-            recomputing…
-          </span>
-        ) : null}
-      </p>
 
       <div className="rounded-lg border border-border bg-card shadow-e1 p-4">
         <h3 className="mb-3 text-sm font-semibold text-foreground">What-if</h3>
@@ -528,18 +521,19 @@ export function ProjectEstimatePanel({
                     ? formatDate(entry.forecast_finish)
                     : "—"}
                 </span>
-                <span
-                  className={cn(
-                    "text-xs font-medium",
-                    entry.confidence
-                      ? CONFIDENCE_CLASS[
-                          entry.confidence as ComputedEstimate["confidence"]
-                        ]
-                      : "text-muted-foreground"
-                  )}
-                >
-                  {entry.confidence ?? "—"}
-                </span>
+                {entry.confidence ? (
+                  <StatusPill
+                    tone={
+                      CONFIDENCE_TONE[
+                        entry.confidence as ComputedEstimate["confidence"]
+                      ]
+                    }
+                  >
+                    {entry.confidence}
+                  </StatusPill>
+                ) : (
+                  <span className="text-xs text-muted-foreground">—</span>
+                )}
               </li>
             ))}
           </ul>

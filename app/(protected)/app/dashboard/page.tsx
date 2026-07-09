@@ -1,5 +1,17 @@
+import {
+  ActivityIcon,
+  AlertTriangleIcon,
+  FlagIcon,
+  GaugeIcon,
+  type LucideIcon,
+  PackageXIcon,
+  ShieldAlertIcon,
+  UsersIcon,
+} from "lucide-react";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+
+import { cn } from "@/lib/utils";
 
 import { BlockerEscalationList } from "@/components/dashboard/blocker-escalation-list";
 import { CapacityOverrideList } from "@/components/dashboard/capacity-override-list";
@@ -32,19 +44,46 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
+// Exception cards get an icon + a tone that only lights up when the card
+// actually holds exceptions (design pass v3 D3) — calm when clear.
 function Section({
   title,
+  icon: Icon,
+  tone = "default",
   action,
   children,
 }: {
   title: string;
+  icon?: LucideIcon;
+  tone?: "default" | "warning" | "danger";
   action?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-lg border border-border bg-card shadow-e1 p-4">
+    <div
+      className={cn(
+        "rounded-lg border border-border bg-card p-4 shadow-e1",
+        tone === "warning" && "border-l-4 border-l-warning",
+        tone === "danger" && "border-l-4 border-l-destructive"
+      )}
+    >
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+        <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+          {Icon ? (
+            <Icon
+              aria-hidden
+              className={cn(
+                "size-4",
+                tone === "danger"
+                  ? "text-destructive"
+                  : tone === "warning"
+                    ? "text-warning-fg"
+                    : "text-muted-foreground"
+              )}
+            />
+          ) : null}
+          {title}
+        </h2>
         {action}
       </div>
       {children}
@@ -96,6 +135,12 @@ export default async function DashboardPage() {
   const openBlockers = blockers.length;
   const shortCount = shortages.length;
   const attentionCount = lifecycleAttention.length;
+  const portfolioPct =
+    projects.length > 0
+      ? Math.round(
+          (projects.reduce((sum, p) => sum + p.pct, 0) / projects.length) * 100
+        )
+      : 0;
 
   return (
     <div className="flex flex-col gap-6">
@@ -112,7 +157,12 @@ export default async function DashboardPage() {
       />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatTile label="Active projects" value={String(projects.length)} />
+        <StatTile
+          label="Portfolio complete"
+          value={String(portfolioPct)}
+          suffix="%"
+          ringPct={portfolioPct}
+        />
         <StatTile
           label="Needs attention"
           value={String(attentionCount)}
@@ -136,33 +186,51 @@ export default async function DashboardPage() {
 
       <Section
         title={`Needs attention — stalled or overdue (${lifecycleAttention.length})`}
+        icon={FlagIcon}
+        tone={attentionCount > 0 ? "warning" : "default"}
       >
         <LifecycleAttentionList summaries={lifecycleAttention} />
       </Section>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Section title={`Overridden gates (${gateOverrides.length})`}>
+        <Section
+          title={`Overridden gates (${gateOverrides.length})`}
+          icon={ShieldAlertIcon}
+          tone={gateOverrides.length > 0 ? "warning" : "default"}
+        >
           <GateOverrideList overrides={gateOverrides} />
         </Section>
-        <Section title={`Capacity overrides (${capacityOverrides.length})`}>
+        <Section
+          title={`Capacity overrides (${capacityOverrides.length})`}
+          icon={GaugeIcon}
+          tone={capacityOverrides.length > 0 ? "warning" : "default"}
+        >
           <CapacityOverrideList overrides={capacityOverrides} />
         </Section>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Section title={`Blockers needing escalation (${blockers.length})`}>
+        <Section
+          title={`Blockers needing escalation (${blockers.length})`}
+          icon={AlertTriangleIcon}
+          tone={openBlockers > 0 ? "danger" : "default"}
+        >
           <BlockerEscalationList blockers={blockers} />
         </Section>
-        <Section title={`What's short (${shortages.length})`}>
+        <Section
+          title={`What's short (${shortages.length})`}
+          icon={PackageXIcon}
+          tone={shortCount > 0 ? "warning" : "default"}
+        >
           <ShortageList shortages={shortages} />
         </Section>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Section title="Crew performance">
+        <Section title="Crew performance" icon={UsersIcon}>
           <CrewPerformanceSummary crews={crews} />
         </Section>
-        <Section title="What changed today">
+        <Section title="What changed today" icon={ActivityIcon}>
           <TodayActivityPanel activity={activity} />
         </Section>
       </div>

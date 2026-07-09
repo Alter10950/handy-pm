@@ -536,6 +536,56 @@ export function MaterialsGrid({
               );
             })}
           </tbody>
+          {/* Inline totals (design pass v3 D3) — sums track the current
+              filter so "what's shown" and "what's added up" never diverge. */}
+          <tfoot>
+            <tr data-testid="materials-totals-row">
+              <td className="sticky bottom-0 z-20 border-t border-border bg-surface-sunken p-1.5" />
+              <td className="sticky bottom-0 left-0 z-30 border-r border-t border-border bg-surface-sunken p-2 font-semibold text-foreground">
+                Totals ({visibleMaterials.length})
+              </td>
+              <td className="sticky bottom-0 z-20 border-t border-border bg-surface-sunken p-2" />
+              <td className="sticky bottom-0 z-20 border-t border-border bg-surface-sunken p-2" />
+              {(
+                [
+                  (m: Tables<"materials">) => m.total_needed,
+                  (m: Tables<"materials">) => m.received,
+                  (m: Tables<"materials">) =>
+                    reconciliationByMaterial.get(m.id)?.assigned ?? 0,
+                  (m: Tables<"materials">) =>
+                    reconciliationByMaterial.get(m.id)?.left_qty ??
+                    m.total_needed,
+                  (m: Tables<"materials">) =>
+                    reconciliationByMaterial.get(m.id)?.to_order ??
+                    Math.max(0, m.total_needed - m.received),
+                ] as const
+              ).map((pick, i) => (
+                <td
+                  key={i}
+                  className="num sticky bottom-0 z-20 border-t border-border bg-surface-sunken p-2 text-right font-semibold text-foreground"
+                >
+                  {visibleMaterials.reduce((sum, m) => sum + pick(m), 0)}
+                </td>
+              ))}
+              <td className="sticky bottom-0 z-20 border-t border-border bg-surface-sunken p-2" />
+              <td className="sticky bottom-0 z-20 border-t border-border bg-surface-sunken p-2" />
+              <td className="sticky bottom-0 z-20 border-t border-border bg-surface-sunken p-2" />
+              <td className="sticky bottom-0 z-20 border-t border-border bg-surface-sunken p-2" />
+              <td className="sticky bottom-0 z-20 border-t border-border bg-surface-sunken p-2" />
+              {rows.map((row) => (
+                <td
+                  key={row.id}
+                  className="num sticky bottom-0 z-20 border-t border-border bg-surface-sunken p-2 text-right font-semibold text-foreground"
+                >
+                  {visibleMaterials.reduce(
+                    (sum, m) => sum + (qtyByCell.get(`${row.id}:${m.id}`) ?? 0),
+                    0
+                  ) || ""}
+                </td>
+              ))}
+              <td className="sticky bottom-0 z-20 border-t border-border bg-surface-sunken p-1.5" />
+            </tr>
+          </tfoot>
         </table>
       </div>
 

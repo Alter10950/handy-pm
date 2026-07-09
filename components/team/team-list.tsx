@@ -1,5 +1,7 @@
 "use client";
 
+import { UsersIcon } from "lucide-react";
+
 import { TeamMemberRow } from "@/components/team/team-member-row";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FilterBar } from "@/components/ui/filter-bar";
@@ -82,6 +84,7 @@ export function TeamList({
 
       {matches.length === 0 ? (
         <EmptyState
+          icon={<UsersIcon aria-hidden />}
           title="Nobody matches"
           description="Loosen the search or filters above."
         />

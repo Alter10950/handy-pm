@@ -1,5 +1,6 @@
 "use client";
 
+import { FolderOpenIcon, SearchXIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useSyncExternalStore } from "react";
@@ -339,12 +340,14 @@ export function ProjectList({
 
       {projects.length === 0 ? (
         <EmptyState
+          icon={<FolderOpenIcon aria-hidden />}
           title="No projects yet"
           description="Create your first project to upload a layout drawing and start marking rows."
         />
       ) : matches.length === 0 ? (
         <div data-testid="no-matches">
           <EmptyState
+            icon={<SearchXIcon aria-hidden />}
             title={
               query ? "No projects match." : "No projects assigned to you."
             }
