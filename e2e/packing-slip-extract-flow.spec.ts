@@ -30,7 +30,9 @@ async function readReviewRows(
     qty: string;
   }[] = [];
   for (let i = 0; i < count; i++) {
-    const inputs = rows.nth(i).locator("input");
+    // Sub-phase A added a leading include-checkbox + a confidence cell, so
+    // the code/description/size/qty fields are the non-checkbox inputs.
+    const inputs = rows.nth(i).locator("input:not([type=checkbox])");
     const [code, description, size, qty] = await Promise.all([
       inputs.nth(0).inputValue(),
       inputs.nth(1).inputValue(),
@@ -154,18 +156,28 @@ test("packing slip AI extraction: extracts line items, keeps distinct sizes, ski
   await page.getByTestId("extract-with-ai-fresh-upload").click();
 
   const table = page.getByTestId("extract-review-table");
-  await expect(table.locator("tbody tr")).toHaveCount(4, {
+  // Sub-phase A: freight is no longer silently dropped — it's shown as a
+  // flagged non-material line, unchecked by default. So the four real
+  // materials plus the freight line make five review rows.
+  await expect(table.locator("tbody tr")).toHaveCount(5, {
     timeout: 90_000,
   });
 
   const rows = await readReviewRows(table);
-  expect(
-    rows.some(
-      (r) =>
-        r.description.toLowerCase().includes("freight") ||
-        r.code.toLowerCase().includes("freight")
-    )
-  ).toBe(false);
+  // Freight is present in the review (as a non-material line the human can
+  // see), but its include checkbox is unchecked so it won't be saved.
+  const freightRowIndex = rows.findIndex(
+    (r) =>
+      r.description.toLowerCase().includes("freight") ||
+      r.code.toLowerCase().includes("freight")
+  );
+  expect(freightRowIndex).toBeGreaterThanOrEqual(0);
+  await expect(
+    table
+      .locator("tbody tr")
+      .nth(freightRowIndex)
+      .locator('input[type="checkbox"]')
+  ).not.toBeChecked();
 
   const beamRows = rows.filter((r) =>
     r.description.toLowerCase().includes("beam")

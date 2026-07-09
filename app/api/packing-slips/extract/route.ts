@@ -1,7 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { requireOrg } from "@/lib/auth/session";
+import { recordExtractionRun } from "@/lib/extraction/log";
 import { getSignedPackingSlipUrl } from "@/lib/projects/queries";
+import type { Json } from "@/lib/supabase/database.types";
 
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION = "2023-06-01";
@@ -16,16 +18,24 @@ const EXTRACTION_PROMPT =
   "heights, lengths, gauge — else null), and qty (quantity shipped, as a " +
   "number). Two lines with the same description but different sizes " +
   "(e.g. two beam lengths) are two separate items — never merge them. " +
-  "Skip lines that are not physical materials being shipped: freight " +
-  "charges, permits, discounts, taxes, fees, and similar. Preserve sizes " +
-  "exactly as printed, including units (inches, feet, etc.) — do not " +
-  "round or convert them.";
+  "INCLUDE every line — do NOT drop anything. For lines that are NOT " +
+  "physical racking materials being shipped (freight charges, permits, " +
+  "discounts, taxes, fees, hardware kits, handling), set is_material=false " +
+  "so a human can confirm the exclusion rather than have it silently " +
+  "vanish. For real material lines set is_material=true. Give each line a " +
+  "confidence from 0 to 1 for how sure you are of its code/description/" +
+  "size/qty (lower it when the print is faint, ambiguous, or handwritten). " +
+  "Preserve sizes exactly as printed, including units (inches, feet, etc.) " +
+  "— do not round or convert them. Two lines with the same description but " +
+  "different sizes are two separate items — never merge them.";
 
 interface ExtractedItem {
   code: string | null;
   description: string;
   size: string | null;
   qty: number;
+  is_material?: boolean;
+  confidence?: number;
 }
 
 interface AnthropicToolUseBlock {
@@ -70,7 +80,10 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const body = (await request.json()) as { storagePath?: string };
+  const body = (await request.json()) as {
+    storagePath?: string;
+    projectId?: string;
+  };
   const storagePath = body.storagePath;
   if (!storagePath) {
     return NextResponse.json(
@@ -134,8 +147,17 @@ export async function POST(request: NextRequest) {
                     description: { type: "string" },
                     size: { type: ["string", "null"] },
                     qty: { type: "number" },
+                    is_material: {
+                      type: "boolean",
+                      description:
+                        "true for real racking materials; false for freight/permits/fees/etc.",
+                    },
+                    confidence: {
+                      type: "number",
+                      description: "0–1 confidence in this line's fields",
+                    },
                   },
-                  required: ["description", "qty"],
+                  required: ["description", "qty", "is_material", "confidence"],
                 },
               },
             },
@@ -170,5 +192,52 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  return NextResponse.json({ items: toolUse.input.items ?? [] });
+  const items = (toolUse.input.items ?? []).map((item) => ({
+    ...item,
+    is_material: item.is_material !== false,
+    confidence:
+      typeof item.confidence === "number" ? item.confidence : null,
+  }));
+
+  // Flag same-code+size lines the model split — a merge warning for the
+  // reviewer, not an automatic merge (two identical lines can be two real
+  // shipments).
+  const seen = new Map<string, number>();
+  const duplicateKeys = new Set<string>();
+  for (const item of items) {
+    const key = `${(item.code ?? "").trim().toLowerCase()}|${(item.size ?? "").trim().toLowerCase()}|${item.description.trim().toLowerCase()}`;
+    if (!item.code && !item.size) continue;
+    seen.set(key, (seen.get(key) ?? 0) + 1);
+    if ((seen.get(key) ?? 0) > 1) duplicateKeys.add(key);
+  }
+
+  const confidences = items
+    .map((i) => i.confidence)
+    .filter((c): c is number => typeof c === "number");
+  const overall =
+    confidences.length > 0
+      ? confidences.reduce((a, b) => a + b, 0) / confidences.length
+      : null;
+
+  // projectId lets us log the run; older callers that don't pass it still
+  // work (logging is best-effort and skipped without it).
+  const projectId =
+    typeof body.projectId === "string" ? body.projectId : null;
+  let runId: string | null = null;
+  if (projectId) {
+    runId = await recordExtractionRun({
+      projectId,
+      kind: "packing_slip",
+      inputPath: storagePath,
+      rawOutput: { items } as unknown as Json,
+      confidence: overall,
+    });
+  }
+
+  return NextResponse.json({
+    items,
+    duplicateKeys: [...duplicateKeys],
+    confidence: overall,
+    runId,
+  });
 }

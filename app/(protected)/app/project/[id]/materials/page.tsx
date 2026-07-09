@@ -159,6 +159,7 @@ export default async function ProjectMaterialsPage({
                   projectId={id}
                   storagePath={slip.storagePath}
                   slipName={slip.name}
+                  previewUrl={slip.url}
                 />
               </li>
             ))}
