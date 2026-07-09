@@ -10,8 +10,10 @@ is NEEDS-ME on the live DB).
 - ✅ **Sub-phase A** (a838d38): packing-slip extraction hardened —
   confidence, non-material flagging, dedupe warning, extraction_runs
   logging, source preview, live E2E green. ADR-057.
-- ⬜ B (drawing row auto-detect), C (QR/voice/SMS), D (scorecards/
-  anomalies), E (NL assistant), F (QuickBooks), G (Zoho), H (QA/deploy).
+- ✅ **Sub-phase B** (cf2a83a): drawing row auto-detect (vision ghost
+  boxes) + row-assignment proposal (even-split, unit-tested, live E2E).
+- ⬜ C (QR/voice/SMS), D (scorecards/anomalies), E (NL assistant),
+  F (QuickBooks), G (Zoho), H (QA/deploy).
 
 
 **CURRENT BATCH — Design pass v3 + feature slice (started 2026-07-09;

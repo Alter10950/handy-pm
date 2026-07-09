@@ -4,6 +4,31 @@ Engineering journal. Newest entries at top.
 
 ---
 
+## 2026-07-09 — Batch 5 Sub-phase B: drawing row auto-detect + assignment proposal
+
+**B(1) Detect rows (cf2a83a).** `/api/drawings/detect-rows` sends the
+layout image to the vision model → proposed racking-row rectangles in
+normalized coords + labels + per-row confidence, logged to
+extraction_runs (kind drawing_rows). A review dialog renders them as
+ghost boxes over the drawing (SVG overlay) with include toggles, editable
+labels, and confidence chips; Apply creates survivors as real rows
+(auto-named continuing the Row-N sequence) and marks the run applied.
+Never auto-applies — applied rows are fully editable afterward.
+
+**B(2) Propose quantities (cf2a83a).** Pure even-split (bay-weighted when
+bays known) of each material across the drawn rows —
+lib/rows/propose-assignments.ts, 4 unit tests, splits always reconcile to
+the total. A preview dialog shows per-material total → per-row; apply
+upserts row_materials and logs an applied row_assignment run. Live E2E:
+12→6+6, 10→5+5 across two rows.
+
+Honest human-catch note: detect-rows never writes rows without review, and
+its geometry is clamped/validated; but its real-drawing ACCURACY is only
+proven once run on Alter's actual layouts (NEEDS-YOU) — the SVG test
+fixture isn't a real rack plan.
+
+---
+
 ## 2026-07-09 — Batch 5 (Step 3) begins: Sub-phase 0 schema + Sub-phase A extraction
 
 **Sub-phase 0 — schema (fbe3baf).** New migration
