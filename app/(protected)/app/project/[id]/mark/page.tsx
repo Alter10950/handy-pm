@@ -30,6 +30,7 @@ export default async function ProjectMarkPage({
       id: drawing.id,
       pageIndex: drawing.page_index,
       url: await getSignedDrawingUrl(drawing.storage_path),
+      storagePath: drawing.storage_path,
       width: drawing.width ?? 0,
       height: drawing.height ?? 0,
       role: drawing.role,

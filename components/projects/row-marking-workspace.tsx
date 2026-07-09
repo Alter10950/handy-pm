@@ -16,6 +16,8 @@ import {
   type RowOrientation,
 } from "@/components/projects/auto-rows-dialog";
 import { BulkMaterialsPanel } from "@/components/projects/bulk-materials-panel";
+import { DetectRowsDialog } from "@/components/projects/detect-rows-dialog";
+import { ProposeAssignmentsDialog } from "@/components/projects/propose-assignments-dialog";
 import {
   DrawingVersionPanel,
   type DrawingVersionSummary,
@@ -61,6 +63,7 @@ export interface WorkspacePage {
   id: string;
   pageIndex: number;
   url: string;
+  storagePath: string;
   width: number;
   height: number;
   role: DrawingRole;
@@ -785,6 +788,26 @@ export function RowMarkingWorkspace({
         >
           ▦ Auto rows
         </Button>
+        {isMarkingPage && activePage ? (
+          <DetectRowsDialog
+            projectId={projectId}
+            drawingId={activePage.id}
+            storagePath={activePage.storagePath}
+            drawingUrl={activePage.url}
+            existingLabels={allLabels}
+          />
+        ) : null}
+        {isMarkingPage ? (
+          <ProposeAssignmentsDialog
+            projectId={projectId}
+            rows={pageRows.map((row) => ({ rowId: row.id, label: row.label }))}
+            materials={materials.map((m) => ({
+              materialId: m.id,
+              name: m.name,
+              totalNeeded: m.total_needed,
+            }))}
+          />
+        ) : null}
         <div className="mx-1 h-5 w-px bg-border" />
         <Button
           type="button"

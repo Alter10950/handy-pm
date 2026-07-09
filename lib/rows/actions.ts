@@ -3,7 +3,9 @@
 import { revalidatePath } from "next/cache";
 
 import { requireRole } from "@/lib/auth/session";
+import { recordExtractionRun, resolveExtractionRun } from "@/lib/extraction/log";
 import { createClient } from "@/lib/supabase/server";
+import type { Json } from "@/lib/supabase/database.types";
 
 // Matches rows_write / row_materials_write RLS exactly (crew reads rows
 // but never writes them).
@@ -336,6 +338,40 @@ export async function upsertRowMaterialQtyMany(
     { onConflict: "row_id,material_id" }
   );
   if (error) throw error;
+
+  revalidateProjectTabs(projectId);
+}
+
+// Batch 5 Sub-phase B(2): apply a reviewed row-assignment proposal in one
+// call and log it to extraction_runs (kind row_assignment, applied). The
+// split itself is computed + reviewed client-side (pure math, no AI); this
+// just persists the accepted entries and records that a human accepted the
+// proposal. Guarded logging — the qty write is the source of truth.
+export async function applyProposedAssignments(
+  projectId: string,
+  entries: { rowId: string; materialId: string; requiredQty: number }[],
+  proposalSummary: Json
+): Promise<void> {
+  if (entries.length === 0) return;
+  await requireRole(ROW_EDITORS);
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("row_materials").upsert(
+    entries.map((entry) => ({
+      row_id: entry.rowId,
+      material_id: entry.materialId,
+      required_qty: Math.max(0, entry.requiredQty),
+    })),
+    { onConflict: "row_id,material_id" }
+  );
+  if (error) throw error;
+
+  const runId = await recordExtractionRun({
+    projectId,
+    kind: "row_assignment",
+    rawOutput: proposalSummary,
+  });
+  if (runId) await resolveExtractionRun(runId, true);
 
   revalidateProjectTabs(projectId);
 }
