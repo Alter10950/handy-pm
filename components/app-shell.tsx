@@ -54,9 +54,8 @@ function navSections(
   const admin = ADMIN_ROLES.includes(role);
   return [
     {
-      label: null,
+      label: "Daily",
       items: [
-        { href: "/app", label: "Projects", icon: FolderKanbanIcon },
         ...(office
           ? [
               {
@@ -67,6 +66,12 @@ function navSections(
             ]
           : []),
         { href: "/field", label: "Field", icon: HardHatIcon },
+      ],
+    },
+    {
+      label: "Projects",
+      items: [
+        { href: "/app", label: "Projects", icon: FolderKanbanIcon },
         ...(office
           ? [
               {
@@ -86,7 +91,7 @@ function navSections(
     ...(admin
       ? [
           {
-            label: "Workspace",
+            label: "Company",
             items: [
               { href: "/app/team", label: "Team", icon: UsersIcon },
               { href: "/app/settings", label: "Settings", icon: SettingsIcon },
@@ -106,7 +111,7 @@ function isActivePath(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-function BrandMark() {
+function BrandMark({ onDark = false }: { onDark?: boolean }) {
   return (
     <Link
       href="/app"
@@ -116,8 +121,16 @@ function BrandMark() {
       <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-primary text-sm font-black text-primary-foreground shadow-e1">
         H
       </span>
-      <span className="text-base font-bold tracking-tight text-foreground">
-        Handy<span className="text-text-secondary">PM</span>
+      <span
+        className={cn(
+          "text-base font-bold tracking-tight",
+          onDark ? "text-[var(--sidebar-text-active)]" : "text-foreground"
+        )}
+      >
+        Handy
+        <span className={onDark ? "text-[var(--sidebar-text)]" : "text-text-secondary"}>
+          PM
+        </span>
       </span>
     </Link>
   );
@@ -132,8 +145,8 @@ function SidebarLink({ item, active }: { item: NavItem; active: boolean }) {
       className={cn(
         "relative flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-sm font-medium transition-colors",
         active
-          ? "bg-surface text-foreground shadow-e1"
-          : "text-text-secondary hover:bg-accent hover:text-foreground"
+          ? "bg-[var(--sidebar-surface)] text-[var(--sidebar-text-active)]"
+          : "text-[var(--sidebar-text)] hover:bg-[var(--sidebar-surface)]/60 hover:text-[var(--sidebar-text-active)]"
       )}
       style={{ transitionDuration: "var(--duration-fast)" }}
     >
@@ -180,9 +193,9 @@ export function AppShell({
       <CommandPalette role={role} />
 
       {/* ── Desktop sidebar ── */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-border-subtle bg-surface-sunken/60 lg:flex">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col bg-[var(--sidebar-bg)] lg:flex">
         <div className="flex h-14 items-center px-4">
-          <BrandMark />
+          <BrandMark onDark />
         </div>
         <nav
           aria-label="Main"
@@ -191,7 +204,7 @@ export function AppShell({
           {sections.map((section, i) => (
             <div key={i} className="flex flex-col gap-0.5">
               {section.label ? (
-                <div className="type-overline px-2.5 pb-1 text-muted-foreground">
+                <div className="type-overline px-2.5 pb-1 text-[var(--sidebar-text)]/70">
                   {section.label}
                 </div>
               ) : null}
@@ -205,26 +218,26 @@ export function AppShell({
             </div>
           ))}
         </nav>
-        <div className="flex flex-col gap-2 border-t border-border-subtle p-3">
+        <div className="flex flex-col gap-2 border-t border-[var(--sidebar-line)] p-3">
           <Link
             href="/account"
             aria-current={pathname === "/account" ? "page" : undefined}
             className={cn(
               "flex items-center gap-2.5 rounded-lg px-2.5 py-2 transition-colors",
               pathname === "/account"
-                ? "bg-surface shadow-e1"
-                : "hover:bg-accent"
+                ? "bg-[var(--sidebar-surface)]"
+                : "hover:bg-[var(--sidebar-surface)]/60"
             )}
           >
-            <span className="grid size-7 shrink-0 place-items-center rounded-full bg-surface text-xs font-semibold uppercase text-foreground shadow-e1">
+            <span className="grid size-7 shrink-0 place-items-center rounded-full bg-[var(--sidebar-surface)] text-xs font-semibold uppercase text-[var(--sidebar-text-active)]">
               {userEmail.slice(0, 1)}
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-xs font-medium text-foreground">
+              <span className="block truncate text-xs font-medium text-[var(--sidebar-text-active)]">
                 {userEmail}
               </span>
               {role ? (
-                <span className="block text-[11px] capitalize text-muted-foreground">
+                <span className="block text-[11px] capitalize text-[var(--sidebar-text)]">
                   {role}
                 </span>
               ) : null}
@@ -233,7 +246,12 @@ export function AppShell({
           <div className="flex items-center justify-between gap-2 px-1">
             <ThemeToggle />
             <form action={signOut}>
-              <Button type="submit" variant="ghost" size="sm">
+              <Button
+                type="submit"
+                variant="ghost"
+                size="sm"
+                className="text-[var(--sidebar-text)] hover:bg-[var(--sidebar-surface)]/60 hover:text-[var(--sidebar-text-active)]"
+              >
                 Sign out
               </Button>
             </form>
@@ -317,24 +335,27 @@ export function AppShell({
           </div>
         </header>
 
-        {/* Desktop top-right utilities */}
-        <div className="sticky top-0 z-20 hidden h-14 items-center justify-end gap-2 border-b border-border-subtle bg-background/90 px-6 backdrop-blur lg:flex">
+        {/* Desktop slim top bar: global search + bell (design pass v3) */}
+        <div className="sticky top-0 z-20 hidden h-14 items-center gap-4 border-b border-border-subtle bg-background/90 px-6 backdrop-blur lg:flex">
           <button
             type="button"
+            aria-label="Search everything"
             onClick={() =>
               window.dispatchEvent(
                 new KeyboardEvent("keydown", { key: "k", metaKey: true })
               )
             }
-            className="flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-muted-foreground shadow-e1 transition-colors hover:text-foreground"
+            className="flex h-9 max-w-md flex-1 items-center gap-2.5 rounded-lg border border-border bg-surface px-3 text-sm text-muted-foreground shadow-e1 transition-colors hover:border-border-strong hover:text-foreground"
           >
-            <SearchIcon aria-hidden className="size-3.5" />
-            Search…
+            <SearchIcon aria-hidden className="size-4" />
+            <span className="flex-1 text-left">Search projects, people, anything…</span>
             <kbd className="rounded border border-border bg-surface-sunken px-1.5 font-mono text-[10px] text-muted-foreground">
               ⌘K
             </kbd>
           </button>
-          <NotificationBell notifications={notifications} />
+          <div className="ml-auto flex items-center gap-2">
+            <NotificationBell notifications={notifications} />
+          </div>
         </div>
 
         <main

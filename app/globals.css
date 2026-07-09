@@ -96,7 +96,7 @@
   color-scheme: light;
 
   /* Surfaces */
-  --background: #f7f7f5; /* soft off-white canvas — raised cards read against it */
+  --background: #f8f7f4; /* warm cream canvas (design pass v3) — raised cards read against it */
   --surface: #ffffff;
   --surface-raised: #ffffff;
   --surface-sunken: #f0f0ee;
@@ -296,26 +296,49 @@
   }
 }
 
+:root,
+.dark {
+  /* ── Deep-ink sidebar (design pass v3) — same in both themes, like the
+     reference. Gold accent stays the active marker. ── */
+  --sidebar-bg: #1b1d21;
+  --sidebar-surface: #26282d;
+  --sidebar-text: #b9bab4;
+  --sidebar-text-active: #f6f5f1;
+  --sidebar-line: #33353a;
+}
+
 @layer components {
   /* ── Modular type scale (10.3) — size/line-height/tracking/weight pairs.
      Titles get tighter tracking; overlines are spaced uppercase labels. ── */
   .type-display-lg {
+    font-family: var(--font-display), var(--font-sans), sans-serif;
     font-size: 2rem;
     line-height: 2.375rem;
-    letter-spacing: -0.022em;
-    font-weight: 700;
+    letter-spacing: -0.012em;
+    font-weight: 600;
   }
   .type-display {
+    font-family: var(--font-display), var(--font-sans), sans-serif;
     font-size: 1.75rem;
     line-height: 2.125rem;
-    letter-spacing: -0.02em;
-    font-weight: 700;
+    letter-spacing: -0.01em;
+    font-weight: 600;
   }
   .type-h1 {
+    font-family: var(--font-display), var(--font-sans), sans-serif;
     font-size: 1.5rem;
     line-height: 1.875rem;
-    letter-spacing: -0.017em;
-    font-weight: 650;
+    letter-spacing: -0.008em;
+    font-weight: 600;
+  }
+  /* Stat numbers: display face + tabular figures (design pass v3). */
+  .type-stat {
+    font-family: var(--font-display), var(--font-sans), sans-serif;
+    font-variant-numeric: tabular-nums;
+    font-size: 1.75rem;
+    line-height: 2rem;
+    letter-spacing: -0.01em;
+    font-weight: 600;
   }
   .type-h2 {
     font-size: 1.25rem;

@@ -1,3 +1,4 @@
+import { ProgressRing } from "@/components/ui/progress-meter";
 import { Sparkline } from "@/components/ui/sparkline";
 import { cn } from "@/lib/utils";
 
@@ -10,6 +11,7 @@ export function StatTile({
   delta,
   deltaDirection = "flat",
   spark,
+  ringPct,
   tone = "default",
   className,
   testId,
@@ -21,6 +23,8 @@ export function StatTile({
   deltaDirection?: "up" | "down" | "flat";
   /** up = good (green), down = bad (red) by default */
   spark?: number[];
+  /** 0–100: renders a small donut ring beside the number (design pass v3) */
+  ringPct?: number;
   tone?: "default" | "success" | "warning" | "danger";
   className?: string;
   testId?: string;
@@ -50,7 +54,7 @@ export function StatTile({
     >
       <p className="type-overline text-muted-foreground">{label}</p>
       <div className="flex items-end justify-between gap-2">
-        <p className={cn("num type-display leading-none", valueTone)}>
+        <p className={cn("type-stat leading-none", valueTone)}>
           {value}
           {suffix ? (
             <span className="type-body-sm ml-1 font-normal text-muted-foreground">
@@ -58,7 +62,11 @@ export function StatTile({
             </span>
           ) : null}
         </p>
-        {spark && spark.length > 1 ? <Sparkline values={spark} /> : null}
+        {ringPct !== undefined ? (
+          <ProgressRing pct={ringPct} size={44} strokeWidth={5} />
+        ) : spark && spark.length > 1 ? (
+          <Sparkline values={spark} />
+        ) : null}
       </div>
       {delta ? (
         <span
