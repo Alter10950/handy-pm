@@ -4,6 +4,22 @@ Engineering journal. Newest entries at top.
 
 ---
 
+## 2026-07-09 — Batch 5 Sub-phase E: read-only NL assistant
+
+**Assistant (04f433d).** An "Ask" box (top-bar sparkle button +
+handy-pm:open-ask event) answers questions over the data via TOOL-CALLING
+against typed, RLS-scoped query functions (lib/assistant/tools.ts) — the
+model never receives SQL or unscoped data, and the tool set is filtered
+by role (crew can't reach office-only tools like crew_performance). Tools:
+list_projects, project_status, materials_short, rows_missing_materials,
+crew_performance. The agentic loop (/api/assistant/ask, ≤5 tool turns)
+runs each tool under the caller's own session so the DB enforces org +
+role scoping. Answers cite concrete figures + carry "show me" deep links
+and a double-check note. Gated on ANTHROPIC_API_KEY (clear no-key state).
+Live E2E: project status → "on hold" + show-me link.
+
+---
+
 ## 2026-07-09 — Batch 5 Sub-phase D: crew scorecards + anomaly detection
 
 **Anomaly engine (1c53fba).** Pure rules in lib/anomalies/detect.ts — SPI

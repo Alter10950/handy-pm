@@ -5,6 +5,22 @@ Consequences.
 
 ---
 
+## ADR-058: Batch 5 Sub-phase E — assistant is read-only tool-calling, never raw SQL
+
+**Decision.** The NL assistant answers ONLY by calling a fixed set of
+typed, read-only query functions (lib/assistant/tools.ts). The model never
+receives a database connection, SQL, or unscoped data; it picks a tool and
+arguments, and the server runs that tool under the ASKER's own RLS session
+so org scoping and role limits are enforced by Postgres, not by the
+prompt. The tool set is additionally filtered by role (crew never sees the
+office-only crew-performance tool). This makes prompt-injection or a
+model mistake unable to exfiltrate data the user couldn't already read.
+
+**Human catch.** The assistant is read-only — it can't write, so its
+worst failure is a wrong-but-plausible answer. The UI cites the concrete
+numbers, offers "show me" links to the real screen, and states that
+answers are data-scoped and should be double-checked before acting.
+
 ## ADR-057: Batch 5 — AI capture is assist-with-confirm, logged to extraction_runs
 
 **Decision.** Every AI capture (packing-slip extraction, drawing row

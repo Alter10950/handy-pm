@@ -14,8 +14,9 @@ is NEEDS-ME on the live DB).
   boxes) + row-assignment proposal (even-split, unit-tested, live E2E).
 - ✅ **Sub-phase D** (1c53fba): crew scorecards + rules-based anomaly
   detection (6 unit tests, dashboard strip, close-of-day trigger).
-- ⬜ C (QR/voice/SMS), E (NL assistant), F (QuickBooks), G (Zoho),
-  H (QA/deploy).
+- ✅ **Sub-phase E** (04f433d): read-only NL assistant (tool-calling,
+  role-scoped, show-me links, live E2E). ADR-058.
+- ⬜ C (QR/voice/SMS), F (QuickBooks), G (Zoho), H (QA/deploy).
 
 
 **CURRENT BATCH — Design pass v3 + feature slice (started 2026-07-09;
