@@ -73,8 +73,18 @@ test("quality features: pin to sidebar, health badge, CSV export, shortcuts shee
   });
 
   await test.step("CSV export downloads a file with the project", async () => {
+    // Clear the persisted filter first: a prior step saved search=STAMP,
+    // and useFilterState restores it asynchronously on mount — that restore
+    // races Playwright's fill() and concatenates onto it (STAMP+STAMP → 0
+    // matches). Removing the key means the field loads empty, so the fill
+    // is clean. (A real user typing never hits this race.)
+    await page.evaluate(() =>
+      localStorage.removeItem("handy-pm:filters:projects")
+    );
     await page.goto("/app");
-    await page.getByTestId("projects-search").fill(String(STAMP));
+    const search = page.getByTestId("projects-search");
+    await search.fill(String(STAMP));
+    await expect(search).toHaveValue(String(STAMP));
     // Wait for the filtered result to render before exporting — the button
     // serializes the CURRENT matches, so exporting mid-filter would emit a
     // header-only file.
