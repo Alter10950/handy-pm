@@ -1,3 +1,5 @@
+import { cache } from "react";
+
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type { ProfileRole } from "@/lib/supabase/database.types";
@@ -28,33 +30,62 @@ function isUserActive(bannedUntil: string | null | undefined): boolean {
  * via the service-role admin client — bounded by this org's own member
  * count, never a whole-instance user dump.
  */
-export async function listTeamMembers(): Promise<TeamMember[]> {
+// Wrapped in React `cache()` (Step 2b perf): the Projects and Dashboard
+// pages each reach this three-plus times per render (directly, via
+// listPmCandidates, and via listActiveProjectsForDashboard). cache()
+// collapses those into ONE execution per request. And instead of an auth
+// round-trip PER member (getUserById — the N+1 that made those pages
+// slow), it now pulls the whole org's emails in ONE paginated listUsers()
+// call and joins in memory.
+export const listTeamMembers = cache(async (): Promise<TeamMember[]> => {
   const supabase = await createClient();
   const { data: profiles, error } = await supabase
     .from("profiles")
     .select("id, full_name, role, crew_id, created_at")
     .order("created_at", { ascending: true });
   if (error) throw error;
+  if (profiles.length === 0) return [];
 
   const admin = createAdminClient();
-  return Promise.all(
-    profiles.map(async (profile) => {
-      const { data, error: userError } = await admin.auth.admin.getUserById(
-        profile.id
-      );
-      if (userError) throw userError;
-      return {
-        id: profile.id,
-        email: data.user?.email ?? "(unknown)",
-        fullName: profile.full_name,
-        role: profile.role,
-        crewId: profile.crew_id,
-        isActive: isUserActive(data.user?.banned_until),
-        createdAt: profile.created_at,
-      };
-    })
-  );
-}
+  // One call, not one-per-member. perPage covers any realistic org; a
+  // second page is only paged in if the instance genuinely exceeds it.
+  const usersById = new Map<
+    string,
+    { email?: string; banned_until?: string | null }
+  >();
+  let page = 1;
+  const perPage = 1000;
+  // Only page while a full page comes back (avoids an extra empty request
+  // for the common single-page case).
+  for (;;) {
+    const { data, error: usersError } = await admin.auth.admin.listUsers({
+      page,
+      perPage,
+    });
+    if (usersError) throw usersError;
+    for (const u of data.users) {
+      usersById.set(u.id, {
+        email: u.email,
+        banned_until: (u as { banned_until?: string | null }).banned_until,
+      });
+    }
+    if (data.users.length < perPage) break;
+    page += 1;
+  }
+
+  return profiles.map((profile) => {
+    const u = usersById.get(profile.id);
+    return {
+      id: profile.id,
+      email: u?.email ?? "(unknown)",
+      fullName: profile.full_name,
+      role: profile.role,
+      crewId: profile.crew_id,
+      isActive: isUserActive(u?.banned_until),
+      createdAt: profile.created_at,
+    };
+  });
+});
 
 export interface PmCandidate {
   id: string;
